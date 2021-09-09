@@ -5,6 +5,6 @@ import (
 	"net/http"
 )
 
-func Mapping(url string,fun aurora.ServletHandler)  {
-	aurora.RegisterServlet(http.MethodPost,url,fun)
+func Mapping(url string, fun aurora.Servlet) {
+	aurora.RegisterServlet(http.MethodPost, url, fun)
 }
