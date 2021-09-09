@@ -2,49 +2,113 @@
 
 ## 系统架构
 
-Servlet (服务)
+字典树
 
-ServletMapping (服务映射)
+服务处理函数
 
-ServletPolitic  (服务处理策略)
+REST API
 
-ResourcePolitic (静态资源处理策略)
+路由规则
+
+全局拦截器
+
+静态资源处理
+
+Session会话
 
 ## 映射管理
 
-管理服务器启动期间注册的Web服务，服务将分别存放到各自类型的服务容器中，Aurora中的路由管理默认提供两种方式，get和post请求。
+管理服务器启动期间注册的Web服务，服务将分别存放到各自类型的服务容器中，Aurora中的路由管理默认提供两种方式，get和post请求。后续会支持更多的请求方式
+
+- Get
+- Post
+
+服务处理函数签名：
+
+```go
+	type Servlet func(ctx *Context) interface{}
+```
+
+接口统一注册签名
+
+```go
+	func Mapping(url string,fun aurora.Servlet)
+```
+
+通过包名对不同类型的请求进行注册
+
+```go
+	//get请求
+	get.Mapping("/", func(ctx *aurora.Context) interface{} {
+		
+		return "/html/index.html"
+	})
+	//post请求
+	post.Mapping("/", func(ctx *aurora.Context) interface{} {
+
+		return "/html/index.html"
+	})
+```
 
 ## 请求处理
+
+请求返回值是一个interface{}类型，意味着你可以返回任何类型，aurora约定返回三种类型，结构体，页面，错误
+
+- struct
+- path
+- error
 
 ## 静态资源
 
 静态资源的解析，路由器默认的解析文件夹是static，所有静态资源需要放到static下面进行使用。这个默认路径是读取资源文件的主要路径，若设置为 ""空字符串则默认为项目跟目录，根据浏览器在html页面上请求资源的格式，静态资源所在的文件夹必须添加路由。html和静态资源应该都放在static文件夹下。
 
-## 视图解析
+默认静态资源根路径为static
 
-服务处理返回数据格式
+配置静态资源
 
-​	1.字符串
+```go
+//t 静态资源类型，paths为对应静态资源下的路径，对于图片的资源处理，还在优化
+func RegisterResource(t string,paths ...string) 
 
-​		-返回需要显示的页面：格式必须是静态资源中配置下的HTML，"test.html"
+func main() {
+    //设置js文件的静态资源路径
+	config.RegisterResource("js","js")
+	get.Mapping("/", func(ctx *aurora.Context) interface{} {
 
-​				例：项目静态资源配置目录为static文件夹，设置了映射文件夹js，html，css
+		return "/html/index.html"
+	})
 
-​				html文件夹下面有index.html，在服务返回页面的时候就需要带上映射路径进行返回"/html/index.html"
+	post.Mapping("/", func(ctx *aurora.Context) interface{} {
 
-​		-json字符串：字符串格式不是.html结尾的，默认输出json形式
+		return "/html/index.html"
+	})
+	
+	aurora.RunApplication("8080")
+}
+```
 
-​	2.interface{}类型
+更改默认静态资源根路径
 
-​		-任意结构体类型:将序列成为json格式字节
+```go
+func main() {
+	config.RegisterResource("js","js")
+	
+	//更改默认静态资源根路径为resource
+	config.ResourceRoot("resource")
+    
+	get.Mapping("/", func(ctx *aurora.Context) interface{} {
 
-​	3.error类型
+		return "/html/index.html"
+	})
 
-​		-进行错误处理，响应给浏览器
+	post.Mapping("/", func(ctx *aurora.Context) interface{} {
 
-## 错误处理
+		return "/html/index.html"
+	})
 
-服务器启动错误：
+	aurora.RunApplication("8080")
+}
+```
 
-服务处理错误：
+
 
