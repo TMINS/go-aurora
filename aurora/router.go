@@ -1,7 +1,6 @@
 package aurora
 
 import (
-	"Aurora/errors"
 	"Aurora/logs"
 	"Aurora/message"
 
@@ -68,7 +67,7 @@ func (r *ServerRouter) addRoute(method, path string, fun ServletHandler) {
 		path += "/" + path //没有写 "/" 则添加斜杠开头
 	}
 	if path != "/" && path[len(path)-1:] == "/" {
-		aurora.InitError <- errors.UrlPathError{Type: "路径注册", Path: path, Message: "注册路径不能以 '/' 结尾", Method: method}
+		aurora.InitError <- UrlPathError{Type: "路径注册", Path: path, Message: "注册路径不能以 '/' 结尾", Method: method}
 	}
 	r.add(method, root, path, fun, path) //把路径添加到根路径中中
 }
@@ -87,7 +86,7 @@ func (r *ServerRouter) add(method string, root *Node, Path string, fun ServletHa
 	}
 	if root.Path == Path { //相同路径可能是分裂或者提取的公共根
 		if root.handle != nil { //判断这个路径是否被注册过
-			aurora.InitError <- errors.UrlPathError{Type: "路径注册", Path: Path, NodePath: root.Path, Message: "路径已存在，重复注册!", Method: method}
+			aurora.InitError <- UrlPathError{Type: "路径注册", Path: Path, NodePath: root.Path, Message: "路径已存在，重复注册!", Method: method}
 		} else {
 			root.handle = fun
 			aurora.StartInfo <- message.UrlRegisterInfo{Path: path, Method: method}
@@ -128,7 +127,7 @@ func (r *ServerRouter) add(method string, root *Node, Path string, fun ServletHa
 					//如果存储的路径是REST API 检索 当前子节点是否存有路径，存有路径则为冲突
 					for i := 0; i < len(root.Child); i++ {
 						if !(strings.HasPrefix(root.Child[i].Path, "$") && strings.HasPrefix(Path, "$")) {
-							aurora.InitError <- errors.UrlPathError{Method: method, Type: "REST API路径注册", Path: Path, NodePath: root.Child[i].Path, Message: "路径发生冲突!"}
+							aurora.InitError <- UrlPathError{Method: method, Type: "REST API路径注册", Path: Path, NodePath: root.Child[i].Path, Message: "路径发生冲突!"}
 						}
 					}
 				}
@@ -165,7 +164,7 @@ func (r *ServerRouter) add(method string, root *Node, Path string, fun ServletHa
 					//如果存储的路径是REST API 需要检索当前子节点是否存有路径，存有路径则为冲突
 					for i := 0; i < len(root.Child); i++ {
 						if !(strings.HasPrefix(root.Child[i].Path, "$") && strings.HasPrefix(Path, "$")) {
-							aurora.InitError <- errors.UrlPathError{Method: method, Type: "REST API路径注册", Path: Path, NodePath: root.Child[i].Path, Message: "路径发生冲突!"}
+							aurora.InitError <- UrlPathError{Method: method, Type: "REST API路径注册", Path: Path, NodePath: root.Child[i].Path, Message: "路径发生冲突!"}
 						}
 					}
 				}
@@ -217,10 +216,10 @@ func Merge(method string, root *Node, Path string, fun ServletHandler, path stri
 				//检索插入路径REST API冲突
 				for i := 0; i < len(root.Child); i++ {
 					if strings.HasPrefix(root.Child[i].Path, "$") || strings.HasPrefix(ch2, "$") {
-						aurora.InitError <- errors.UrlPathError{Method: method, Type: "REST API路径注册", Path: Path, NodePath: root.Child[i].Path, Message: "路径发生冲突!"}
+						aurora.InitError <- UrlPathError{Method: method, Type: "REST API路径注册", Path: Path, NodePath: root.Child[i].Path, Message: "路径发生冲突!"}
 					}
 					if strings.HasPrefix(root.Child[i].Path, "$") && strings.HasPrefix(ch2, "$") {
-						aurora.InitError <- errors.UrlPathError{Method: method, Type: "REST API路径注册", Path: Path, NodePath: root.Child[i].Path, Message: "路径发生冲突!"}
+						aurora.InitError <- UrlPathError{Method: method, Type: "REST API路径注册", Path: Path, NodePath: root.Child[i].Path, Message: "路径发生冲突!"}
 					}
 				}
 			}

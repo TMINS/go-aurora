@@ -1,20 +1,39 @@
 # Aurora
 
-## 系统架构
+[TOC]
 
-字典树
 
-服务处理函数
 
-REST API
+## 简介
 
-路由规则
 
-全局拦截器
 
-静态资源处理
+## 路由注册
 
-Session会话
+aurora支持REST API，在方便的同时以意味着也有一定的缺陷，使用了rest api的路由注册容易和其它路径产生冲突。
+
+aurora路由设计规则如下：
+
+```tex
+路由存储规则参考HttpRouter
+基于查询树的路由器
+路由器规则:
+   1.无法存储相同的路径
+      1)形同路径的判定：校验参数相同，并且节点函数不为nil，节点函数为nil的节点说明，这个路径是未注册过，被提取为公共根
+   2.路径查找按照逐层检索
+   3.路由树上面存储者当前路径匹配的服务处理函数
+   4.注册路径必须以 / 开头
+   5.发生公共根
+      1)节点和被添加路径产生公共根，提取公共根后，若公共根未注册，服务处理函数将为nil
+      2)若节点恰好是公共根，则设置函数
+   6.REST 风格注册
+      1)同一个根路径下只能有一个REST 子路径
+      2)REST 作为根路径也只能拥有一个REST 子路径
+      3)REST 路径会和其它非REST同级路径发生冲突
+   7.注册路径不能以/结尾（bug未修复，/user /user/ 产生 /user 的公共根 使用切割解析路径方式，解析子路径，拼接剩余子路径会存在bug ,注册路径的时候强制无法注册 / 结尾的 url）
+```
+
+
 
 ## 映射管理
 
@@ -52,11 +71,55 @@ Session会话
 
 ## 请求处理
 
-请求返回值是一个interface{}类型，意味着你可以返回任何类型，aurora约定返回三种类型，结构体，页面，错误
+请求返回值是一个interface{}类型，意味着你可以返回任何类型，aurora约定返回三种类型，结构体，页面，错误，自定义错误处理
 
 - struct
+
+  struct：返回一个任意的结构体，将被解析为json发送给浏览器
+
 - path
+
+  path：是一个页面路径，约定必须以 / 开头，path一定是静态资源目录下开始的路径，一般是返回html页面
+
 - error
+
+  error：返回一个错误(对错误的处理暂定直接发送浏览器json串)
+
+  页面响应对模板的支持还在设计中，预计知识对golang的模板语法简单的封装一下，还是尽可能的以json方式为主。
+
+
+
+自定义错误处理：
+
+实现错误处理方法既可以自定义错误的处理，错误处理和服务处理参数虽然相同，但是不会走全局拦截器，只负责对产生的错误进行包装处理，然后给浏览器做出需要的响应。
+
+```go
+ ErrorHandler(ctx *Context) interface{}
+
+
+//编写一个结构体 实现  ErrorHandler(ctx *Context) interface{} 方法即可
+type TestErr struct {
+	 error
+}
+// 绑定的方式 使用结构体方式即可，对于指针的支持后续进行改进
+func (t TestErr) ErrorHandler(ctx *aurora.Context) interface{} {
+	//对error 进行指定处理，选择输出
+
+	return "error"
+}
+
+func main() {
+	config.RegisterResource("js", "js","test")
+	get.Mapping("/", func(ctx *aurora.Context) interface{} {
+
+		return TestErr{fmt.Errorf("err")}
+	})
+	aurora.RunApplication("8080")
+}
+
+```
+
+错误处理，中需要避免再次返回处理者本身的类型，会造成死循环，无限递归最终栈溢出。请求处理的返回值同样适用于错误处理的返回值
 
 ## 静态资源
 
@@ -110,5 +173,16 @@ func main() {
 }
 ```
 
+## 上下文对象
 
 
+
+
+
+## 全局拦截器
+
+
+
+
+
+## session机制
