@@ -1,5 +1,7 @@
 package errors
 
+import "Aurora/aurora"
+
 /*
 	错误定义
 */
@@ -25,3 +27,15 @@ type UrlPathError struct {
 func (e UrlPathError) Error() string {
 	return e.Method+":UrlPathError : "+"Type:"+e.Type+" "+e.Path+"   "+e.NodePath+". Message:"+e.Message
 }
+
+// WebResponseError 业务处理期间，的特定错误
+type WebResponseError interface {
+	 ErrorHandler(ctx *aurora.Context) string   //ErrorHandler 处理对应的错误
+}
+
+type WebErr func(ctx *aurora.Context)  string
+
+
+
+
+
