@@ -311,10 +311,10 @@ func RegisterInterceptor(path string, interceptor ...Interceptor) {
 
 // RegisterInterceptor 向路由树上添加拦截器，添加规则只要是匹配的路径都会添加上对应的拦截器，不区分拦截的请求方式，REST API暂定还未调试支持
 func (r *ServerRouter) RegisterInterceptor(path string, interceptor ...Interceptor) {
-	if path[0:1]!="/" || path[len(path)-2:]!="/*"{
+	/*if path[0:1]!="/" || path[len(path)-1:]!="*"{
 		//非 "/" 开头不注册,非 "/*"结尾不注册
 		return
-	}
+	}*/
 
 	for k, _ := range r.tree {
 		r.register(r.tree[k], path, interceptor...)
@@ -327,13 +327,17 @@ func (r *ServerRouter) register(root *Node, path string, interceptor ...Intercep
 		return
 	}
 
-	if root.Path == path[:len(path)-1] ||  root.Path == path { //当前路径处理匹配成功  root.Path == path[:len(path)-2]用于匹配  /* 通配拦截器
-		if path[len(path)-1:]=="*"{  //检测是否是通配拦截器，通配拦截器可以放在没有处理函数的路上
+	if root.Path == path[:len(path)-1] || root.Path == path { //当前路径处理匹配成功  root.Path == path[:len(path)-2]用于匹配  /* 通配拦截器
+		if path[len(path)-1:] == "*" { //检测是否是通配拦截器，通配拦截器可以放在没有处理函数的路上
 			//注册匹配路径
-			root.TreeInter=interceptor
+			root.TreeInter = interceptor
+			if root.handle != nil {
+				//添加通配拦截器 的路径是一个服务的话就一并设置
+				root.InterList = interceptor
+			}
 			return
 		}
-		root.InterList = interceptor
+		root.InterList = interceptor //再次添加会覆盖通配拦截器
 		return
 	}
 
@@ -378,9 +382,9 @@ func (r *ServerRouter) register(root *Node, path string, interceptor ...Intercep
 	if sub == "" && rsl == psl {
 		//此处的路径拦截器注册暂时作用不大，后续对REST API 可能有用
 		if root.handle != nil {
-			if path[len(path)-1:]=="*"{  //检测是否是通配拦截器
+			if path[len(path)-1:] == "*" { //检测是否是通配拦截器
 				//注册匹配路径
-				root.TreeInter=interceptor
+				root.TreeInter = interceptor
 				return
 			}
 			root.InterList = interceptor
@@ -416,10 +420,11 @@ func (r *ServerRouter) register(root *Node, path string, interceptor ...Intercep
 				return
 			}
 		}
-		logs.WebErrorLogger(path ,"拦截器注册失败")
+		logs.WebErrorLogger(path, "拦截器注册失败")
 		return
 	}
 }
+
 // ———————————————————————————————局部拦截器结束———————————————————————————————————————————
 
 // ———————————————————————————————路由查询算法—(兼职路由转发任务)——————————————————————--———————————
@@ -433,19 +438,19 @@ func (r ServerRouter) SearchPath(method, path string, rw http.ResponseWriter, re
 }
 
 // Search 路径查找，参数和 SearchPath意义 一致， Args map主要用于存储解析REST API路径参数，默认传nil
-func (r ServerRouter) search(root *Node, path string, Args map[string]string, rw http.ResponseWriter, req *http.Request, ctx *Context,Interceptor...Interceptor) {
+func (r ServerRouter) search(root *Node, path string, Args map[string]string, rw http.ResponseWriter, req *http.Request, ctx *Context, Interceptor ...Interceptor) {
 	if root == nil {
 		return
 	}
-	if Interceptor!=nil &&  root.TreeInter!=nil{
+	if Interceptor != nil && root.TreeInter != nil {
 		//把当前路径上的拦截器存起来
-		for i:=0;i< len(root.TreeInter);i++{
-			Interceptor=append(Interceptor,root.TreeInter[i])	//把路径上的拦截器依次存起来
+		for i := 0; i < len(root.TreeInter); i++ {
+			Interceptor = append(Interceptor, root.TreeInter[i]) //把路径上的拦截器依次存起来
 		}
 	}
 	//初始化参数的操作需要放在后面，狗则会导致 和 Interceptor!=nil &&  root.TreeInter!=nil 冲突重复添加一次
-	if root.TreeInter!=nil && Interceptor==nil  {
-		Interceptor=root.TreeInter
+	if root.TreeInter != nil && Interceptor == nil {
+		Interceptor = root.TreeInter
 	}
 
 	if root.Path == path { //当前路径处理匹配成功
@@ -458,7 +463,7 @@ func (r ServerRouter) search(root *Node, path string, Args map[string]string, rw
 				Args:            Args,
 				ctx:             ctx,
 				InterceptorList: root.InterList,
-				TreeInter: Interceptor,
+				TreeInter:       Interceptor,
 			}
 			proxy.Start() //开始执行
 			return        //执行结束
@@ -482,7 +487,7 @@ func (r ServerRouter) search(root *Node, path string, Args map[string]string, rw
 			continue //如果一致则进行下一个检查
 		}
 		if rs[i] != ps[i] && strings.Contains(rs[i], "$") { //检测 rs是否为rest api
-			if rs[i][0:1] != "$" && rs[i][1:2]!="{" && rs[i][len(rs[i])-1:]!="}" {    // rs[i][0:1] != "$"  添加了修改了 参数解析检查
+			if rs[i][0:1] != "$" && rs[i][1:2] != "{" && rs[i][len(rs[i])-1:] != "}" { // rs[i][0:1] != "$"  添加了修改了 参数解析检查
 				panic("REST API 解析错误")
 			}
 			kl := len(rs[i])
@@ -545,7 +550,7 @@ func (r ServerRouter) search(root *Node, path string, Args map[string]string, rw
 		for i := 0; i < len(root.Child); i++ { //子路径解析完成，开始遍历子节点路径，找到一个符合的路径继续走下去
 			pub := FindPublicRoot(str, root.Child[i].Path)
 			if pub != "" {
-				r.search(root.Child[i], str, Args, rw, req, ctx,Interceptor...)
+				r.search(root.Child[i], str, Args, rw, req, ctx, Interceptor...)
 				return
 			}
 		}
@@ -553,6 +558,7 @@ func (r ServerRouter) search(root *Node, path string, Args map[string]string, rw
 		return
 	}
 }
+
 // ———————————————————————————————路由查询算法结束———————————————————————————————————————————
 
 func (a *Aurora) ServeHTTP(rw http.ResponseWriter, req *http.Request) {
