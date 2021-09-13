@@ -2,6 +2,7 @@ package main
 
 import (
 	"Aurora/aurora"
+	"Aurora/aurora/start"
 	"Aurora/config"
 	"Aurora/request/get"
 )
@@ -15,9 +16,13 @@ func main() {
 	config.RegisterResource("js", "js", "test")
 	//config.RegisterInterceptor(MyInterceptor1{})
 
-	get.Mapping("/abc/bbc", func(ctx *aurora.Context) interface{} {
+	get.Mapping("/abc", func(ctx *aurora.Context) interface{} {
 
 		return "/abc"
+	})
+	get.Mapping("/abc/bbc", func(ctx *aurora.Context) interface{} {
+
+		return "/abc/bbc"
 	})
 	get.Mapping("/abc/bbc/asd", func(ctx *aurora.Context) interface{} {
 
@@ -46,5 +51,5 @@ func main() {
 
 	config.RegisterPathInterceptor("/abc/bbc/aaa", MyInterceptor4{})
 
-	aurora.RunApplication("8080")
+	start.Running("8080")
 }

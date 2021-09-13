@@ -6,7 +6,7 @@ Aurora
 
 ## 简介
 
-
+​		框架特点，简单易配置，通过包名对服务器中的各种属性进行设置，甚至不需要初始化任何变量，开发者可以专注的处理业。对请求返回值的处理也更加灵活，约定自动返回json格式，也可以进行视图解析加载给浏览器。自定义的错误机制可以让业务逻辑中经可能减少err的判空，也可以对专属错误进行可控的提示响应给浏览器。官方交流群:836414068，备注hub
 
 ## 路由注册
 
@@ -89,7 +89,7 @@ aurora路由设计规则如下：
 
 
 
-自定义错误处理：
+### 自定义错误处理：
 
 实现错误处理方法既可以自定义错误的处理，错误处理和服务处理参数虽然相同，但是不会走全局拦截器，只负责对产生的错误进行包装处理，然后给浏览器做出需要的响应。
 
@@ -276,6 +276,9 @@ func main() {
 
 		return "/"
 	})
+    
+    // /abc/* 只能匹配以/abc/结尾的父路径，即/abc 这个路径是不能被 MyInterceptor2所拦截的，如果有需要只能在加一个
+    // 例如多加一个config.RegisterPathInterceptor("/abc", MyInterceptor2{}) 即可
 	config.RegisterPathInterceptor("/abc/*", MyInterceptor2{})
 
 	config.RegisterPathInterceptor("/", MyInterceptor3{})
