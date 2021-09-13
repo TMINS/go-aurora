@@ -175,13 +175,15 @@ func main() {
 
 ## 上下文对象
 
+rest api 参数获取
 
+请求转发
 
 
 
 ## 拦截器
 
-拦截器机制，当前支持全局拦截器，和局部拦截器两种，局部拦截器暂时只支持单个path匹配，不支持通配方式，造成了一个缺陷需要匹配大多数路径而非常麻烦，后续改进。
+拦截器机制，当前支持全局拦截器，和局部拦截器两种，局部拦截器支持path子路径匹配（/*,的形式），造成了一个缺陷需要匹配大多数路径而非常麻烦，后续改进。
 
 拦截器机制，和springboot类似的效果：
 
@@ -244,6 +246,49 @@ func main() {
 }
 ```
 
+通配符拦截器
+
+```go
+func main() {
+
+	get.Mapping("/abc/bbc", func(ctx *aurora.Context) interface{} {
+
+		return "/abc"
+	})
+	get.Mapping("/abc/bbc/asd", func(ctx *aurora.Context) interface{} {
+
+		return "/abc/bbc/asd"
+	})
+
+	get.Mapping("/abc/bbc/aaa", func(ctx *aurora.Context) interface{} {
+
+		return "/abc/bbc/aaa"
+	})
+	get.Mapping("/abc/qaq", func(ctx *aurora.Context) interface{} {
+
+		return "/abc/qaq"
+	})
+	get.Mapping("/abc/qaq/csdn", func(ctx *aurora.Context) interface{} {
+
+		return "/abc/qaq/csdn"
+	})
+	get.Mapping("/", func(ctx *aurora.Context) interface{} {
+
+		return "/"
+	})
+	config.RegisterPathInterceptor("/abc/*", MyInterceptor2{})
+
+	config.RegisterPathInterceptor("/", MyInterceptor3{})
+
+	config.RegisterPathInterceptor("/abc/bbc/aaa", MyInterceptor4{})
+
+	aurora.RunApplication("8080")
+}
+```
+
+注意事项：通配符配置拦截器，只支持 /xxx/* ,xxx是具体完整的父路径，不支持使用*来切割子路径进行匹配
+
 局部拦截器，依赖于路由树，所以注册局部拦截器时候必须等待路由注册完毕才能正常注册成功，全局则不需要依赖于路由树。
 
 ## session机制
+

@@ -158,3 +158,8 @@ func (c *Context) JSON(data interface{}) {
 		logs.WebRequestError(err.Error())
 	}
 }
+
+// RequestForward 服务转发
+func (c *Context) RequestForward(path string)  {
+	aurora.Router.SearchPath(c.Request.Method,path,c.Response,c.Request,c)
+}
