@@ -9,18 +9,17 @@ type MyInterceptor1 struct {
 }
 
 func (de MyInterceptor1) PreHandle(ctx *aurora.Context) bool {
-	logs.Info("MyPreHandle111")
+	logs.Info("全局拦截器PreHandle")
 	return true
 }
 
 func (de MyInterceptor1) PostHandle(ctx *aurora.Context) {
-	logs.Info("MyPostHandle111")
+	logs.Info("全局拦截器PostHandle")
 }
 
-func (de MyInterceptor1) AfterCompletion(ctx *aurora.Context)  {
-	logs.Info("MyAfterCompletion111")
+func (de MyInterceptor1) AfterCompletion(ctx *aurora.Context) {
+	logs.Info("全局拦截器AfterCompletion")
 }
-
 
 type MyInterceptor2 struct {
 }
@@ -34,7 +33,7 @@ func (de MyInterceptor2) PostHandle(ctx *aurora.Context) {
 	logs.Info("MyPostHandle222")
 }
 
-func (de MyInterceptor2) AfterCompletion(ctx *aurora.Context)  {
+func (de MyInterceptor2) AfterCompletion(ctx *aurora.Context) {
 	logs.Info("MyAfterCompletion222")
 }
 
@@ -50,7 +49,7 @@ func (de MyInterceptor3) PostHandle(ctx *aurora.Context) {
 	logs.Info("MyPostHandle333")
 }
 
-func (de MyInterceptor3) AfterCompletion(ctx *aurora.Context)  {
+func (de MyInterceptor3) AfterCompletion(ctx *aurora.Context) {
 	logs.Info("MyAfterCompletion333")
 }
 
@@ -66,8 +65,6 @@ func (de MyInterceptor4) PostHandle(ctx *aurora.Context) {
 	logs.Info("MyPostHandle444")
 }
 
-func (de MyInterceptor4) AfterCompletion(ctx *aurora.Context)  {
+func (de MyInterceptor4) AfterCompletion(ctx *aurora.Context) {
 	logs.Info("MyAfterCompletion444")
 }
-
-

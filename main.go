@@ -7,20 +7,31 @@ import (
 	"Aurora/request/post"
 )
 
-func main() {
-	config.RegisterResource("js", "js")
+type Body struct {
+	Name string `json:"name"`
+	Age  int    `json:"age"`
+}
 
-	//config.RegisterInterceptor(MyInterceptor1{})
-	config.ResourceRoot("resource")
+func main() {
+	config.RegisterResource("js", "js", "test")
+	config.RegisterInterceptor(MyInterceptor1{})
+	post.Mapping("/", func(ctx *aurora.Context) interface{} {
+		var body Body
+		ctx.PostBody(&body)
+		return body
+	})
+
+	get.Mapping("/abc", func(ctx *aurora.Context) interface{} {
+
+		return "/abc"
+	})
 	get.Mapping("/", func(ctx *aurora.Context) interface{} {
 
-		return "/html/index.html"
+		return "/abc"
 	})
+	config.RegisterPathInterceptor("/abc", MyInterceptor2{})
 
-	post.Mapping("/", func(ctx *aurora.Context) interface{} {
-
-		return "/html/index.html"
-	})
+	config.RegisterPathInterceptor("/", MyInterceptor3{})
 
 	aurora.RunApplication("8080")
 }
