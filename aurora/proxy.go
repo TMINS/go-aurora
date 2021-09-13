@@ -10,16 +10,17 @@ import (
 
 // ServletProxy 代理 路由处理，负责生成上下文变量和调用具体处理函数
 type ServletProxy struct {
-	rw                                               sync.RWMutex
-	rew                                              http.ResponseWriter
-	req                                              *http.Request
-	ServletHandler                                                     //处理函数
-	Query                                            string            //url 查询参数
-	Args                                             map[string]string //REST API 参数
-	ctx                                              *Context          //上下文
-	result                                           interface{}       //业务结果
-	Interceptor                                      bool
-	ExecuteStack, AfterStack, ExecutePart, AfterPart *InterceptorStack // ExecuteStack,AfterStack 全局拦截器, ExecutePart,AfterPart局部
+	rw                       sync.RWMutex
+	rew                      http.ResponseWriter
+	req                      *http.Request
+	ServletHandler                             //处理函数
+	Args                     map[string]string //REST API 参数解析
+	ctx                      *Context          //上下文
+	result                   interface{}       //业务结果
+	Interceptor              bool
+	ExecuteStack, AfterStack *InterceptorStack // ExecuteStack,AfterStack 全局拦截器
+	InterceptorList          []Interceptor
+	ExecutePart, AfterPart   *InterceptorStack //ExecutePart,AfterPart局部
 }
 
 // Start 路由查询入口
@@ -34,9 +35,10 @@ func (sp *ServletProxy) Start() {
 
 // Before 服务处理之前
 func (sp *ServletProxy) Before() {
-	sp.Interceptor = true                        //初始化放行所有拦截器
-	defer func(ctx *Context, sp *ServletProxy) { //全局拦截器
-		if len(InterceptorList) > 0 {
+	sp.Interceptor = true //初始化放行所有拦截器
+	defer func(ctx *Context, sp *ServletProxy) {
+
+		if len(InterceptorList) > 0 { //全局拦截器
 			for _, v := range InterceptorList { //依次执行注册过的 拦截器
 				if sp.Interceptor = v.PreHandle(ctx); !sp.Interceptor { //如果返回false 则终止
 					//清空拦截器栈，释放资源
@@ -50,16 +52,40 @@ func (sp *ServletProxy) Before() {
 				sp.AfterStack.Push(v)
 			}
 		}
+
+		if sp.InterceptorList != nil && len(sp.InterceptorList) > 0 && sp.Interceptor { //局部拦截器
+			for _, v := range sp.InterceptorList {
+				if sp.Interceptor = v.PreHandle(ctx); !sp.Interceptor {
+
+					break
+				}
+				if sp.ExecutePart == nil && sp.AfterPart == nil {
+					sp.ExecutePart = &InterceptorStack{}
+					sp.AfterPart = &InterceptorStack{}
+				}
+				sp.ExecutePart.Push(v)
+				sp.AfterPart.Push(v)
+			}
+		}
 	}(sp.ctx, sp)
 }
 
 // Execute 执行业务
 func (sp *ServletProxy) Execute() {
 
-	defer func(ctx *Context, sp *ServletProxy) { //全局拦截器
-		if len(InterceptorList) > 0 {
+	defer func(ctx *Context, sp *ServletProxy) {
+		if len(InterceptorList) > 0 { //全局拦截器
 			for {
 				if f := sp.ExecuteStack.Pull(); f != nil {
+					f.PostHandle(ctx)
+				} else {
+					break
+				}
+			}
+		}
+		if sp.InterceptorList != nil { //局部
+			for {
+				if f := sp.ExecutePart.Pull(); f != nil {
 					f.PostHandle(ctx)
 				} else {
 					break
@@ -73,8 +99,8 @@ func (sp *ServletProxy) Execute() {
 // After 服务处理之后，主要处理业务结果
 func (sp *ServletProxy) After() {
 
-	defer func(ctx *Context, sp *ServletProxy) { //全局拦截器
-		if len(InterceptorList) > 0 {
+	defer func(ctx *Context, sp *ServletProxy) {
+		if len(InterceptorList) > 0 { //全局拦截器
 			for {
 				if f := sp.AfterStack.Pull(); f != nil {
 					f.AfterCompletion(ctx)
@@ -83,22 +109,18 @@ func (sp *ServletProxy) After() {
 				}
 			}
 		}
+
+		if sp.InterceptorList != nil { //局部
+			for {
+				if f := sp.AfterPart.Pull(); f != nil {
+					f.PostHandle(ctx)
+				} else {
+					break
+				}
+			}
+		}
 	}(sp.ctx, sp)
 	sp.ResultHandler()
-	/*switch sp.result.(type) {
-		case string:
-			if strings.HasSuffix(sp.result.(string),".html") {
-				SendResource(sp.rew,readResource(sp.result.(string)))  //直接响应 html 页面
-			}else {
-				sp.ctx.JSON(sp.result)
-			}
-		case errors.WebResponseError:
-
-		case error:
-			logs.WebRequestError(sp.result.(error).Error())  //日志的方式处理程序运行时候可能产生的错误，不至于让web服务器直接停止
-		default:
-			sp.ctx.JSON(sp.result)
-	}*/
 }
 
 // Init 初始化 Context变量
@@ -106,7 +128,7 @@ func (sp *ServletProxy) Init() {
 	if sp.ctx == nil {
 		sp.ctx = &Context{}
 		sp.ctx.Request = sp.req
-		sp.ctx.ResponseWriter = sp.rew
+		sp.ctx.Response = sp.rew
 		if sp.Args != nil {
 			sp.ctx.Args = sp.Args
 		}

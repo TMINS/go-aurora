@@ -45,8 +45,7 @@ type Node struct {
 	Path      string         //当前路径
 	handle    ServletHandler //服务处理函数
 	Child     []*Node        //子节点
-	Inter     Interceptor    //当前路径拦截器，默认为空
-	InterList []Interceptor  //拦截链
+	InterList []Interceptor  //当前路径拦截链，默认为空
 }
 
 // ServerRouter Aurora核心路由器
@@ -303,6 +302,115 @@ func OptimizeSort(child []*Node, start int, end int) {
 	}
 }
 
+// —————————————————————————————局部拦截器——————————————————————————————————————————
+
+func RegisterInterceptor(path string, interceptor ...Interceptor) {
+	aurora.Router.RegisterInterceptor(path, interceptor...)
+}
+
+// RegisterInterceptor 检索指定的path路由
+// method 请求类型，path 查询路径，rw，req http生成的请求响应，ctx 主要用于转发请求时携带
+func (r *ServerRouter) RegisterInterceptor(path string, interceptor ...Interceptor) {
+
+	for k, _ := range r.tree {
+		r.register(r.tree[k], path, interceptor...)
+	}
+}
+
+// Search 路径查找，参数和 SearchPath意义 一致， Args map主要用于存储解析REST API路径参数，默认传nil
+func (r *ServerRouter) register(root *Node, path string, interceptor ...Interceptor) {
+	if root == nil {
+		return
+	}
+	if root.Path == path { //当前路径处理匹配成功
+		if root.handle != nil { //校验是否为有效路径
+			root.InterList = interceptor
+			return //执行结束
+		}
+		logs.WebErrorLogger("访问路径不存在! 未注册 : " + path)
+		return
+	}
+
+	rs := strings.Split(root.Path, "/") //当前节点进行切割
+	ps := strings.Split(path, "/")      //查询路径进行切割
+	rsl := len(rs)
+	psl := len(ps)
+	sub := ""
+	if psl < rsl {
+		logs.WebErrorLogger("访问路径不存在! 未注册 : " + path)
+		return
+	}
+	for i := 0; i < rsl; i++ { //解析当前路径和查找路径是否有相同部分
+		//if 逐一对路径进行 比较或者解析
+		if rs[i] == ps[i] { //检查rs是否和查询路径一致
+			continue //如果一致则进行下一个检查
+		}
+		if rs[i] != ps[i] && strings.Contains(rs[i], "$") { //检测 rs是否为rest api
+			if rs[i][0:1] != "$" {
+				panic("REST API 解析错误")
+			}
+			//kl := len(rs[i])
+			//key := rs[i][2 : kl-1]
+			//if Args == nil {
+			//	Args = make(map[string]string)
+			//}
+			//Args[key] = ps[i]
+			continue
+		} else {
+			if strings.HasPrefix(ps[i], rs[i]) { //检查是否存在父子关系
+				//解析被切割成为父子关系的部分
+				l := len(rs[i])
+				sub = ps[i][l:] //sub 被切割到子路径部分 ，子路径检索的时候需要添加到路径前面,如果sub为 "" 空则说明循环结束并没有子路径
+				continue
+			}
+		}
+		logs.WebErrorLogger("访问路径不存在! 未注册 : " + path)
+		return
+	}
+	//此处修复 if sub=="" 为 if sub=="" && rsl==psl， /user/${name}/update  和 /user 类型情况下  /user 解析出 [""."user"],[""."user","xxx","update"],上面的检查
+	//无法检测出字串 导致/user/${name}/update 会走到/user里面，上面无法检测出子路径是查询路径和当前节点路径完全一致情况下，并且没有子路径
+	if sub == "" && rsl == psl {
+		if root.handle != nil {
+			root.InterList = interceptor
+			return
+		}
+	}
+	if rsl <= psl { //存在子路径  等于的情况是发生在  访问 /aa  /下面出现多个子节点 /aa是被注册需要访问的 /aa 后面没有子路径
+		str := ""                    //解析子路径，用于存储下面的for循环解析的子路径
+		for i := rsl; i < psl; i++ { // 检索path 剩余部分 把切割开的路径组装起来构成子路径
+			if i == psl-2 && ps[psl-1] == "" { //拼接到 倒数第2个元素 判断最后一个元素为 "" 说明需要 /结尾
+				str += "/" + ps[i] + "/"
+				break
+			}
+			if i == psl-1 && ps[psl-1] != "" { //最后一个元素
+				if sub != "" { //拼被丢弃的接子路径
+					str += "/" + ps[i]
+					str = sub + str //被丢弃的子路径是在 检索当前路径正确时候解析出来的
+					break
+				}
+				str += "/" + ps[i]
+				break
+			}
+			str += "/" + ps[i]
+		}
+		// root.Path=="/" || rsl==psl
+		if rsl == psl { //遇到当前节点为 / 情况下 无法解析出 str 应为 rsl == psl，上面代码的for循环走不了， / 的子路径之下的子路径都不会以 /开头
+			str = sub + str //子前缀一定要加在前面
+		}
+		for i := 0; i < len(root.Child); i++ { //子路径解析完成，开始遍历子节点路径，找到一个符合的路径继续走下去
+			pub := FindPublicRoot(str, root.Child[i].Path)
+			if pub != "" {
+				r.register(root.Child[i], str, interceptor...)
+				return
+			}
+		}
+		logs.WebErrorLogger("访问路径不存在! 未注册 : " + path)
+		return
+	}
+}
+
+// ———————————————————————————————局部拦截器结束———————————————————————————————————————————
+
 // SearchPath 检索指定的path路由
 // method 请求类型，path 查询路径，rw，req http生成的请求响应，ctx 主要用于转发请求时携带
 func (r ServerRouter) SearchPath(method, path string, rw http.ResponseWriter, req *http.Request, ctx *Context) {
@@ -320,11 +428,12 @@ func (r ServerRouter) search(root *Node, path string, Args map[string]string, rw
 		if root.handle != nil { //校验是否为有效路径
 			//服务处理方法入口
 			proxy := ServletProxy{
-				rew:            rw,
-				req:            req,
-				ServletHandler: root.handle,
-				Args:           Args,
-				ctx:            ctx,
+				rew:             rw,
+				req:             req,
+				ServletHandler:  root.handle,
+				Args:            Args,
+				ctx:             ctx,
+				InterceptorList: root.InterList,
 			}
 			proxy.Start() //开始执行
 			return        //执行结束
@@ -375,11 +484,12 @@ func (r ServerRouter) search(root *Node, path string, Args map[string]string, rw
 		if root.handle != nil {
 			//服务处理方法入口
 			proxy := ServletProxy{
-				rew:            rw,
-				req:            req,
-				ServletHandler: root.handle,
-				Args:           Args,
-				ctx:            nil,
+				rew:             rw,
+				req:             req,
+				ServletHandler:  root.handle,
+				Args:            Args,
+				ctx:             ctx,
+				InterceptorList: root.InterList,
 			}
 			proxy.Start()
 			return

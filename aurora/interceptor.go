@@ -13,15 +13,12 @@ type Interceptor interface {
 	AfterCompletion(ctx *Context)
 }
 
-//实现全局请求处理前后环绕
-
+// DefaultInterceptor 实现全局请求处理前后环绕
 type DefaultInterceptor struct {
-	 Path string                    //拦截路径匹配
-	 
 }
 
 func (de DefaultInterceptor) PreHandle(ctx *Context) bool {
-	
+
 	return true
 }
 
@@ -29,47 +26,43 @@ func (de DefaultInterceptor) PostHandle(ctx *Context) {
 
 }
 
-func (de DefaultInterceptor) AfterCompletion(ctx *Context)  {
+func (de DefaultInterceptor) AfterCompletion(ctx *Context) {
 
 }
 
-
-
+// InterceptorData 实现拦截器压栈出栈功能
 type InterceptorData struct {
-	 imp Interceptor
-	 pre *InterceptorData
+	imp Interceptor
+	pre *InterceptorData
 }
 
 type InterceptorStack struct {
-	 top     *InterceptorData
-	 stack   *InterceptorData
+	top   *InterceptorData
+	stack *InterceptorData
 }
 
 func (s *InterceptorStack) Push(i Interceptor) {
-	if s.stack==nil && s.top==nil{
-		s.stack=&InterceptorData{imp: i}
-		s.top=s.stack
+	if s.stack == nil && s.top == nil {
+		s.stack = &InterceptorData{imp: i}
+		s.top = s.stack
 		return
 	}
-	t:=&InterceptorData{imp: i,pre: s.top}
+	t := &InterceptorData{imp: i, pre: s.top}
 	//更新栈顶
-	s.top=t
+	s.top = t
 }
 
 // Pull 栈为空时 返回为nil
 func (s *InterceptorStack) Pull() Interceptor {
-	if s.stack==nil && s.top ==nil{
+	if s.stack == nil && s.top == nil {
 		return nil
 	}
-	fun:=s.top.imp
-	if s.top.pre!=nil{
-		s.top=s.top.pre
-	}else { // 当弹出最后一个元素 时候清空 初始化栈内存
-		s.top=nil
-		s.stack=nil
+	fun := s.top.imp
+	if s.top.pre != nil {
+		s.top = s.top.pre
+	} else { // 当弹出最后一个元素 时候清空 初始化栈内存
+		s.top = nil
+		s.stack = nil
 	}
 	return fun
 }
-
-
-

@@ -1,4 +1,4 @@
-# Aurora
+Aurora
 
 [TOC]
 
@@ -179,10 +179,71 @@ func main() {
 
 
 
-## 全局拦截器
+## 拦截器
 
+拦截器机制，当前支持全局拦截器，和局部拦截器两种，局部拦截器暂时只支持单个path匹配，不支持通配方式，造成了一个缺陷需要匹配大多数路径而非常麻烦，后续改进。
 
+拦截器机制，和springboot类似的效果：
 
+```go
+// Interceptor 拦截器统一接口，实现这个接口就可以向服务器注册一个全局或者指定路径的处理拦截，此处的Context是aurora包下的上下文变量
+type Interceptor interface {
+	PreHandle(ctx *Context) bool
+	PostHandle(ctx *Context)
+	AfterCompletion(ctx *Context)
+}
+```
 
+服务器内置了一个默认的全局拦截器
+
+```go
+// DefaultInterceptor 实现全局请求处理前后环绕
+type DefaultInterceptor struct {
+             
+}
+
+func (de DefaultInterceptor) PreHandle(ctx *Context) bool {
+	//处理服务之前必须经过的函数，返回true表示放行服务继续执行后面的拦截器或者业务，false则会终止服务继续执行，将不会执行到对应业务
+	return true
+}
+
+func (de DefaultInterceptor) PostHandle(ctx *Context) {
+	//业务完成处理后执行此函数，此刻还没有想浏览器发送视图信息
+}
+
+func (de DefaultInterceptor) AfterCompletion(ctx *Context)  {
+	//试图解析发送完成后执行，此处表示服务业务已经完全处理完毕
+}
+```
+
+拦截器的注册（config包中调用方法）
+
+```go
+func main() {
+    //RegisterInterceptor添加全局拦截器
+	config.RegisterInterceptor(MyInterceptor1{})
+	post.Mapping("/", func(ctx *aurora.Context) interface{} {
+		var body Body
+		ctx.PostBody(&body)
+		return body
+	})
+
+	get.Mapping("/abc", func(ctx *aurora.Context) interface{} {
+
+		return "/abc"
+	})
+	get.Mapping("/", func(ctx *aurora.Context) interface{} {
+
+		return "/abc"
+	})
+	config.RegisterPathInterceptor("/abc",MyInterceptor2{})
+
+	config.RegisterPathInterceptor("/",MyInterceptor3{})
+
+	aurora.RunApplication("8080")
+}
+```
+
+局部拦截器，依赖于路由树，所以注册局部拦截器时候必须等待路由注册完毕才能正常注册成功，全局则不需要依赖于路由树。
 
 ## session机制
