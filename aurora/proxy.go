@@ -18,7 +18,12 @@ type ServletProxy struct {
 	ctx                      *Context          //上下文
 	result                   interface{}       //业务结果
 	Interceptor              bool
+
 	ExecuteStack, AfterStack *InterceptorStack // ExecuteStack,AfterStack 全局拦截器
+
+	TreeInter 				 []Interceptor	   //通配拦截器集合
+	TreeExecuteInterStack,TreeAfterInterStack           *InterceptorStack
+
 	InterceptorList          []Interceptor
 	ExecutePart, AfterPart   *InterceptorStack //ExecutePart,AfterPart局部
 }
@@ -37,6 +42,7 @@ func (sp *ServletProxy) Start() {
 func (sp *ServletProxy) Before() {
 	sp.Interceptor = true //初始化放行所有拦截器
 	defer func(ctx *Context, sp *ServletProxy) {
+		//处理全局拦截器和局部拦截器之前，临时构造一个拦截器执行序列
 
 		if len(InterceptorList) > 0 { //全局拦截器
 			for _, v := range InterceptorList { //依次执行注册过的 拦截器
@@ -53,10 +59,23 @@ func (sp *ServletProxy) Before() {
 			}
 		}
 
+		if sp.TreeInter != nil && len(sp.TreeInter) > 0 && sp.Interceptor { //通配拦截器
+			for _, v := range sp.TreeInter {
+				if sp.Interceptor = v.PreHandle(ctx); !sp.Interceptor {
+					break
+				}
+				if sp.TreeExecuteInterStack == nil && sp.TreeAfterInterStack == nil {
+					sp.TreeExecuteInterStack = &InterceptorStack{}
+					sp.TreeAfterInterStack = &InterceptorStack{}
+				}
+				sp.TreeExecuteInterStack.Push(v)
+				sp.TreeAfterInterStack.Push(v)
+			}
+		}
+
 		if sp.InterceptorList != nil && len(sp.InterceptorList) > 0 && sp.Interceptor { //局部拦截器
 			for _, v := range sp.InterceptorList {
 				if sp.Interceptor = v.PreHandle(ctx); !sp.Interceptor {
-
 					break
 				}
 				if sp.ExecutePart == nil && sp.AfterPart == nil {
@@ -83,6 +102,15 @@ func (sp *ServletProxy) Execute() {
 				}
 			}
 		}
+		if sp.TreeInter != nil { //通配
+			for {
+				if f := sp.TreeExecuteInterStack.Pull(); f != nil {
+					f.PostHandle(ctx)
+				} else {
+					break
+				}
+			}
+		}
 		if sp.InterceptorList != nil { //局部
 			for {
 				if f := sp.ExecutePart.Pull(); f != nil {
@@ -92,6 +120,7 @@ func (sp *ServletProxy) Execute() {
 				}
 			}
 		}
+
 	}(sp.ctx, sp)
 	sp.result = sp.ServletHandler.ServletHandler(sp.ctx)
 }
@@ -109,7 +138,15 @@ func (sp *ServletProxy) After() {
 				}
 			}
 		}
-
+		if sp.TreeInter != nil { //通配
+			for {
+				if f := sp.TreeAfterInterStack.Pull(); f != nil {
+					f.PostHandle(ctx)
+				} else {
+					break
+				}
+			}
+		}
 		if sp.InterceptorList != nil { //局部
 			for {
 				if f := sp.AfterPart.Pull(); f != nil {

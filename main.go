@@ -4,7 +4,6 @@ import (
 	"Aurora/aurora"
 	"Aurora/config"
 	"Aurora/request/get"
-	"Aurora/request/post"
 )
 
 type Body struct {
@@ -14,24 +13,38 @@ type Body struct {
 
 func main() {
 	config.RegisterResource("js", "js", "test")
-	config.RegisterInterceptor(MyInterceptor1{})
-	post.Mapping("/", func(ctx *aurora.Context) interface{} {
-		var body Body
-		ctx.PostBody(&body)
-		return body
-	})
+	//config.RegisterInterceptor(MyInterceptor1{})
 
-	get.Mapping("/abc", func(ctx *aurora.Context) interface{} {
+	get.Mapping("/abc/bbc", func(ctx *aurora.Context) interface{} {
 
 		return "/abc"
+	})
+	get.Mapping("/abc/bbc/asd", func(ctx *aurora.Context) interface{} {
+
+		return "/abc/bbc/asd"
+	})
+
+	get.Mapping("/abc/bbc/aaa", func(ctx *aurora.Context) interface{} {
+
+		return "/abc/bbc/aaa"
+	})
+	get.Mapping("/abc/qaq", func(ctx *aurora.Context) interface{} {
+
+		return "/abc/qaq"
+	})
+	get.Mapping("/abc/qaq/csdn", func(ctx *aurora.Context) interface{} {
+
+		return "/abc/qaq/csdn"
 	})
 	get.Mapping("/", func(ctx *aurora.Context) interface{} {
 
-		return "/abc"
+		return "/"
 	})
-	config.RegisterPathInterceptor("/abc", MyInterceptor2{})
+	config.RegisterPathInterceptor("/abc/*", MyInterceptor2{})
 
 	config.RegisterPathInterceptor("/", MyInterceptor3{})
+
+	config.RegisterPathInterceptor("/abc/bbc/aaa", MyInterceptor4{})
 
 	aurora.RunApplication("8080")
 }

@@ -22,8 +22,6 @@ import (
 		- 路径参数
 	3.静态资源处理
 		- 响应解析
-	4.监听处理
-		- 请求监听(***)
 */
 func init() {
 	logs.LoadWebLog(&logs.WebLogs{logs.Log{Head: "Aurora"}})                    //初始化日志
@@ -37,8 +35,8 @@ type CtxListenerKey string
 
 //全局管理
 var sessionMap=make(map[string]*Session)
-var InterceptorList = make([]Interceptor, 0)
-var sessionIdCreater=uuid.NewWorker(1,1)
+var InterceptorList = make([]Interceptor, 0)	//后期需要更改权限提供一个接口给config包调用
+var sessionIdCreater=uuid.NewWorker(1,1) //sessionId生成器
 // 全局路由器
 var aurora = &Aurora{
 	Router: ServerRouter{},
@@ -127,7 +125,7 @@ func startLoading()  {
 	
 	//session 生命周期检查，定时任务
 	go func (aurora *Aurora) {
-		Ticker:=time.NewTicker(time.Second*5)  //每隔 60秒执行一次 session 清理
+		Ticker:=time.NewTicker(time.Second*65)  //每隔 65秒执行一次 session 清理，存在占用资源bug，在没有任何session情况下会做无用的定时任务（待解决）
 		defer Ticker.Stop()
 		for true {
 			select {
@@ -136,7 +134,6 @@ func startLoading()  {
 					aurora.rw.Lock()
 					for k,_:=range sessionMap{
 						s:=sessionMap[k]
-						//now:=time.Now()
 						if t.After(s.MaxAge){
 							//session过期 删除
 							delete(sessionMap,k)
