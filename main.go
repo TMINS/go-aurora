@@ -13,16 +13,15 @@ type Body struct {
 }
 
 func main() {
-	config.RegisterResource("js", "js", "test")
-	//config.RegisterInterceptor(MyInterceptor1{})
+	config.Resource("js", "js", "test")
 
 	get.Mapping("/abc", func(ctx *aurora.Context) interface{} {
-
-		return "/abc"
+		ctx.RequestForward("/abc/bbc/asd")
+		return nil
 	})
 	get.Mapping("/abc/bbc", func(ctx *aurora.Context) interface{} {
 
-		return "/abc/bbc"
+		return "forward:/abc/bbc/asd"
 	})
 	get.Mapping("/abc/bbc/asd", func(ctx *aurora.Context) interface{} {
 
@@ -30,8 +29,8 @@ func main() {
 	})
 
 	get.Mapping("/abc/bbc/aaa", func(ctx *aurora.Context) interface{} {
-
-		return "/abc/bbc/aaa"
+		session:=ctx.GetSession()
+		return session.GetSessionId()
 	})
 	get.Mapping("/abc/qaq", func(ctx *aurora.Context) interface{} {
 
@@ -41,15 +40,20 @@ func main() {
 
 		return "/abc/qaq/csdn"
 	})
-	get.Mapping("/", func(ctx *aurora.Context) interface{} {
 
-		return "/"
+	get.Mapping("/user/${name}/${age}", func(ctx *aurora.Context) interface{} {
+		n:=ctx.GetArgs("name")
+		a:=ctx.GetArgs("age")
+		s:= struct {
+			Name string
+			Age  string
+		}{n,a}
+
+		return s
 	})
-	config.RegisterPathInterceptor("/abc/*", MyInterceptor2{})
-
-	config.RegisterPathInterceptor("/", MyInterceptor3{})
-
-	config.RegisterPathInterceptor("/abc/bbc/aaa", MyInterceptor4{})
-
+	config.Interceptor(MyInterceptor1{})
+	config.PathInterceptor("/abc/*", MyInterceptor2{})
+	config.PathInterceptor("/", MyInterceptor3{})
+	config.PathInterceptor("/abc/bbc/aaa", MyInterceptor4{})
 	start.Running("8080")
 }

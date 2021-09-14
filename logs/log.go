@@ -3,6 +3,7 @@ package logs
 import (
 	"fmt"
 	"io"
+	"log"
 	"os"
 	"runtime"
 	"time"
@@ -43,10 +44,25 @@ type Logs interface {
 	WebLog
 }
 
-// 日志 顶级
+// Log 日志 顶级
 type Log struct {
 	Head string
+	Logger *log.Logger
 }
+
+func (l *Log) Info(info...interface{})  {
+	l.Logger.Println(info...)
+}
+
+func (l *Log) Error(err...interface{})  {
+
+}
+
+func (l *Log) Warning(warning...interface{})  {
+
+}
+
+
 func (l Log) info(info...interface{})  {
 		l.outMessage(Out,INFO,info...)
 }

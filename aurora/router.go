@@ -311,11 +311,16 @@ func RegisterInterceptor(path string, interceptor ...Interceptor) {
 
 // RegisterInterceptor 向路由树上添加拦截器，添加规则只要是匹配的路径都会添加上对应的拦截器，不区分拦截的请求方式，REST API暂定还未调试支持
 func (r *ServerRouter) RegisterInterceptor(path string, interceptor ...Interceptor) {
-	/*if path[0:1]!="/" || path[len(path)-1:]!="*"{
-		//非 "/" 开头不注册,非 "/*"结尾不注册
+	pl:= len(path)
+	if pl>1 {
+		if path[pl-1:]=="*" &&  path[pl-2:]!="/*"{
+			return
+		}
+	}
+	if path[0:1]!="/"{
 		return
-	}*/
-
+	}
+	//为每个路径添加上拦截器
 	for k, _ := range r.tree {
 		r.register(r.tree[k], path, interceptor...)
 	}
@@ -460,7 +465,7 @@ func (r ServerRouter) search(root *Node, path string, Args map[string]string, rw
 				rew:             rw,
 				req:             req,
 				ServletHandler:  root.handle,
-				Args:            Args,
+				args:            Args,
 				ctx:             ctx,
 				InterceptorList: root.InterList,
 				TreeInter:       Interceptor,
@@ -517,7 +522,7 @@ func (r ServerRouter) search(root *Node, path string, Args map[string]string, rw
 				rew:             rw,
 				req:             req,
 				ServletHandler:  root.handle,
-				Args:            Args,
+				args:            Args,
 				ctx:             ctx,
 				InterceptorList: root.InterList,
 			}

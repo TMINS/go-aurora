@@ -18,7 +18,7 @@ type Context struct {
 	Response  http.ResponseWriter
 	Request   *http.Request
 	rw        *sync.RWMutex
-	Args      map[string]string      //REST API 参数
+	args      map[string]string      //REST API 参数
 	QueryArgs map[string]string      //普通k/v
 	Attribute map[string]interface{} //Context属性
 	sessionV  *Session               //session变量
@@ -120,15 +120,10 @@ func (c *Context) AddCookie(cooke Cookie) {
 	h.Add("Set-Cookie", cooke.Cookie.String())
 }
 
-// RequestUrl 获取请求接口url
-func (c *Context) RequestUrl() string {
-	return c.Request.RequestURI
-}
-
 // GetArgs 获取REST API 参数，查询不存在的key或者不存在REST API 参数则返回""
 func (c *Context) GetArgs(key string) string {
-	if c.Args != nil {
-		if v, ok := c.Args[key]; ok {
+	if c.args != nil {
+		if v, ok := c.args[key]; ok {
 			return v
 		} else {
 			//查询了一个不存在的key

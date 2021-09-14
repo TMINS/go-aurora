@@ -35,7 +35,12 @@ type CtxListenerKey string
 
 //全局管理
 var sessionMap=make(map[string]*Session)
-var InterceptorList = make([]Interceptor, 0)	//后期需要更改权限提供一个接口给config包调用
+
+// InterceptorList 全局拦截器，第一个初始化默认拦截器，默认拦截器可替换
+var interceptorList = []Interceptor{
+	0:DefaultInterceptor{},
+}	//后期需要更改权限提供一个接口给config包调用
+
 var sessionIdCreater=uuid.NewWorker(1,1) //sessionId生成器
 // 全局路由器
 var aurora = &Aurora{
@@ -75,6 +80,18 @@ func RunApplication(port string) {
 		aurora.InitError<-err
 		return
 	}
+}
+
+func RegisterInterceptorList(interceptor ...Interceptor)  {
+	//追加全局拦截器
+	for _, v := range interceptor {
+		interceptorList = append(interceptorList, v)
+	}
+}
+
+// RegisterDefaultInterceptor 提供修改默认顶级拦截器
+func RegisterDefaultInterceptor(interceptor Interceptor)  {
+	interceptorList[0]=interceptor
 }
 
 // CreateConText 提供web自定义父级上下文
