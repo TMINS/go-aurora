@@ -1,5 +1,10 @@
 package aurora
 
+import (
+	"fmt"
+	"time"
+)
+
 /*
 	拦截器
 	如果需要对web服务中的请求进行预处理，只需要实现Interceptor接口并且注册到InterceptorList中即可
@@ -15,10 +20,11 @@ type Interceptor interface {
 
 // DefaultInterceptor 实现全局请求处理前后环绕
 type DefaultInterceptor struct {
+	t time.Time
 }
 
 func (de DefaultInterceptor) PreHandle(ctx *Context) bool {
-
+	de.t=time.Now()
 	return true
 }
 
@@ -27,7 +33,9 @@ func (de DefaultInterceptor) PostHandle(ctx *Context) {
 }
 
 func (de DefaultInterceptor) AfterCompletion(ctx *Context) {
-
+	t2:=time.Now()
+	d:=t2.Sub(de.t)
+	fmt.Println(d)
 }
 
 // InterceptorData 实现拦截器压栈出栈功能
@@ -66,3 +74,4 @@ func (s *InterceptorStack) Pull() Interceptor {
 	}
 	return fun
 }
+

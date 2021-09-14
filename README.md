@@ -85,7 +85,7 @@ aurora路由设计规则如下：
 
   error：返回一个错误(对错误的处理暂定直接发送浏览器json串)
 
-  页面响应对模板的支持还在设计中，预计知识对golang的模板语法简单的封装一下，还是尽可能的以json方式为主。
+  页面响应对模板的支持还在设计中，预计只是对golang的模板语法简单的封装一下，还是尽可能的以json方式为主。
 
 
 
@@ -175,9 +175,46 @@ func main() {
 
 ## 上下文对象
 
-rest api 参数获取
+rest api 参数获取，REST API参数的解析都放在了ctx对象中可以通过api获取对应属性名的值
 
-请求转发
+```go
+get.Mapping("/user/${name}/${age}", func(ctx *aurora.Context) interface{} {
+		n:=ctx.GetArgs("name")
+		a:=ctx.GetArgs("age")
+		s:= struct {
+			Name string
+			Age  string
+		}{n,a}
+		return s   //返回的结构体将编码为json
+	})
+```
+
+
+
+请求转发，支持2中方式，ctx api调用和返回值转发，api调用转发，可以选择本服务返回nil作为结果返回，真实处理交给转发者返回给浏览器，或者返回值转发服务，两者转发的格式遵循路由注册的url方式，理论上是可以支持RAST API转发，但是不推荐。
+
+```go
+func main() {
+	config.Resource("js", "js", "test")
+
+	get.Mapping("/abc", func(ctx *aurora.Context) interface{} {
+        //将服务转发至/abc/bbc/asd处理器
+		ctx.RequestForward("/abc/bbc/asd")
+		return nil
+	})
+	get.Mapping("/abc/bbc", func(ctx *aurora.Context) interface{} {
+
+		return "forward:/abc/bbc/asd"   //将服务转发至/abc/bbc/asd处理器
+	})
+	get.Mapping("/abc/bbc/asd", func(ctx *aurora.Context) interface{} {
+
+		return "/abc/bbc/asd"
+	})
+
+
+	start.Running("8080")
+}
+```
 
 
 
@@ -293,5 +330,16 @@ func main() {
 
 局部拦截器，依赖于路由树，所以注册局部拦截器时候必须等待路由注册完毕才能正常注册成功，全局则不需要依赖于路由树。
 
-## session机制
+## session机制（不完善）
+
+session机制的只是做了简单的实现，后续根据需要做进一步提升，在获取session之前，服务器是不会保存任何session对象的，session在请求对象第一次调用时产生，session的默认生命值为60s(后续会提供修改)，同一个session在没有被销毁之前，连续被连接请求访问会刷新session生命时间，也就是延长存活时间，session的销毁是通过后台go程执行定时任务销毁，服务器在没有任何session的情况下依旧会检擦。会造成性能问题，待解决中
+
+如何获取session
+
+```go
+get.Mapping("/abc/bbc/aaa", func(ctx *aurora.Context) interface{} {
+		session:=ctx.GetSession()
+		return session.GetSessionId()
+	})
+```
 
