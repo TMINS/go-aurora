@@ -65,7 +65,7 @@ func SendResource(w http.ResponseWriter, data []byte) {
 
 // readResource 读取成功则返回结果，失败则返回nil
 func readResource(path string) []byte {
-	if f, err := ioutil.ReadFile(aurora.resource + path); err == nil {
+	if f, err := ioutil.ReadFile(aurora.projectRoot + "/" + aurora.resource + path); err == nil {
 		return f
 	} else {
 		if os.IsNotExist(err) {
