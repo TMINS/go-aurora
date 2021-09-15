@@ -1,7 +1,7 @@
 package aurora
 
 import (
-	"Aurora/logs"
+	"github.com/awensir/Aurora/logs"
 	"net/http"
 	"reflect"
 	"strings"
@@ -10,22 +10,22 @@ import (
 
 // ServletProxy 代理 路由处理，负责生成上下文变量和调用具体处理函数
 type ServletProxy struct {
-	rw                       sync.RWMutex
-	rew                      http.ResponseWriter
-	req                      *http.Request
-	ServletHandler                             //处理函数
-	args                     map[string]string //REST API 参数解析
-	ctx                      *Context          //上下文
-	result                   interface{}       //业务结果
-	Interceptor              bool
+	rw             sync.RWMutex
+	rew            http.ResponseWriter
+	req            *http.Request
+	ServletHandler                   //处理函数
+	args           map[string]string //REST API 参数解析
+	ctx            *Context          //上下文
+	result         interface{}       //业务结果
+	Interceptor    bool
 
 	ExecuteStack, AfterStack *InterceptorStack // ExecuteStack,AfterStack 全局拦截器
 
-	TreeInter 				 []Interceptor	   //通配拦截器集合
-	TreeExecuteInterStack,TreeAfterInterStack           *InterceptorStack
+	TreeInter                                  []Interceptor //通配拦截器集合
+	TreeExecuteInterStack, TreeAfterInterStack *InterceptorStack
 
-	InterceptorList          []Interceptor	   //局部拦截器
-	ExecutePart, AfterPart   *InterceptorStack //ExecutePart,AfterPart
+	InterceptorList        []Interceptor     //局部拦截器
+	ExecutePart, AfterPart *InterceptorStack //ExecutePart,AfterPart
 }
 
 // Start 路由查询入口
@@ -175,15 +175,15 @@ func (sp *ServletProxy) Init() {
 func (sp *ServletProxy) ResultHandler() {
 	switch sp.result.(type) {
 	case string:
-		path:=sp.result.(string)
+		path := sp.result.(string)
 		//处理普通页面响应
 		if strings.HasSuffix(path, ".html") {
 			SendResource(sp.rew, readResource(path)) //直接响应 html 页面
 			return
 		}
 		//处理重定向
-		if strings.HasPrefix(path,"forward:") {
-			path=path[8:]
+		if strings.HasPrefix(path, "forward:") {
+			path = path[8:]
 			sp.ctx.RequestForward(path)
 			return
 		}

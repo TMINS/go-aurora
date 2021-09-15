@@ -1,8 +1,8 @@
 package aurora
 
 import (
-	"Aurora/logs"
 	"encoding/json"
+	"github.com/awensir/Aurora/logs"
 	"io"
 	"net/http"
 	"strconv"
@@ -155,6 +155,6 @@ func (c *Context) JSON(data interface{}) {
 }
 
 // RequestForward 服务转发
-func (c *Context) RequestForward(path string)  {
-	aurora.Router.SearchPath(c.Request.Method,path,c.Response,c.Request,c)
+func (c *Context) RequestForward(path string) {
+	aurora.Router.SearchPath(c.Request.Method, path, c.Response, c.Request, c)
 }

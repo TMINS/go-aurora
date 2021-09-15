@@ -1,9 +1,8 @@
 package aurora
 
 import (
-	"Aurora/logs"
-	"Aurora/message"
-
+	"github.com/awensir/Aurora/logs"
+	"github.com/awensir/Aurora/message"
 	"net/http"
 	"os"
 	"strings"
@@ -311,13 +310,13 @@ func RegisterInterceptor(path string, interceptor ...Interceptor) {
 
 // RegisterInterceptor 向路由树上添加拦截器，添加规则只要是匹配的路径都会添加上对应的拦截器，不区分拦截的请求方式，REST API暂定还未调试支持
 func (r *ServerRouter) RegisterInterceptor(path string, interceptor ...Interceptor) {
-	pl:= len(path)
-	if pl>1 {
-		if path[pl-1:]=="*" &&  path[pl-2:]!="/*"{
+	pl := len(path)
+	if pl > 1 {
+		if path[pl-1:] == "*" && path[pl-2:] != "/*" {
 			return
 		}
 	}
-	if path[0:1]!="/"{
+	if path[0:1] != "/" {
 		return
 	}
 	//为每个路径添加上拦截器
