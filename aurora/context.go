@@ -2,7 +2,7 @@ package aurora
 
 import (
 	"encoding/json"
-	"github.com/awensir/Aurora/logs"
+	"fmt"
 	"io"
 	"net/http"
 	"strconv"
@@ -36,7 +36,7 @@ func (c *Context) PostBody(body interface{}) bool {
 	if err == nil {
 		err := json.Unmarshal(data, &body)
 		if err != nil {
-			logs.Info(err.Error())
+			fmt.Println(err.Error())
 			return false
 		}
 		return true
@@ -139,18 +139,18 @@ func (c *Context) JSON(data interface{}) {
 	if b {
 		_, err := c.Response.Write([]byte(s))
 		if err != nil {
-			logs.WebRequestError(err.Error())
+			fmt.Println(err.Error())
 		}
 		return
 	}
 	marshal, err := json.Marshal(data)
 	if err != nil {
-		logs.WebRequestError(err.Error())
+		fmt.Println(err.Error())
 		return
 	}
 	_, err = c.Response.Write(marshal)
 	if err != nil {
-		logs.WebRequestError(err.Error())
+		fmt.Println(err.Error())
 	}
 }
 

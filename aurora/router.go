@@ -1,8 +1,7 @@
 package aurora
 
 import (
-	"github.com/awensir/Aurora/logs"
-	"github.com/awensir/Aurora/message"
+	"fmt"
 	"net/http"
 	"os"
 	"strings"
@@ -80,7 +79,7 @@ func (r *ServerRouter) add(method string, root *Node, Path string, fun ServletHa
 		root.Path = Path
 		root.Child = nil
 		root.handle = fun
-		aurora.StartInfo <- message.UrlRegisterInfo{Path: path, Method: method}
+
 		return
 	}
 	if root.Path == Path { //相同路径可能是分裂或者提取的公共根
@@ -88,7 +87,6 @@ func (r *ServerRouter) add(method string, root *Node, Path string, fun ServletHa
 			aurora.InitError <- UrlPathError{Type: "路径注册", Path: Path, NodePath: root.Path, Message: "路径已存在，重复注册!", Method: method}
 		} else {
 			root.handle = fun
-			aurora.StartInfo <- message.UrlRegisterInfo{Path: path, Method: method}
 		}
 	}
 	//如果当前的节点是 REST API 节点 ，子节点可以添加REST API节点
@@ -131,7 +129,7 @@ func (r *ServerRouter) add(method string, root *Node, Path string, fun ServletHa
 					}
 				}
 				root.Child = append(root.Child, &Node{Path: c, Child: nil, handle: fun})
-				aurora.StartInfo <- message.UrlRegisterInfo{Path: path, Method: method}
+
 				return
 			}
 		}
@@ -172,7 +170,7 @@ func (r *ServerRouter) add(method string, root *Node, Path string, fun ServletHa
 				root.Child = append(root.Child, &Node{Path: c, Child: tempChild, handle: root.handle}) //封装被分裂的子节点 添加到当前根的子节点中
 				root.Path = root.Path[:i]                                                              //修改当前节点为添加的路径
 				root.handle = fun                                                                      //更改当前处理函数
-				aurora.StartInfo <- message.UrlRegisterInfo{Path: path, Method: method}
+
 				return
 			}
 		}
@@ -230,7 +228,6 @@ func Merge(method string, root *Node, Path string, fun ServletHandler, path stri
 			}
 		}
 		root.Path = pub //覆盖原有值设置公共根
-		aurora.StartInfo <- message.UrlRegisterInfo{Path: path, Method: method}
 		return true
 	}
 	return false
@@ -251,7 +248,7 @@ func FindPublicRoot(p1, p2 string) string {
 		s1 := p1[:index]
 		for i := len(s1); i > 0 && s1[i-1:i] != "/"; i-- { //从后往前检索到第一个 / 如果没有遇到 $ 则没有以取 REST API为公共根
 			if s1[i-1:i] == "$" {
-				logs.WebErrorLogger(" REST API 路径冲突 : " + s1)
+				fmt.Println(" REST API 路径冲突 : " + s1)
 				//panic("REST API 路径冲突")
 				os.Exit(-1)
 			}
@@ -351,7 +348,7 @@ func (r *ServerRouter) register(root *Node, path string, interceptor ...Intercep
 	psl := len(ps)
 	sub := ""
 	if psl < rsl {
-		logs.WebErrorLogger("访问路径不存在! 未注册 : " + path)
+		fmt.Println("访问路径不存在! 未注册 : " + path)
 		return
 	}
 	for i := 0; i < rsl; i++ { //解析当前路径和查找路径是否有相同部分
@@ -378,7 +375,7 @@ func (r *ServerRouter) register(root *Node, path string, interceptor ...Intercep
 				continue
 			}
 		}
-		logs.WebErrorLogger("访问路径不存在! 未注册 : " + path)
+		fmt.Println("访问路径不存在! 未注册 : " + path)
 		return
 	}
 	//此处修复 if sub=="" 为 if sub=="" && rsl==psl， /user/${name}/update  和 /user 类型情况下  /user 解析出 [""."user"],[""."user","xxx","update"],上面的检查
@@ -424,7 +421,7 @@ func (r *ServerRouter) register(root *Node, path string, interceptor ...Intercep
 				return
 			}
 		}
-		logs.WebErrorLogger(path, "拦截器注册失败")
+		fmt.Println(path, "拦截器注册失败")
 		return
 	}
 }
@@ -472,7 +469,7 @@ func (r ServerRouter) search(root *Node, path string, Args map[string]string, rw
 			proxy.Start() //开始执行
 			return        //执行结束
 		}
-		logs.WebErrorLogger("访问路径不存在! 未注册 : " + path)
+		fmt.Println("访问路径不存在! 未注册 : " + path)
 		return
 	}
 
@@ -482,7 +479,7 @@ func (r ServerRouter) search(root *Node, path string, Args map[string]string, rw
 	psl := len(ps)
 	sub := ""
 	if psl < rsl {
-		logs.WebErrorLogger("访问路径不存在! 未注册 : " + path)
+		fmt.Println("访问路径不存在! 未注册 : " + path)
 		return
 	}
 	for i := 0; i < rsl; i++ { //解析当前路径和查找路径是否有相同部分
@@ -509,7 +506,7 @@ func (r ServerRouter) search(root *Node, path string, Args map[string]string, rw
 				continue
 			}
 		}
-		logs.WebErrorLogger("访问路径不存在! 未注册 : " + path)
+		fmt.Println("访问路径不存在! 未注册 : " + path)
 		return
 	}
 	//此处修复 if sub=="" 为 if sub=="" && rsl==psl， /user/${name}/update  和 /user 类型情况下  /user 解析出 [""."user"],[""."user","xxx","update"],上面的检查
@@ -558,7 +555,7 @@ func (r ServerRouter) search(root *Node, path string, Args map[string]string, rw
 				return
 			}
 		}
-		logs.WebErrorLogger("访问路径不存在! 未注册 : " + path)
+		fmt.Println("访问路径不存在! 未注册 : " + path)
 		return
 	}
 }
@@ -571,6 +568,8 @@ func (a *Aurora) ServeHTTP(rw http.ResponseWriter, req *http.Request) {
 		http.NotFound(rw, req)
 		return
 	}
+	//resourceHeadMap :=make(map[string]string)
+	//RequestHead(rw,req)
 	if index := strings.LastIndex(mapping, "."); index != -1 { //静态资源处理
 		t := mapping[index+1:]            //截取资源类型,（图片类型存在不同，待解决）
 		paths, ok := a.resourceMapping[t] //资源对应的路径映射
@@ -593,4 +592,11 @@ func (a *Aurora) ServeHTTP(rw http.ResponseWriter, req *http.Request) {
 // RegisterServlet 注册器
 func RegisterServlet(method string, mapping string, fun ServletHandler) {
 	aurora.Router.addRoute(method, mapping, fun)
+}
+
+func RequestHead(rw http.ResponseWriter, req *http.Request) {
+	//读取请求头
+	Accept := req.Header.Get("Accept")
+	AcceptList := strings.Split(Accept, ",")
+	fmt.Println(AcceptList)
 }

@@ -1,8 +1,7 @@
 package aurora
 
 import (
-	"github.com/awensir/Aurora/logs"
-	"github.com/awensir/Aurora/message"
+	"fmt"
 	"io/ioutil"
 	"net/http"
 	"os"
@@ -58,7 +57,7 @@ func SendResource(w http.ResponseWriter, data []byte) {
 	}
 	_, err := w.Write(data)
 	if err != nil {
-		logs.WebErrorLogger(err.Error())
+		fmt.Println(err.Error())
 		return
 	}
 }
@@ -70,7 +69,7 @@ func readResource(path string) []byte {
 	} else {
 		if os.IsNotExist(err) {
 			//logs.Errors(err.Error())
-			logs.WebErrorLogger(path + " 资源读取不存在!")
+			fmt.Println(err.Error())
 		}
 	}
 	return nil
@@ -90,7 +89,6 @@ func RegisterResourceType(t string, paths ...string) {
 		if paths[i][pl-1:] != "/" {
 			paths[i] = paths[i] + "/"
 		}
-		aurora.StartInfo <- message.ResourceInfo{Type: t, Path: aurora.resource + paths[i]}
 	}
 	aurora.resourceMapping[t] = paths
 }
