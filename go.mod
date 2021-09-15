@@ -1,3 +1,3 @@
-module Aurora
+module github.com/awensir/Aurora
 
-go 1.16
+go 1.17
