@@ -1,12 +1,11 @@
 package main
 
 import (
-	"Aurora/aurora"
-	"Aurora/aurora/start"
-	"Aurora/config"
-	"Aurora/request/get"
+	"github.com/awensir/Aurora/aurora"
+	"github.com/awensir/Aurora/aurora/start"
+	"github.com/awensir/Aurora/config"
+	"github.com/awensir/Aurora/request/get"
 )
-
 func main() {
 	config.Resource("js", "js", "test")
 
