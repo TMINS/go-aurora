@@ -2,11 +2,9 @@ package aurora
 
 import (
 	"context"
-	"fmt"
 	"github.com/awensir/Aurora/logs"
 	"github.com/awensir/Aurora/message"
 	"github.com/awensir/Aurora/uuid"
-	"io/ioutil"
 	"net"
 	"net/http"
 	"os"
@@ -128,7 +126,7 @@ func startLoading() {
 
 	//启动日志
 	go func(aurora *Aurora) {
-		getwd, err := os.Getwd()
+		/*getwd, err := os.Getwd()
 		if err != nil {
 			logs.WebErrorLogger(err.Error())
 			return
@@ -138,7 +136,7 @@ func startLoading() {
 			logs.WebErrorLogger(err.Error())
 			return
 		}
-		fmt.Printf("%s \n\r", string(open))
+		fmt.Printf("%s \n\r", string(open))*/
 		for true {
 			select {
 			case msg := <-aurora.StartInfo: //启动日志
