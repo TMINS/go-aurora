@@ -1,7 +1,7 @@
 package config
 
 import (
-	"Aurora/aurora"
+	"github.com/awensir/Aurora/aurora"
 )
 
 /*
@@ -14,7 +14,7 @@ func Interceptor(interceptor ...aurora.Interceptor) {
 }
 
 // DefaultInterceptor 修改默认拦截器
-func DefaultInterceptor(interceptor aurora.Interceptor)  {
+func DefaultInterceptor(interceptor aurora.Interceptor) {
 	aurora.RegisterDefaultInterceptor(interceptor)
 }
 

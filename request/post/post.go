@@ -1,7 +1,7 @@
 package post
 
 import (
-	"Aurora/aurora"
+	"github.com/awensir/Aurora/aurora"
 	"net/http"
 )
 

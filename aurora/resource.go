@@ -1,8 +1,8 @@
 package aurora
 
 import (
-	"Aurora/logs"
-	"Aurora/message"
+	"github.com/awensir/Aurora/logs"
+	"github.com/awensir/Aurora/message"
 	"io/ioutil"
 	"net/http"
 	"os"
