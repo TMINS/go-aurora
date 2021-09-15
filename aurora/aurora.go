@@ -24,6 +24,11 @@ import (
 		- 响应解析
 */
 func init() {
+	getwd, err := os.Getwd()
+	if err != nil {
+		return
+	}
+	fmt.Println(getwd)
 	logs.LoadWebLog(&logs.WebLogs{logs.Log{Head: "Aurora"}}) //初始化日志
 	startLoading()                                           //开启路由加载监听
 }
@@ -122,7 +127,12 @@ func startLoading() {
 
 	//启动日志
 	go func(aurora *Aurora) {
-		open, err := ioutil.ReadFile("aurora/start.txt")
+		getwd, err := os.Getwd()
+		if err != nil {
+			logs.WebErrorLogger(err.Error())
+			return
+		}
+		open, err := ioutil.ReadFile(getwd + "\\aurora\\start.txt")
 		if err != nil {
 			logs.WebErrorLogger(err.Error())
 			return
