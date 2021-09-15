@@ -2,11 +2,9 @@ package aurora
 
 import (
 	"context"
-	"fmt"
 	"github.com/awensir/Aurora/logs"
 	"github.com/awensir/Aurora/message"
 	"github.com/awensir/Aurora/uuid"
-	"io/ioutil"
 	"net"
 	"net/http"
 	"os"
@@ -24,11 +22,11 @@ import (
 		- 响应解析
 */
 func init() {
-	getwd, err := os.Getwd()
+	projectRoot, err := os.Getwd()
 	if err != nil {
 		return
 	}
-	fmt.Println(getwd)
+	aurora.projectRoot = projectRoot
 	logs.LoadWebLog(&logs.WebLogs{logs.Log{Head: "Aurora"}}) //初始化日志
 	startLoading()                                           //开启路由加载监听
 }
@@ -60,7 +58,8 @@ var aurora = &Aurora{
 type Aurora struct {
 	rw              sync.RWMutex
 	Port            string
-	Router          ServerRouter         //服务管理
+	Router          ServerRouter //服务管理
+	projectRoot     string
 	resource        string               //静态资源管理 默认为 root 目录
 	resourceMapping map[string][]string  //静态资源映射路径标识
 	InitError       chan error           //路由器级别错误通道 一旦初始化出错，则结束服务，检查配置
@@ -127,7 +126,7 @@ func startLoading() {
 
 	//启动日志
 	go func(aurora *Aurora) {
-		getwd, err := os.Getwd()
+		/*getwd, err := os.Getwd()
 		if err != nil {
 			logs.WebErrorLogger(err.Error())
 			return
@@ -137,7 +136,7 @@ func startLoading() {
 			logs.WebErrorLogger(err.Error())
 			return
 		}
-		fmt.Printf("%s \n\r", string(open))
+		fmt.Printf("%s \n\r", string(open))*/
 		for true {
 			select {
 			case msg := <-aurora.StartInfo: //启动日志
