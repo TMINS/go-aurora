@@ -1,6 +1,6 @@
 package start
 
-import "Aurora/aurora"
+import "github.com/awensir/Aurora/aurora"
 
 func Running(port string) {
 	aurora.RunApplication(port)
