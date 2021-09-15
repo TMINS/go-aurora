@@ -6,7 +6,7 @@ Aurora
 
 ## 简介
 
-​		框架特点，简单易配置，通过包名对服务器中的各种属性进行设置，甚至不需要初始化任何变量，开发者可以专注的处理业。对请求返回值的处理也更加灵活，约定自动返回json格式，也可以进行视图解析加载给浏览器。自定义的错误机制可以让业务逻辑中经可能减少err的判空，也可以对专属错误进行可控的提示响应给浏览器。官方交流群:836414068，备注hub
+​		框架特点，简单易配置，通过包名对服务器中的各种属性进行设置，甚至不需要初始化任何变量，开发者可以专注的处理业。对请求返回值的处理也更加灵活，约定自动返回json格式，也可以进行视图解析加载给浏览器。自定义的错误机制可以让业务逻辑中经可能减少err的判空，也可以对专属错误进行可控的提示响应给浏览器。官方交流群:836414068，备注hub，部分功能不完善使用过程中有任何疑问可以添加QQ：1219449282，微信：Saber__o，备注hub，即可。
 
 ## 路由注册
 
@@ -39,8 +39,8 @@ aurora路由设计规则如下：
 
 管理服务器启动期间注册的Web服务，服务将分别存放到各自类型的服务容器中，Aurora中的路由管理默认提供两种方式，get和post请求。后续会支持更多的请求方式
 
-- Get
-- Post
+- get
+- post
 
 服务处理函数签名：
 
@@ -81,11 +81,19 @@ aurora路由设计规则如下：
 
   path：是一个页面路径，约定必须以 / 开头，path一定是静态资源目录下开始的路径，一般是返回html页面
 
+- string
+
+  string：非特殊情况是作为字符串直接响应给浏览器。特殊情况包括（页面响应，服务转发）
+
 - error
 
   error：返回一个错误(对错误的处理暂定直接发送浏览器json串)
 
   页面响应对模板的支持还在设计中，预计只是对golang的模板语法简单的封装一下，还是尽可能的以json方式为主。
+  
+- nil
+
+  nil：主要处理api 形式的服务转发，服务器对所有的nil业务结果不做任何处理，非服务转发api 请谨慎使用nil作为业务结果返回值。
 
 
 
@@ -131,11 +139,11 @@ func main() {
 
 ```go
 //t 静态资源类型，paths为对应静态资源下的路径，对于图片的资源处理，还在优化
-func RegisterResource(t string,paths ...string) 
+func Resource(t string,paths ...string) 
 
 func main() {
     //设置js文件的静态资源路径
-	config.RegisterResource("js","js")
+	config.Resource("js","js")
 	get.Mapping("/", func(ctx *aurora.Context) interface{} {
 
 		return "/html/index.html"
@@ -154,7 +162,7 @@ func main() {
 
 ```go
 func main() {
-	config.RegisterResource("js","js")
+	config.Resource("js","js")
 	
 	//更改默认静态资源根路径为resource
 	config.ResourceRoot("resource")
@@ -189,8 +197,6 @@ get.Mapping("/user/${name}/${age}", func(ctx *aurora.Context) interface{} {
 	})
 ```
 
-
-
 请求转发，支持2中方式，ctx api调用和返回值转发，api调用转发，可以选择本服务返回nil作为结果返回，真实处理交给转发者返回给浏览器，或者返回值转发服务，两者转发的格式遵循路由注册的url方式，理论上是可以支持RAST API转发，但是不推荐。
 
 ```go
@@ -216,7 +222,7 @@ func main() {
 }
 ```
 
-
+上下文对象没有对原始的web api做封装，但是提供了暴露了请求体和响应体。给开发者使用，后续会逐渐完善。web的请求处理可以完全按照go web的方式进行，把页面响应交给框架即可，同时对浏览器响应信息可能导致冲突，但是响应头的设置不会有所影响。
 
 ## 拦截器
 
@@ -259,8 +265,8 @@ func (de DefaultInterceptor) AfterCompletion(ctx *Context)  {
 
 ```go
 func main() {
-    //RegisterInterceptor添加全局拦截器
-	config.RegisterInterceptor(MyInterceptor1{})
+    //Interceptor添加全局拦截器
+	config.Interceptor(MyInterceptor1{})
 	post.Mapping("/", func(ctx *aurora.Context) interface{} {
 		var body Body
 		ctx.PostBody(&body)
@@ -275,9 +281,9 @@ func main() {
 
 		return "/abc"
 	})
-	config.RegisterPathInterceptor("/abc",MyInterceptor2{})
+	config.PathInterceptor("/abc",MyInterceptor2{})
 
-	config.RegisterPathInterceptor("/",MyInterceptor3{})
+	config.PathInterceptor("/",MyInterceptor3{})
 
 	aurora.RunApplication("8080")
 }
@@ -316,11 +322,11 @@ func main() {
     
     // /abc/* 只能匹配以/abc/结尾的父路径，即/abc 这个路径是不能被 MyInterceptor2所拦截的，如果有需要只能在加一个
     // 例如多加一个config.RegisterPathInterceptor("/abc", MyInterceptor2{}) 即可
-	config.RegisterPathInterceptor("/abc/*", MyInterceptor2{})
+	config.PathInterceptor("/abc/*", MyInterceptor2{})
 
-	config.RegisterPathInterceptor("/", MyInterceptor3{})
+	config.PathInterceptor("/", MyInterceptor3{})
 
-	config.RegisterPathInterceptor("/abc/bbc/aaa", MyInterceptor4{})
+	config.PathInterceptor("/abc/bbc/aaa", MyInterceptor4{})
 
 	aurora.RunApplication("8080")
 }

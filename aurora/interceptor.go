@@ -1,7 +1,6 @@
 package aurora
 
 import (
-	"fmt"
 	"time"
 )
 
@@ -24,7 +23,7 @@ type DefaultInterceptor struct {
 }
 
 func (de DefaultInterceptor) PreHandle(ctx *Context) bool {
-	de.t=time.Now()
+
 	return true
 }
 
@@ -33,9 +32,7 @@ func (de DefaultInterceptor) PostHandle(ctx *Context) {
 }
 
 func (de DefaultInterceptor) AfterCompletion(ctx *Context) {
-	t2:=time.Now()
-	d:=t2.Sub(de.t)
-	fmt.Println(d)
+
 }
 
 // InterceptorData 实现拦截器压栈出栈功能
