@@ -1,7 +1,7 @@
 package aurora
 
 import (
-	"github.com/awensir/Aurora/logs"
+	"fmt"
 	"net/http"
 	"reflect"
 	"strings"
@@ -206,7 +206,7 @@ func (sp *ServletProxy) ResultHandler() {
 		return
 	case error:
 		//直接返回错误处理
-		logs.WebRequestError(sp.result.(error).Error())
+		fmt.Println(sp.result.(error).Error())
 		return
 	case nil:
 		//对结果不做出处理

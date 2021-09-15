@@ -2,7 +2,7 @@ package aurora
 
 import (
 	"context"
-	"github.com/awensir/Aurora/logs"
+	"fmt"
 	"github.com/awensir/Aurora/message"
 	"github.com/awensir/Aurora/uuid"
 	"net"
@@ -27,8 +27,7 @@ func init() {
 		return
 	}
 	aurora.projectRoot = projectRoot
-	logs.LoadWebLog(&logs.WebLogs{logs.Log{Head: "Aurora"}}) //初始化日志
-	startLoading()                                           //开启路由加载监听
+	startLoading() //开启路由加载监听
 }
 
 //
@@ -105,12 +104,15 @@ func CreateConText(listener net.Listener) context.Context {
 	p := context.TODO()
 	vCtx := context.WithValue(p, key, listener)
 	aurora.Ctx, aurora.Cancel = context.WithCancel(vCtx) //重新封装上下文，把连接对象保存在上下文中，在次之前使用aurora.Ctx 将可能无法释放资源
-	aurora.StartInfo <- message.StartSuccessful{Port: aurora.Port}
+
 	return aurora.Ctx
 }
 
 // SetResourceRoot 设置静态资源根路径
 func SetResourceRoot(root string) {
+	if root == "" { //不允许设置""
+		return
+	}
 	rl := len(root)
 	if root[:1] == "/" {
 		root = root[1:]
@@ -126,24 +128,21 @@ func startLoading() {
 
 	//启动日志
 	go func(aurora *Aurora) {
-		/*getwd, err := os.Getwd()
-		if err != nil {
-			logs.WebErrorLogger(err.Error())
-			return
-		}
-		open, err := ioutil.ReadFile(getwd + "\\aurora\\start.txt")
-		if err != nil {
-			logs.WebErrorLogger(err.Error())
-			return
-		}
-		fmt.Printf("%s \n\r", string(open))*/
+		/*
+				/\
+			   /  \  _   _ _ __ ___  _ __ __ _
+			  / /\ \| | | | '__/ _ \| '__/ _` |
+			 / ____ \ |_| | | | (_) | | | (_| |
+			/_/    \_\__,_|_|  \___/|_|  \__,_|
+			  :: Aurora ::   (v0.0.1.RELEASE)
+		*/
+
 		for true {
 			select {
-			case msg := <-aurora.StartInfo: //启动日志
-				logs.WebLogger(msg.ToString())
+			case <-aurora.StartInfo: //启动日志，暂时不做处理
 
 			case err := <-aurora.InitError: //启动初始化错误处理
-				logs.WebErrorLogger(err.Error())
+				fmt.Println(err.Error())
 				os.Exit(-1) //结束程序
 			}
 		}
@@ -163,7 +162,6 @@ func startLoading() {
 						if t.After(s.MaxAge) {
 							//session过期 删除
 							delete(sessionMap, k)
-							logs.Info("销毁session ：", k)
 						}
 					}
 					aurora.rw.Unlock()
