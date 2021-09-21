@@ -41,6 +41,9 @@ aurora路由设计规则如下：
 
 - get
 - post
+- put
+- delete
+- head
 
 服务处理函数签名：
 
@@ -57,16 +60,33 @@ aurora路由设计规则如下：
 通过包名对不同类型的请求进行注册
 
 ```go
-	//get请求
-	get.Mapping("/", func(ctx *aurora.Context) interface{} {
-		
-		return "/html/index.html"
-	})
-	//post请求
-	post.Mapping("/", func(ctx *aurora.Context) interface{} {
+	func main() {
+        config.Resource("js", "js", "test")
 
-		return "/html/index.html"
-	})
+        //get
+        get.Mapping("/", func(ctx *aurora.Context) interface{} {
+
+            return "/html/index.html"
+        })
+        //post
+        post.Mapping("/", func(ctx *aurora.Context) interface{} {
+
+            return "/html/index.html"
+        })
+        //put
+        put.Mapping("/", func(ctx *aurora.Context) interface{} {
+
+            return "/html/index.html"
+        })
+        //delete
+        delet.Mapping("/", func(ctx *aurora.Context) interface{} {
+
+            return "/html/index.html"
+        })
+
+        start.Running("8080")
+}
+
 ```
 
 ## 请求处理
@@ -127,7 +147,7 @@ func main() {
 
 ```
 
-错误处理，中需要避免再次返回处理者本身的类型，会造成死循环，无限递归最终栈溢出。请求处理的返回值同样适用于错误处理的返回值
+***错误处理，中需要避免再次返回处理者本身的类型，会造成死循环，无限递归最终栈溢出。请求处理的返回值同样适用于错误处理的返回值***
 
 ## 静态资源
 
