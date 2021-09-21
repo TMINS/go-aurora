@@ -34,6 +34,11 @@ func init() {
 	resourceMapType["css"] = "text/css"
 	resourceMapType["html"] = "text/html"
 	resourceMapType["encoding"] = "charset=utf-8"
+	resourceMapType["gif"] = "image/gif"
+	resourceMapType["png"] = "image/png"
+	resourceMapType["svg"] = "image/svg+xml"
+	resourceMapType["webp"] = "image/webp"
+	resourceMapType["ico"] = "image/x-icon"
 }
 
 const ContentType = "Content-Type"
@@ -42,11 +47,14 @@ var resourceMapType = make(map[string]string) //预置静态资源对应的请�
 
 // Resource w 响应体，path 资源真实路径，rt资源类型
 // 根据rt资源类型去找到对应的resourceMapType 存储的响应头，进行发送资源
-func Resource(w http.ResponseWriter, path string, rt string) {
+func Resource(w http.ResponseWriter, req *http.Request, path string, rt string) {
 	data := readResource(path)
 	if data != nil {
 		w.Header().Set(ContentType, resourceMapType[rt])
 		SendResource(w, data)
+	} else {
+		//读取失败表示资源不存在
+		http.NotFound(w, req)
 	}
 }
 

@@ -564,10 +564,10 @@ func (r ServerRouter) search(root *Node, path string, Args map[string]string, rw
 
 func (a *Aurora) ServeHTTP(rw http.ResponseWriter, req *http.Request) {
 	mapping := req.RequestURI
-	if mapping == "/favicon.ico" {
+	/*if mapping == "/favicon.ico" {
 		http.NotFound(rw, req)
 		return
-	}
+	}*/
 	//resourceHeadMap :=make(map[string]string)
 	//RequestHead(rw,req)
 	if index := strings.LastIndex(mapping, "."); index != -1 { //静态资源处理
@@ -582,7 +582,7 @@ func (a *Aurora) ServeHTTP(rw http.ResponseWriter, req *http.Request) {
 				mp = mapping[i:] //找到匹配的一条映射,截取到真实资源路径
 			}
 		}
-		Resource(rw, mp, t)
+		Resource(rw, req, mp, t)
 		return
 	}
 
