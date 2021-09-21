@@ -1,4 +1,4 @@
-package delete
+package delet
 
 import (
 	"github.com/awensir/Aurora/aurora"

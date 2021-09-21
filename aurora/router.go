@@ -564,12 +564,6 @@ func (r ServerRouter) search(root *Node, path string, Args map[string]string, rw
 
 func (a *Aurora) ServeHTTP(rw http.ResponseWriter, req *http.Request) {
 	mapping := req.RequestURI
-	/*if mapping == "/favicon.ico" {
-		http.NotFound(rw, req)
-		return
-	}*/
-	//resourceHeadMap :=make(map[string]string)
-	//RequestHead(rw,req)
 	if index := strings.LastIndex(mapping, "."); index != -1 { //静态资源处理
 		t := mapping[index+1:]            //截取资源类型,（图片类型存在不同，待解决）
 		paths, ok := a.resourceMapping[t] //资源对应的路径映射
@@ -585,7 +579,6 @@ func (a *Aurora) ServeHTTP(rw http.ResponseWriter, req *http.Request) {
 		Resource(rw, req, mp, t)
 		return
 	}
-
 	a.Router.SearchPath(req.Method, req.URL.Path, rw, req, nil) //初始一个nil ctx
 }
 
