@@ -340,8 +340,8 @@ func main() {
 		return "/"
 	})
     
-    // /abc/* 只能匹配以/abc/结尾的父路径，即/abc 这个路径是不能被 MyInterceptor2所拦截的，如果有需要只能在加一个
-    // 例如多加一个config.RegisterPathInterceptor("/abc", MyInterceptor2{}) 即可
+    // /abc/* 只能匹配以/abc/结尾的父路径以及 /abc 本身
+    // 如果继续单独添加config.RegisterPathInterceptor("/abc", MyInterceptor2{}) 配置访问/abc 会被两个配置分别拦截，两种方式不冲突
 	config.PathInterceptor("/abc/*", MyInterceptor2{})
 
 	config.PathInterceptor("/", MyInterceptor3{})
@@ -355,6 +355,30 @@ func main() {
 注意事项：通配符配置拦截器，只支持 /xxx/* ,xxx是具体完整的父路径，不支持使用*来切割子路径进行匹配
 
 局部拦截器，依赖于路由树，所以注册局部拦截器时候必须等待路由注册完毕才能正常注册成功，全局则不需要依赖于路由树。
+
+aurora也支持go web 最常用的中间件编写处理
+
+```go
+func Test(ctx *aurora.Context) interface{} {
+	return "test"
+}
+func main() {
+	config.Resource("js", "js", "test")
+
+	get.Mapping("/", func (next aurora.Servlet) aurora.Servlet {
+		return func(ctx *aurora.Context) interface{} {
+			fmt.Println("before")
+			v:=next(ctx)
+			fmt.Println("after")
+			return v
+		}
+	}(Test))
+
+	start.Running("8080")
+}
+```
+
+
 
 ## session机制（不完善）
 

@@ -27,21 +27,17 @@ func init() {
 		return
 	}
 	aurora.projectRoot = projectRoot
-	startLoading() //开启路由加载监听
+	aurora.sessionMap = make(map[string]*Session)
+	aurora.interceptorList = []Interceptor{
+		0: DefaultInterceptor{},
+	}
+	aurora.SessionCreate = uuid.NewWorker(1, 1) //sessionId生成器
+	startLoading()                              //开启路由加载监听
 }
 
-//
 var ctx, cancel = context.WithCancel(context.TODO())
 
 type CtxListenerKey string
-
-//全局管理
-var sessionMap = make(map[string]*Session)
-
-// InterceptorList 全局拦截器，第一个初始化默认拦截器，默认拦截器可替换
-var interceptorList = []Interceptor{
-	0: DefaultInterceptor{},
-} //后期需要更改权限提供一个接口给config包调用
 
 var sessionIdCreater = uuid.NewWorker(1, 1) //sessionId生成器
 // 全局路由器
@@ -56,15 +52,18 @@ var aurora = &Aurora{
 
 type Aurora struct {
 	rw              sync.RWMutex
-	Port            string
-	Router          ServerRouter //服务管理
-	projectRoot     string
+	Port            string               //服务端口号
+	Router          ServerRouter         //路由服务管理
 	resource        string               //静态资源管理 默认为 root 目录
 	resourceMapping map[string][]string  //静态资源映射路径标识
 	InitError       chan error           //路由器级别错误通道 一旦初始化出错，则结束服务，检查配置
 	StartInfo       chan message.Message //输出启动信息
 	Ctx             context.Context      //服务器顶级上下文，通过此上下文可以跳过web 上下文去开启纯净的子go程
 	Cancel          func()
+	projectRoot     string              //项目根路径
+	interceptorList []Interceptor       //全局拦截器
+	sessionMap      map[string]*Session //全局session管理
+	SessionCreate   *uuid.Worker        //session id 生成器
 }
 
 // RunApplication 启动服务器
@@ -89,13 +88,13 @@ func RunApplication(port string) {
 func RegisterInterceptorList(interceptor ...Interceptor) {
 	//追加全局拦截器
 	for _, v := range interceptor {
-		interceptorList = append(interceptorList, v)
+		aurora.interceptorList = append(aurora.interceptorList, v)
 	}
 }
 
 // RegisterDefaultInterceptor 提供修改默认顶级拦截器
 func RegisterDefaultInterceptor(interceptor Interceptor) {
-	interceptorList[0] = interceptor
+	aurora.interceptorList[0] = interceptor
 }
 
 // CreateConText 提供web自定义父级上下文
@@ -155,13 +154,13 @@ func startLoading() {
 		for true {
 			select {
 			case t := <-Ticker.C:
-				if len(sessionMap) > 0 {
+				if len(aurora.sessionMap) > 0 {
 					aurora.rw.Lock()
-					for k, _ := range sessionMap {
-						s := sessionMap[k]
+					for k, _ := range aurora.sessionMap {
+						s := aurora.sessionMap[k]
 						if t.After(s.MaxAge) {
 							//session过期 删除
-							delete(sessionMap, k)
+							delete(aurora.sessionMap, k)
 						}
 					}
 					aurora.rw.Unlock()

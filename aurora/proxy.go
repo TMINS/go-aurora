@@ -17,7 +17,7 @@ type ServletProxy struct {
 	args           map[string]string //REST API 参数解析
 	ctx            *Context          //上下文
 	result         interface{}       //业务结果
-	Interceptor    bool
+	Interceptor    bool              //是否放行拦截器
 
 	ExecuteStack, AfterStack *InterceptorStack // ExecuteStack,AfterStack 全局拦截器
 
@@ -44,8 +44,8 @@ func (sp *ServletProxy) Before() {
 	defer func(ctx *Context, sp *ServletProxy) {
 		//处理全局拦截器和局部拦截器之前，临时构造一个拦截器执行序列
 
-		if len(interceptorList) > 0 { //全局拦截器
-			for _, v := range interceptorList { //依次执行注册过的 拦截器
+		if len(aurora.interceptorList) > 0 { //全局拦截器
+			for _, v := range aurora.interceptorList { //依次执行注册过的 拦截器
 				if sp.Interceptor = v.PreHandle(ctx); !sp.Interceptor { //如果返回false 则终止
 					//清空拦截器栈，释放资源
 					break //拦截器不放行,后续拦截器也不再执行
@@ -93,7 +93,7 @@ func (sp *ServletProxy) Before() {
 func (sp *ServletProxy) Execute() {
 
 	defer func(ctx *Context, sp *ServletProxy) {
-		if len(interceptorList) > 0 { //全局拦截器
+		if len(aurora.interceptorList) > 0 { //全局拦截器
 			for {
 				if f := sp.ExecuteStack.Pull(); f != nil {
 					f.PostHandle(ctx)
@@ -129,7 +129,7 @@ func (sp *ServletProxy) Execute() {
 func (sp *ServletProxy) After() {
 
 	defer func(ctx *Context, sp *ServletProxy) {
-		if len(interceptorList) > 0 { //全局拦截器
+		if len(aurora.interceptorList) > 0 { //全局拦截器
 			for {
 				if f := sp.AfterStack.Pull(); f != nil {
 					f.AfterCompletion(ctx)
