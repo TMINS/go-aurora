@@ -38,18 +38,18 @@ func (s Servlet) ServletHandler(ctx *Context) interface{} {
 	return s(ctx)
 }
 
-// Node 路由节点
-type Node struct {
-	Path      string         //当前路径
-	handle    ServletHandler //服务处理函数
-	Child     []*Node        //子节点
-	InterList []Interceptor  //当前路径拦截链，默认为空
-	TreeInter []Interceptor  //路径匹配拦截器，默认为空
-}
-
 // ServerRouter Aurora核心路由器
 type ServerRouter struct {
 	tree map[string]*Node
+}
+
+// Node 路由节点
+type Node struct {
+	Path      string         //当前节点路径
+	handle    ServletHandler //服务处理函数
+	Child     []*Node        //子节点
+	InterList []Interceptor  //当前路径拦截链，默认为空，只要经过该路径，就
+	TreeInter []Interceptor  //路径匹配拦截器，默认为空
 }
 
 // addRoute 预处理被添加路径
@@ -328,7 +328,7 @@ func (r *ServerRouter) register(root *Node, path string, interceptor ...Intercep
 		return
 	}
 
-	if root.Path == path[:len(path)-1] || root.Path == path { //当前路径处理匹配成功  root.Path == path[:len(path)-2]用于匹配  /* 通配拦截器
+	if root.Path == path[:len(path)-1] || root.Path == path || root.Path == path[:len(path)-2] { //当前路径处理匹配成功  root.Path == path[:len(path)-2]用于匹配  /* 通配拦截器
 		if path[len(path)-1:] == "*" { //检测是否是通配拦截器，通配拦截器可以放在没有处理函数的路上
 			//注册匹配路径
 			root.TreeInter = interceptor
@@ -438,7 +438,7 @@ func (r ServerRouter) SearchPath(method, path string, rw http.ResponseWriter, re
 	}
 }
 
-// Search 路径查找，参数和 SearchPath意义 一致， Args map主要用于存储解析REST API路径参数，默认传nil
+// Search 路径查找，参数和 SearchPath意义 一致， Args map主要用于存储解析REST API路径参数，默认传nil,Interceptor拦截器可变参数，用于生成最终拦截链
 func (r ServerRouter) search(root *Node, path string, Args map[string]string, rw http.ResponseWriter, req *http.Request, ctx *Context, Interceptor ...Interceptor) {
 	if root == nil {
 		return

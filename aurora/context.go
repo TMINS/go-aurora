@@ -61,7 +61,7 @@ func (c *Context) GetSession() *Session {
 			}
 			IdValue := strconv.FormatUint(id, 10)
 			session = NewSession(IdValue)
-			sessionMap[IdValue] = session
+			aurora.sessionMap[IdValue] = session
 		}
 		aurora.rw.Unlock()
 		c.Response.Header().Set("Set-Cookie", session.cookie.String()) //设置即将响应的响应头，发送给浏览器
@@ -71,8 +71,8 @@ func (c *Context) GetSession() *Session {
 		return session
 	} else {
 		aurora.rw.RLock()
-		session, _ := sessionMap[cookie.Value] //可能存在bug 如果伪造session这里就会出现问题***待解决
-		session.Keep()                         //重置session存活时间以保持连接
+		session, _ := aurora.sessionMap[cookie.Value] //可能存在bug 如果伪造session这里就会出现问题***待解决
+		session.Keep()                                //重置session存活时间以保持连接
 		aurora.rw.RUnlock()
 		h := c.Response.Header()
 		if h.Get("Set-Cookie") != "" { //避免设置两次session cookie
