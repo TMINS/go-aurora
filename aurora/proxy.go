@@ -166,6 +166,7 @@ func (sp *ServletProxy) Init() {
 		sp.ctx = &Context{}
 		sp.ctx.Request = sp.req
 		sp.ctx.Response = sp.rew
+		sp.ctx.rw = &sync.RWMutex{}
 		if sp.args != nil {
 			sp.ctx.args = sp.args
 		}
@@ -178,7 +179,8 @@ func (sp *ServletProxy) ResultHandler() {
 		path := sp.result.(string)
 		//处理普通页面响应
 		if strings.HasSuffix(path, ".html") {
-			SendResource(sp.rew, readResource(path)) //直接响应 html 页面
+			//SendResource(sp.rew, readResource(path)) //直接响应 html 页面
+			aurora.vw(sp.ctx, path)
 			return
 		}
 		//处理重定向
@@ -189,7 +191,6 @@ func (sp *ServletProxy) ResultHandler() {
 		}
 		//处理字符串输出
 		sp.ctx.JSON(sp.result)
-
 	case WebResponseError:
 		//处理自定义错误处理器
 		v := reflect.ValueOf(sp.result)

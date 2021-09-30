@@ -2,7 +2,9 @@ package aurora
 
 import (
 	"fmt"
+	"html/template"
 	"io/ioutil"
+	"log"
 	"net/http"
 	"os"
 )
@@ -43,6 +45,12 @@ func init() {
 
 const ContentType = "Content-Type"
 
+type Views interface {
+	View(*Context, string)
+}
+
+type ViewFunc func(*Context, string)
+
 // Resource w 响应体，path 资源真实路径，rt资源类型
 // 根据rt资源类型去找到对应的resourceMapType 存储的响应头，进行发送资源
 func Resource(w http.ResponseWriter, req *http.Request, path string, rt string) {
@@ -70,7 +78,7 @@ func SendResource(w http.ResponseWriter, data []byte) {
 
 // readResource 读取成功则返回结果，失败则返回nil
 func readResource(path string) []byte {
-	if f, err := ioutil.ReadFile(aurora.projectRoot + "/" + aurora.resource + path); err == nil {
+	if f, err := ioutil.ReadFile(aurora.ProjectRoot + "/" + aurora.Resource + path); err == nil {
 		return f
 	} else {
 		if os.IsNotExist(err) {
@@ -97,4 +105,18 @@ func RegisterResourceType(t string, paths ...string) {
 		}
 	}
 	aurora.resourceMapping[t] = paths
+}
+
+// DefaultView 默认视图解析
+func DefaultView(ctx *Context, html string) {
+	parseFiles, err := template.ParseFiles(aurora.ProjectRoot + "/" + aurora.Resource + html)
+	if err != nil {
+		log.Fatal(err.Error())
+		return
+	}
+	err = parseFiles.Execute(ctx.Response, ctx.Attribute)
+	if err != nil {
+		log.Fatal(err.Error())
+		return
+	}
 }

@@ -26,7 +26,7 @@ func init() {
 	if err != nil {
 		return
 	}
-	aurora.projectRoot = projectRoot
+	aurora.ProjectRoot = projectRoot
 	aurora.sessionMap = make(map[string]*Session)
 	aurora.interceptorList = []Interceptor{
 		0: DefaultInterceptor{},
@@ -44,31 +44,33 @@ var sessionIdCreater = uuid.NewWorker(1, 1) //sessionId生成器
 var aurora = &Aurora{
 	Port:            "8080",
 	Router:          ServerRouter{},
-	resource:        "static", //设定资源默认存储路径
+	Resource:        "static", //设定资源默认存储路径
 	Ctx:             ctx,
 	Cancel:          cancel,
 	InitError:       make(chan error),
 	StartInfo:       make(chan message.Message),
 	sort:            Sort{First: make(chan struct{}), Second: make(chan struct{}), Finally: make(chan struct{})},
 	resourceMapType: make(map[string]string),
+	vw:              DefaultView,
 }
 
 type Aurora struct {
 	rw              sync.RWMutex
 	Port            string               //服务端口号
 	Router          ServerRouter         //路由服务管理
-	resource        string               //静态资源管理 默认为 root 目录
+	Resource        string               //静态资源管理 默认为 root 目录
 	resourceMapping map[string][]string  //静态资源映射路径标识
 	InitError       chan error           //路由器级别错误通道 一旦初始化出错，则结束服务，检查配置
 	StartInfo       chan message.Message //输出启动信息
 	Ctx             context.Context      //服务器顶级上下文，通过此上下文可以跳过web 上下文去开启纯净的子go程
 	Cancel          func()
-	projectRoot     string              //项目根路径
+	ProjectRoot     string              //项目根路径
 	interceptorList []Interceptor       //全局拦截器
 	sessionMap      map[string]*Session //全局session管理
 	SessionCreate   *uuid.Worker        //session id 生成器
 	resourceMapType map[string]string
 	sort            Sort
+	vw              ViewFunc //支持自定义视图渲染机制
 }
 
 type Sort struct {
@@ -130,12 +132,11 @@ func SetResourceRoot(root string) {
 	if root[rl-1:] == "/" {
 		root = root[:rl-1]
 	}
-	aurora.resource = root
+	aurora.Resource = root
 }
 
 // startLoading 启动加载
 func startLoading() {
-
 	//启动日志
 	go func(aurora *Aurora) {
 		/*
