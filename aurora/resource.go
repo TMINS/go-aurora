@@ -30,27 +30,25 @@ import (
 */
 func init() {
 	//预加载 头信息，根据结尾判别不同的响应头
-	resourceMapType["js"] = "text/javascript"
-	resourceMapType["css"] = "text/css"
-	resourceMapType["html"] = "text/html"
-	resourceMapType["encoding"] = "charset=utf-8"
-	resourceMapType["gif"] = "image/gif"
-	resourceMapType["png"] = "image/png"
-	resourceMapType["svg"] = "image/svg+xml"
-	resourceMapType["webp"] = "image/webp"
-	resourceMapType["ico"] = "image/x-icon"
+	aurora.resourceMapType["js"] = "text/javascript"
+	aurora.resourceMapType["css"] = "text/css"
+	aurora.resourceMapType["html"] = "text/html"
+	aurora.resourceMapType["encoding"] = "charset=utf-8"
+	aurora.resourceMapType["gif"] = "image/gif"
+	aurora.resourceMapType["png"] = "image/png"
+	aurora.resourceMapType["svg"] = "image/svg+xml"
+	aurora.resourceMapType["webp"] = "image/webp"
+	aurora.resourceMapType["ico"] = "image/x-icon"
 }
 
 const ContentType = "Content-Type"
-
-var resourceMapType = make(map[string]string) //预置静态资源对应的请求头
 
 // Resource w 响应体，path 资源真实路径，rt资源类型
 // 根据rt资源类型去找到对应的resourceMapType 存储的响应头，进行发送资源
 func Resource(w http.ResponseWriter, req *http.Request, path string, rt string) {
 	data := readResource(path)
 	if data != nil {
-		w.Header().Set(ContentType, resourceMapType[rt])
+		w.Header().Set(ContentType, aurora.resourceMapType[rt])
 		SendResource(w, data)
 	} else {
 		//读取失败表示资源不存在

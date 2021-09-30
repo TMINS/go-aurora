@@ -5,6 +5,7 @@ import (
 	"net/http"
 	"os"
 	"strings"
+	"sync"
 )
 
 /*
@@ -40,6 +41,7 @@ func (s Servlet) ServletHandler(ctx *Context) interface{} {
 
 // ServerRouter Aurora核心路由器
 type ServerRouter struct {
+	rw   *sync.Mutex
 	tree map[string]*Node
 }
 

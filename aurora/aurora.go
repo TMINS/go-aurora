@@ -42,12 +42,15 @@ type CtxListenerKey string
 var sessionIdCreater = uuid.NewWorker(1, 1) //sessionId生成器
 // 全局路由器
 var aurora = &Aurora{
-	Router:    ServerRouter{},
-	resource:  "static", //设定资源默认存储路径
-	Ctx:       ctx,
-	Cancel:    cancel,
-	InitError: make(chan error),
-	StartInfo: make(chan message.Message),
+	Port:            "8080",
+	Router:          ServerRouter{},
+	resource:        "static", //设定资源默认存储路径
+	Ctx:             ctx,
+	Cancel:          cancel,
+	InitError:       make(chan error),
+	StartInfo:       make(chan message.Message),
+	sort:            Sort{First: make(chan struct{}), Second: make(chan struct{}), Finally: make(chan struct{})},
+	resourceMapType: make(map[string]string),
 }
 
 type Aurora struct {
@@ -64,6 +67,14 @@ type Aurora struct {
 	interceptorList []Interceptor       //全局拦截器
 	sessionMap      map[string]*Session //全局session管理
 	SessionCreate   *uuid.Worker        //session id 生成器
+	resourceMapType map[string]string
+	sort            Sort
+}
+
+type Sort struct {
+	First   chan struct{}
+	Second  chan struct{}
+	Finally chan struct{}
 }
 
 // RunApplication 启动服务器
@@ -139,10 +150,15 @@ func startLoading() {
 		for true {
 			select {
 			case <-aurora.StartInfo: //启动日志，暂时不做处理
-
 			case err := <-aurora.InitError: //启动初始化错误处理
 				fmt.Println(err.Error())
 				os.Exit(-1) //结束程序
+			case <-aurora.sort.First:
+
+			case <-aurora.sort.Second:
+
+			case <-aurora.sort.Finally:
+
 			}
 		}
 	}(aurora)
