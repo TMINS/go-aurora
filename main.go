@@ -6,10 +6,18 @@ import (
 	"github.com/awensir/Aurora/aurora/start"
 	"github.com/awensir/Aurora/config"
 	"github.com/awensir/Aurora/request/get"
+	"sync"
 )
 
 func Test(ctx *aurora.Context) interface{} {
 	return "test"
+}
+
+func P(group *sync.WaitGroup, ch chan int) {
+	for v := range ch {
+		fmt.Println(v)
+		group.Done()
+	}
 }
 func main() {
 	config.Resource("js", "js", "test")
