@@ -51,7 +51,6 @@ var aurora = &Aurora{
 	StartInfo:       make(chan message.Message),
 	sort:            Sort{First: make(chan struct{}), Second: make(chan struct{}), Finally: make(chan struct{})},
 	resourceMapType: make(map[string]string),
-	vw:              DefaultView,
 }
 
 type Aurora struct {
@@ -91,6 +90,7 @@ func RunApplication(port string) {
 	}
 	aurora.Port = port
 	aurora.Router.OptimizeTree()   //路由树节点排序
+	aurora.vw = DefaultView        //放在此处解决循环初始化问题
 	err := server.ListenAndServe() //启动服务器
 	if err != nil {
 		aurora.InitError <- err
@@ -137,6 +137,7 @@ func SetResourceRoot(root string) {
 
 // startLoading 启动加载
 func startLoading() {
+
 	//启动日志
 	go func(aurora *Aurora) {
 		/*
