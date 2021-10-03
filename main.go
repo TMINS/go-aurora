@@ -3,12 +3,10 @@ package main
 import (
 	"github.com/awensir/Aurora/aurora"
 	"github.com/awensir/Aurora/aurora/start"
-	"github.com/awensir/Aurora/config"
 	"github.com/awensir/Aurora/request/get"
 )
 
 func main() {
-	config.Resource("js", "js", "test")
 
 	get.Mapping("/", func(ctx *aurora.Context) interface{} {
 		arr := []string{
@@ -16,10 +14,7 @@ func main() {
 			"bbbb",
 			"cccc",
 		}
-		ctx.SetAttribute("arr", arr)
-		return "/html/index.html"
+		return arr
 	})
-
 	start.Running("8080")
-
 }
