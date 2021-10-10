@@ -81,7 +81,8 @@ func (r *ServerRouter) add(method string, root *Node, Path string, fun ServletHa
 		root.Path = Path
 		root.Child = nil
 		root.handle = fun
-
+		l := fmt.Sprintf("Web Rout Mapping successds | %s ", path)
+		aurora.StartInfo <- l
 		return
 	}
 	if root.Path == Path { //相同路径可能是分裂或者提取的公共根
@@ -89,6 +90,8 @@ func (r *ServerRouter) add(method string, root *Node, Path string, fun ServletHa
 			aurora.InitError <- UrlPathError{Type: "路径注册", Path: Path, NodePath: root.Path, Message: "路径已存在，重复注册!", Method: method}
 		} else {
 			root.handle = fun
+			l := fmt.Sprintf("Web Rout Mapping successds | %s ", path)
+			aurora.StartInfo <- l
 		}
 	}
 	//如果当前的节点是 REST API 节点 ，子节点可以添加REST API节点
@@ -131,7 +134,8 @@ func (r *ServerRouter) add(method string, root *Node, Path string, fun ServletHa
 					}
 				}
 				root.Child = append(root.Child, &Node{Path: c, Child: nil, handle: fun})
-
+				l := fmt.Sprintf("Web Rout Mapping successds | %s ", path)
+				aurora.StartInfo <- l
 				return
 			}
 		}
@@ -172,7 +176,8 @@ func (r *ServerRouter) add(method string, root *Node, Path string, fun ServletHa
 				root.Child = append(root.Child, &Node{Path: c, Child: tempChild, handle: root.handle}) //封装被分裂的子节点 添加到当前根的子节点中
 				root.Path = root.Path[:i]                                                              //修改当前节点为添加的路径
 				root.handle = fun                                                                      //更改当前处理函数
-
+				l := fmt.Sprintf("Web Rout Mapping successds | %s ", path)
+				aurora.StartInfo <- l
 				return
 			}
 		}
@@ -230,6 +235,8 @@ func Merge(method string, root *Node, Path string, fun ServletHandler, path stri
 			}
 		}
 		root.Path = pub //覆盖原有值设置公共根
+		l := fmt.Sprintf("Web Rout Mapping successds | %s ", path)
+		aurora.StartInfo <- l
 		return true
 	}
 	return false
@@ -338,9 +345,13 @@ func (r *ServerRouter) register(root *Node, path string, interceptor ...Intercep
 				//添加通配拦截器 的路径是一个服务的话就一并设置
 				root.InterList = interceptor
 			}
+			l := fmt.Sprintf("Web Rout Interceptor successds | %s ", path)
+			aurora.StartInfo <- l
 			return
 		}
 		root.InterList = interceptor //再次添加会覆盖通配拦截器
+		l := fmt.Sprintf("Web Rout Interceptor successds | %s ", path)
+		aurora.StartInfo <- l
 		return
 	}
 
@@ -380,8 +391,9 @@ func (r *ServerRouter) register(root *Node, path string, interceptor ...Intercep
 		fmt.Println("访问路径不存在! 未注册 : " + path)
 		return
 	}
-	//此处修复 if sub=="" 为 if sub=="" && rsl==psl， /user/${name}/update  和 /user 类型情况下  /user 解析出 [""."user"],[""."user","xxx","update"],上面的检查
+	//此处修复 if sub=="" 为 if sub=="" && rsl==psl， /user/${name}/update  和 /user 类型情况下  /user 解析出 [""."user"]和[""."user","xxx","update"],上面的检查
 	//无法检测出字串 导致/user/${name}/update 会走到/user里面，上面无法检测出子路径是查询路径和当前节点路径完全一致情况下，并且没有子路径
+
 	if sub == "" && rsl == psl {
 		//此处的路径拦截器注册暂时作用不大，后续对REST API 可能有用
 		if root.handle != nil {
@@ -394,6 +406,7 @@ func (r *ServerRouter) register(root *Node, path string, interceptor ...Intercep
 			return
 		}
 	}
+
 	if rsl <= psl { //存在子路径  等于的情况是发生在  访问 /aa  /下面出现多个子节点 /aa是被注册需要访问的 /aa 后面没有子路径
 		str := ""                    //解析子路径，用于存储下面的for循环解析的子路径
 		for i := rsl; i < psl; i++ { // 检索path 剩余部分 把切割开的路径组装起来构成子路径
@@ -471,7 +484,8 @@ func (r ServerRouter) search(root *Node, path string, Args map[string]string, rw
 			proxy.Start() //开始执行
 			return        //执行结束
 		}
-		fmt.Println("访问路径不存在! 未注册 : " + path)
+		//fmt.Println("访问路径不存在! 未注册 : " + path)
+		http.NotFound(rw, req)
 		return
 	}
 
@@ -481,7 +495,8 @@ func (r ServerRouter) search(root *Node, path string, Args map[string]string, rw
 	psl := len(ps)
 	sub := ""
 	if psl < rsl {
-		fmt.Println("访问路径不存在! 未注册 : " + path)
+		//fmt.Println("访问路径不存在! 未注册 : " + path)
+		http.NotFound(rw, req)
 		return
 	}
 	for i := 0; i < rsl; i++ { //解析当前路径和查找路径是否有相同部分
@@ -508,7 +523,8 @@ func (r ServerRouter) search(root *Node, path string, Args map[string]string, rw
 				continue
 			}
 		}
-		fmt.Println("访问路径不存在! 未注册 : " + path)
+		//fmt.Println("访问路径不存在! 未注册 : " + path)
+		http.NotFound(rw, req)
 		return
 	}
 	//此处修复 if sub=="" 为 if sub=="" && rsl==psl， /user/${name}/update  和 /user 类型情况下  /user 解析出 [""."user"],[""."user","xxx","update"],上面的检查
@@ -557,7 +573,8 @@ func (r ServerRouter) search(root *Node, path string, Args map[string]string, rw
 				return
 			}
 		}
-		fmt.Println("访问路径不存在! 未注册 : " + path)
+		//fmt.Println("访问路径不存在! 未注册 : " + path)
+		http.NotFound(rw, req)
 		return
 	}
 }
@@ -587,11 +604,4 @@ func (a *Aurora) ServeHTTP(rw http.ResponseWriter, req *http.Request) {
 // RegisterServlet 注册器
 func RegisterServlet(method string, mapping string, fun ServletHandler) {
 	aurora.Router.addRoute(method, mapping, fun)
-}
-
-func RequestHead(rw http.ResponseWriter, req *http.Request) {
-	//读取请求头
-	Accept := req.Header.Get("Accept")
-	AcceptList := strings.Split(Accept, ",")
-	fmt.Println(AcceptList)
 }

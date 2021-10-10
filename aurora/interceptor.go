@@ -1,6 +1,7 @@
 package aurora
 
 import (
+	"fmt"
 	"time"
 )
 
@@ -22,17 +23,26 @@ type DefaultInterceptor struct {
 	t time.Time
 }
 
-func (de DefaultInterceptor) PreHandle(ctx *Context) bool {
-
+func (de *DefaultInterceptor) PreHandle(ctx *Context) bool {
+	de.t = time.Now()
 	return true
 }
 
-func (de DefaultInterceptor) PostHandle(ctx *Context) {
+func (de *DefaultInterceptor) PostHandle(ctx *Context) {
 
 }
 
-func (de DefaultInterceptor) AfterCompletion(ctx *Context) {
-
+func (de *DefaultInterceptor) AfterCompletion(ctx *Context) {
+	times := time.Now().Sub(de.t)
+	re := ctx.Request
+	radd := re.RemoteAddr
+	if radd[0:5] == "[::1]" {
+		ip := "172.0.0.1"
+		radd = radd[5:]
+		radd = ip + radd
+	}
+	l := fmt.Sprintf(" %s | %s %s | %s", radd, re.Method, re.RequestURI, times)
+	aurora.Api <- l
 }
 
 // InterceptorData 实现拦截器压栈出栈功能
@@ -71,4 +81,3 @@ func (s *InterceptorStack) Pull() Interceptor {
 	}
 	return fun
 }
-

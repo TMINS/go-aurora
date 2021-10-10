@@ -3,7 +3,7 @@ package aurora
 import (
 	"context"
 	"fmt"
-	"github.com/awensir/Aurora/message"
+	"github.com/awensir/Aurora/logs"
 	"github.com/awensir/Aurora/uuid"
 	"net"
 	"net/http"
@@ -29,12 +29,14 @@ func init() {
 	aurora.ProjectRoot = projectRoot
 	aurora.sessionMap = make(map[string]*Session)
 	aurora.interceptorList = []Interceptor{
-		0: DefaultInterceptor{},
+		0: &DefaultInterceptor{},
 	}
 	aurora.SessionCreate = uuid.NewWorker(1, 1) //sessionId生成器
 	startLoading()                              //开启路由加载监听
 }
 
+var log = logs.NewLog()
+var rlog = logs.NewRouteLog()
 var ctx, cancel = context.WithCancel(context.TODO())
 
 type CtxListenerKey string
@@ -48,20 +50,21 @@ var aurora = &Aurora{
 	Ctx:             ctx,
 	Cancel:          cancel,
 	InitError:       make(chan error),
-	StartInfo:       make(chan message.Message),
+	StartInfo:       make(chan string),
 	sort:            Sort{First: make(chan struct{}), Second: make(chan struct{}), Finally: make(chan struct{})},
 	resourceMapType: make(map[string]string),
+	Api:             make(chan string),
 }
 
 type Aurora struct {
 	rw              sync.RWMutex
-	Port            string               //服务端口号
-	Router          ServerRouter         //路由服务管理
-	Resource        string               //静态资源管理 默认为 root 目录
-	resourceMapping map[string][]string  //静态资源映射路径标识
-	InitError       chan error           //路由器级别错误通道 一旦初始化出错，则结束服务，检查配置
-	StartInfo       chan message.Message //输出启动信息
-	Ctx             context.Context      //服务器顶级上下文，通过此上下文可以跳过web 上下文去开启纯净的子go程
+	Port            string              //服务端口号
+	Router          ServerRouter        //路由服务管理
+	Resource        string              //静态资源管理 默认为 root 目录
+	resourceMapping map[string][]string //静态资源映射路径标识
+	InitError       chan error          //路由器级别错误通道 一旦初始化出错，则结束服务，检查配置
+	StartInfo       chan string         //输出启动信息
+	Ctx             context.Context     //服务器顶级上下文，通过此上下文可以跳过web 上下文去开启纯净的子go程
 	Cancel          func()
 	ProjectRoot     string              //项目根路径
 	interceptorList []Interceptor       //全局拦截器
@@ -70,6 +73,7 @@ type Aurora struct {
 	resourceMapType map[string]string
 	sort            Sort
 	vw              ViewFunc //支持自定义视图渲染机制
+	Api             chan string
 }
 
 type Sort struct {
@@ -102,12 +106,16 @@ func RegisterInterceptorList(interceptor ...Interceptor) {
 	//追加全局拦截器
 	for _, v := range interceptor {
 		aurora.interceptorList = append(aurora.interceptorList, v)
+		l := fmt.Sprintf("Web Global Rout Interceptor successds")
+		aurora.StartInfo <- l
 	}
 }
 
 // RegisterDefaultInterceptor 提供修改默认顶级拦截器
 func RegisterDefaultInterceptor(interceptor Interceptor) {
 	aurora.interceptorList[0] = interceptor
+	l := fmt.Sprintf("Web Default Global Rout Interceptor successds")
+	aurora.StartInfo <- l
 }
 
 // CreateConText 提供web自定义父级上下文
@@ -140,27 +148,27 @@ func startLoading() {
 
 	//启动日志
 	go func(aurora *Aurora) {
-		/*
-				/\
-			   /  \  _   _ _ __ ___  _ __ __ _
-			  / /\ \| | | | '__/ _ \| '__/ _` |
-			 / ____ \ |_| | | | (_) | | | (_| |
-			/_/    \_\__,_|_|  \___/|_|  \__,_|
-			  :: Aurora ::   (v0.0.1.RELEASE)
-		*/
 
+		s := "    /\\\n   /  \\  _   _ _ __ ___  _ __ __ _\n  / /\\ \\| | | | '__/ _ \\| '__/ _` |\n / ____ \\ |_| | | | (_) | | | (_| |\n/_/    \\_\\__,_|_|  \\___/|_|  \\__,_|\n:: Aurora ::   (v0.0.7.RELEASE)"
+		/*
+		       /\
+		      /  \  _   _ _ __ ___  _ __ __ _
+		     / /\ \| | | | '__/ _ \| '__/ _` |
+		    / ____ \ |_| | | | (_) | | | (_| |
+		   /_/    \_\__,_|_|  \___/|_|  \__,_|
+		   :: Aurora ::   (v0.0.1.RELEASE)
+
+		*/
+		fmt.Println(s)
 		for true {
 			select {
-			case <-aurora.StartInfo: //启动日志，暂时不做处理
+			case msg := <-aurora.StartInfo: //启动日志，暂时不做处理
+				log.Info(msg)
+			case msg := <-aurora.Api: //启动日志，暂时不做处理
+				rlog.Info(msg)
 			case err := <-aurora.InitError: //启动初始化错误处理
-				fmt.Println(err.Error())
+				log.Error(err.Error())
 				os.Exit(-1) //结束程序
-			case <-aurora.sort.First:
-
-			case <-aurora.sort.Second:
-
-			case <-aurora.sort.Finally:
-
 			}
 		}
 	}(aurora)

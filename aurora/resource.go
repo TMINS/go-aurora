@@ -4,7 +4,6 @@ import (
 	"fmt"
 	"html/template"
 	"io/ioutil"
-	"log"
 	"net/http"
 	"os"
 )
@@ -58,10 +57,11 @@ func Resource(w http.ResponseWriter, req *http.Request, path string, rt string) 
 	if data != nil {
 		w.Header().Set(ContentType, aurora.resourceMapType[rt])
 		SendResource(w, data)
-	} else {
-		//读取失败表示资源不存在
-		http.NotFound(w, req)
 	}
+	//else {
+	//	//读取失败表示资源不存在
+	//	http.NotFound(w, req)
+	//}
 }
 
 // SendResource 发送静态资源
