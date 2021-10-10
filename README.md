@@ -281,6 +281,12 @@ func (de DefaultInterceptor) AfterCompletion(ctx *Context)  {
 }
 ```
 
+默认连接器实现了对服务访问的控制台日志输出，如果想要自定义默认全局拦截器，可以通过config包的方法DefaultInterceptor(interceptor aurora.Interceptor) 修改默认拦截器如下，然后自己实现拦截器逻辑即可
+
+```go
+config.DefaultInterceptor(v Interceptor)
+```
+
 拦截器的注册（config包中调用方法）
 
 ```go
@@ -392,4 +398,8 @@ get.Mapping("/abc/bbc/aaa", func(ctx *aurora.Context) interface{} {
 		return session.GetSessionId()
 	})
 ```
+
+
+
+
 
