@@ -41,7 +41,7 @@ func (de *DefaultInterceptor) AfterCompletion(ctx *Context) {
 		radd = radd[5:]
 		radd = ip + radd
 	}
-	l := fmt.Sprintf(" %s | %s %s | %s", radd, re.Method, re.RequestURI, times)
+	l := fmt.Sprintf(" %s → %s | %s %s | %s", radd, re.URL.Host, re.Method, re.URL.Path, times)
 	aurora.Api <- l
 }
 

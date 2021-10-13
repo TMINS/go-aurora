@@ -1,7 +1,6 @@
 package aurora
 
 import (
-	"fmt"
 	"net/http"
 	"reflect"
 	"strings"
@@ -13,11 +12,11 @@ type ServletProxy struct {
 	rw             sync.RWMutex
 	rew            http.ResponseWriter
 	req            *http.Request
-	ServletHandler                   //处理函数
-	args           map[string]string //REST API 参数解析
-	ctx            *Context          //上下文
-	result         interface{}       //业务结果
-	Interceptor    bool              //是否放行拦截器
+	ServletHandler                        //处理函数
+	args           map[string]interface{} //REST API 参数解析
+	ctx            *Context               //上下文
+	result         interface{}            //业务结果
+	Interceptor    bool                   //是否放行拦截器
 
 	ExecuteStack, AfterStack *InterceptorStack // ExecuteStack,AfterStack 全局拦截器
 
@@ -206,8 +205,9 @@ func (sp *ServletProxy) ResultHandler() {
 		sp.ResultHandler() //递归处理错误输出
 		return
 	case error:
-		//直接返回错误处理
-		fmt.Println(sp.result.(error).Error())
+		//直接返回错误处理,让调用者根据错误进行处理
+		sp.ctx.SetStatus(500)
+		sp.ctx.JSON("error:" + sp.result.(error).Error())
 		return
 	case nil:
 		//对结果不做出处理

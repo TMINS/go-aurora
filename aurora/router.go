@@ -454,7 +454,7 @@ func (r ServerRouter) SearchPath(method, path string, rw http.ResponseWriter, re
 }
 
 // Search 路径查找，参数和 SearchPath意义 一致， Args map主要用于存储解析REST API路径参数，默认传nil,Interceptor拦截器可变参数，用于生成最终拦截链
-func (r ServerRouter) search(root *Node, path string, Args map[string]string, rw http.ResponseWriter, req *http.Request, ctx *Context, Interceptor ...Interceptor) {
+func (r ServerRouter) search(root *Node, path string, Args map[string]interface{}, rw http.ResponseWriter, req *http.Request, ctx *Context, Interceptor ...Interceptor) {
 	if root == nil {
 		return
 	}
@@ -511,7 +511,7 @@ func (r ServerRouter) search(root *Node, path string, Args map[string]string, rw
 			kl := len(rs[i])
 			key := rs[i][2 : kl-1]
 			if Args == nil {
-				Args = make(map[string]string)
+				Args = make(map[string]interface{})
 			}
 			Args[key] = ps[i]
 			continue
