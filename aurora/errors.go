@@ -26,9 +26,9 @@ func (e UrlPathError) Error() string {
 	return e.Method + ":UrlPathError : " + "Type:" + e.Type + " " + e.Path + "   " + e.NodePath + ". Message:" + e.Message
 }
 
-// WebResponseError 业务处理期间，的特定错误
-type WebResponseError interface {
-	ErrorHandler(ctx *Context) interface{} //ErrorHandler 处理对应的错误
+// WebError 业务处理期间，的特定错误
+type WebError interface {
+	ErrorHandler(c *Context) interface{} //ErrorHandler 处理对应的错误
 }
 
-type WebErr func(ctx *Context) interface{}
+type WebErr func(c *Context) interface{}

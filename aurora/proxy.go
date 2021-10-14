@@ -2,7 +2,6 @@ package aurora
 
 import (
 	"net/http"
-	"reflect"
 	"strings"
 	"sync"
 )
@@ -194,19 +193,20 @@ func (sp *ServletProxy) ResultHandler() {
 		}
 		//处理字符串输出
 		sp.ctx.JSON(sp.result)
-	case WebResponseError:
+	case WebError:
 		//处理自定义错误处理器
-		v := reflect.ValueOf(sp.result)
-		method := v.MethodByName("ErrorHandler")
-		value := method.Call([]reflect.Value{
-			reflect.ValueOf(sp.ctx),
-		})
-		if len(value) != 1 {
-			panic("Call return failed")
-		}
-		r := value[0].Interface()
-		sp.result = r      //更新递归变量
-		sp.ResultHandler() //递归处理错误输出
+		a := sp.result.(WebError)
+		//v := reflect.ValueOf(sp.result)
+		//method := v.MethodByName("ErrorHandler")
+		//value := method.Call([]reflect.Value{
+		//	reflect.ValueOf(sp.ctx),
+		//})
+		//if len(value) != 1 {
+		//	panic("Call return failed")
+		//}
+		//r := value[0].Interface()
+		sp.result = a.ErrorHandler(sp.ctx) //更新递归变量
+		sp.ResultHandler()                 //递归处理错误输出
 		return
 	case error:
 		//直接返回错误处理,让调用者根据错误进行处理

@@ -10,16 +10,6 @@ import (
 	"sync"
 )
 
-/*
-	aurora 路由管理器
-	1.请求映射管理
-		-封装基本元素（请求类型，url，具体处理）(***)
-	2.路由规则
-		- 路径参数
-	3.静态资源处理
-		- 响应解析
-*/
-
 var log = logs.NewLog()
 var rlog = logs.NewRouteLog()
 
@@ -27,8 +17,9 @@ type CtxListenerKey string
 
 type Aurora struct {
 	rw               sync.RWMutex
-	Port             string              //服务端口号
-	Router           *ServerRouter       //路由服务管理
+	Port             string        //服务端口号
+	Router           *ServerRouter //路由服务管理
+	server           *http.Server
 	Resource         string              //静态资源管理 默认为 root 目录
 	ResourceMappings map[string][]string //静态资源映射路径标识
 	InitError        chan error          //路由器级别错误通道 一旦初始化出错，则结束服务，检查配置
@@ -54,6 +45,7 @@ func New() *Aurora {
 	a := &Aurora{
 		Port:            "8080", //默认端口号
 		Router:          &ServerRouter{},
+		server:          &http.Server{},
 		Resource:        "static", //设定资源默认存储路径
 		InitError:       make(chan error),
 		StartInfo:       make(chan string),
@@ -81,19 +73,18 @@ func (a *Aurora) run(port ...string) {
 	if port != nil && len(port) > 1 {
 		panic("too mach port")
 	}
-	server := &http.Server{}
 	if port == nil {
-		server.Addr = ":" + a.Port
+		a.server.Addr = ":" + a.Port
 	} else {
 		p := port[0]
 		if p[0:1] != ":" {
 			p = ":" + p
 		}
-		server.Addr = p
+		a.server.Addr = p
 		a.Port = p
 	}
-	server.Handler = a
-	err := server.ListenAndServe() //启动服务器
+	a.server.Handler = a
+	err := a.server.ListenAndServe() //启动服务器
 	if err != nil {
 		a.InitError <- err
 		return
