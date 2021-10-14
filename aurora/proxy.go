@@ -16,7 +16,9 @@ type ServletProxy struct {
 	args           map[string]interface{} //REST API 参数解析
 	ctx            *Context               //上下文
 	result         interface{}            //业务结果
-	Interceptor    bool                   //是否放行拦截器
+	view           ViewFunc               //支持自定义视图渲染机制
+	AR             *Aurora
+	Interceptor    bool //是否放行拦截器
 
 	ExecuteStack, AfterStack *InterceptorStack // ExecuteStack,AfterStack 全局拦截器
 
@@ -43,8 +45,9 @@ func (sp *ServletProxy) Before() {
 	defer func(ctx *Context, sp *ServletProxy) {
 		//处理全局拦截器和局部拦截器之前，临时构造一个拦截器执行序列
 
-		if len(aurora.interceptorList) > 0 { //全局拦截器
-			for _, v := range aurora.interceptorList { //依次执行注册过的 拦截器
+		//全局拦截器
+		if len(sp.AR.InterceptorList) > 0 {
+			for _, v := range sp.AR.InterceptorList { //依次执行注册过的 拦截器
 				if sp.Interceptor = v.PreHandle(ctx); !sp.Interceptor { //如果返回false 则终止
 					//清空拦截器栈，释放资源
 					break //拦截器不放行,后续拦截器也不再执行
@@ -92,7 +95,7 @@ func (sp *ServletProxy) Before() {
 func (sp *ServletProxy) Execute() {
 
 	defer func(ctx *Context, sp *ServletProxy) {
-		if len(aurora.interceptorList) > 0 { //全局拦截器
+		if len(sp.AR.InterceptorList) > 0 { //全局拦截器
 			for {
 				if f := sp.ExecuteStack.Pull(); f != nil {
 					f.PostHandle(ctx)
@@ -128,7 +131,7 @@ func (sp *ServletProxy) Execute() {
 func (sp *ServletProxy) After() {
 
 	defer func(ctx *Context, sp *ServletProxy) {
-		if len(aurora.interceptorList) > 0 { //全局拦截器
+		if len(sp.AR.InterceptorList) > 0 { //全局拦截器
 			for {
 				if f := sp.AfterStack.Pull(); f != nil {
 					f.AfterCompletion(ctx)
@@ -166,6 +169,7 @@ func (sp *ServletProxy) Init() {
 		sp.ctx.Request = sp.req
 		sp.ctx.Response = sp.rew
 		sp.ctx.rw = &sync.RWMutex{}
+		sp.ctx.AR = sp.AR
 		if sp.args != nil {
 			sp.ctx.args = sp.args
 		}
@@ -179,7 +183,7 @@ func (sp *ServletProxy) ResultHandler() {
 		//处理普通页面响应
 		if strings.HasSuffix(path, ".html") {
 			//SendResource(sp.rew, readResource(path)) //直接响应 html 页面
-			aurora.vw(sp.ctx, path)
+			sp.view(sp.ctx, path)
 			return
 		}
 		//处理重定向

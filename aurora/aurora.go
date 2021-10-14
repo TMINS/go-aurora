@@ -4,12 +4,10 @@ import (
 	"context"
 	"fmt"
 	"github.com/awensir/Aurora/logs"
-	"github.com/awensir/Aurora/uuid"
-	"net"
 	"net/http"
 	"os"
+	"strings"
 	"sync"
-	"time"
 )
 
 /*
@@ -21,135 +19,173 @@ import (
 	3.静态资源处理
 		- 响应解析
 */
-func init() {
-	projectRoot, err := os.Getwd()
-	if err != nil {
-		return
-	}
-	aurora.ProjectRoot = projectRoot
-	aurora.sessionMap = make(map[string]*Session)
-	aurora.interceptorList = []Interceptor{
-		0: &DefaultInterceptor{},
-	}
-	aurora.SessionCreate = uuid.NewWorker(1, 1) //sessionId生成器
-	startLoading()                              //开启路由加载监听
-}
 
 var log = logs.NewLog()
 var rlog = logs.NewRouteLog()
-var ctx, cancel = context.WithCancel(context.TODO())
 
 type CtxListenerKey string
 
-var sessionIdCreater = uuid.NewWorker(1, 1) //sessionId生成器
-// 全局路由器
-var aurora = &Aurora{
-	Port:            "8080",
-	Router:          ServerRouter{},
-	Resource:        "static", //设定资源默认存储路径
-	Ctx:             ctx,
-	Cancel:          cancel,
-	InitError:       make(chan error),
-	StartInfo:       make(chan string),
-	sort:            Sort{First: make(chan struct{}), Second: make(chan struct{}), Finally: make(chan struct{})},
-	resourceMapType: make(map[string]string),
-	Api:             make(chan string),
-}
-
 type Aurora struct {
-	rw              sync.RWMutex
-	Port            string              //服务端口号
-	Router          ServerRouter        //路由服务管理
-	Resource        string              //静态资源管理 默认为 root 目录
-	resourceMapping map[string][]string //静态资源映射路径标识
-	InitError       chan error          //路由器级别错误通道 一旦初始化出错，则结束服务，检查配置
-	StartInfo       chan string         //输出启动信息
-	Ctx             context.Context     //服务器顶级上下文，通过此上下文可以跳过web 上下文去开启纯净的子go程
-	Cancel          func()
-	ProjectRoot     string              //项目根路径
-	interceptorList []Interceptor       //全局拦截器
-	sessionMap      map[string]*Session //全局session管理
-	SessionCreate   *uuid.Worker        //session id 生成器
-	resourceMapType map[string]string
-	sort            Sort
-	vw              ViewFunc //支持自定义视图渲染机制
-	Api             chan string
+	rw               sync.RWMutex
+	Port             string              //服务端口号
+	Router           *ServerRouter       //路由服务管理
+	Resource         string              //静态资源管理 默认为 root 目录
+	ResourceMappings map[string][]string //静态资源映射路径标识
+	InitError        chan error          //路由器级别错误通道 一旦初始化出错，则结束服务，检查配置
+	StartInfo        chan string         //输出启动信息
+	Ctx              context.Context     //服务器顶级上下文，通过此上下文可以跳过web 上下文去开启纯净的子go程
+	Cancel           func()
+	ProjectRoot      string        //项目根路径
+	InterceptorList  []Interceptor //全局拦截器
+	ResourceMapType  map[string]string
+	Api              chan string
 }
 
-type Sort struct {
-	First   chan struct{}
-	Second  chan struct{}
-	Finally chan struct{}
+func Default() *Aurora {
+	a := New()
+	if a == nil {
+		return nil
+	}
+	return a
 }
 
-// RunApplication 启动服务器
-func RunApplication(port string) {
-	if port[0:1] != ":" {
-		port = ":" + port
+// New :最基础的 Aurora 实例
+func New() *Aurora {
+	a := &Aurora{
+		Port:            "8080", //默认端口号
+		Router:          &ServerRouter{},
+		Resource:        "static", //设定资源默认存储路径
+		InitError:       make(chan error),
+		StartInfo:       make(chan string),
+		ResourceMapType: make(map[string]string),
+		Api:             make(chan string),
 	}
-	server := &http.Server{
-		Addr:        port,
-		Handler:     aurora,
-		BaseContext: CreateConText,
+	projectRoot, _ := os.Getwd()
+	a.ProjectRoot = projectRoot
+	a.Router.View = a.DefaultView //使用默认视图解析
+	a.Router.AR = a
+	a.InterceptorList = []Interceptor{
+		0: &DefaultInterceptor{},
 	}
-	aurora.Port = port
-	aurora.Router.OptimizeTree()   //路由树节点排序
-	aurora.vw = DefaultView        //放在此处解决循环初始化问题
+	LoadResourceHead(a)
+	startLoading(a)
+	return a
+}
+
+// Guide 启动 Aurora 服务器
+func (a *Aurora) Guide(port ...string) {
+	a.run(port...)
+}
+
+func (a *Aurora) run(port ...string) {
+	if port != nil && len(port) > 1 {
+		panic("too mach port")
+	}
+	server := &http.Server{}
+	if port == nil {
+		server.Addr = ":" + a.Port
+	} else {
+		p := port[0]
+		if p[0:1] != ":" {
+			p = ":" + p
+		}
+		server.Addr = p
+		a.Port = p
+	}
+	server.Handler = a
 	err := server.ListenAndServe() //启动服务器
 	if err != nil {
-		aurora.InitError <- err
+		a.InitError <- err
 		return
 	}
 }
 
-func RegisterInterceptorList(interceptor ...Interceptor) {
-	//追加全局拦截器
-	for _, v := range interceptor {
-		aurora.interceptorList = append(aurora.interceptorList, v)
-		l := fmt.Sprintf("Web Global Rout Interceptor successds")
-		aurora.StartInfo <- l
+// ResourceMapping 资源映射
+//添加静态资源配置，t资源类型必须以置源后缀命名，
+//paths为t类型资源的子路径，可以一次性设置多个。
+//每个资源类型最调用一次设置方法否则覆盖原有设置
+func (a *Aurora) ResourceMapping(Type string, Paths ...string) {
+	a.RegisterResourceType(Type, Paths...)
+}
+
+// StaticRoot 设置静态资源根路径
+func (a *Aurora) StaticRoot(root string) {
+	if root == "" {
+		panic(" static resource paths cannot be empty! ")
 	}
-}
-
-// RegisterDefaultInterceptor 提供修改默认顶级拦截器
-func RegisterDefaultInterceptor(interceptor Interceptor) {
-	aurora.interceptorList[0] = interceptor
-	l := fmt.Sprintf("Web Default Global Rout Interceptor successds")
-	aurora.StartInfo <- l
-}
-
-// CreateConText 提供web自定义父级上下文
-func CreateConText(listener net.Listener) context.Context {
-	key := CtxListenerKey("Listener")
-	p := context.TODO()
-	vCtx := context.WithValue(p, key, listener)
-	aurora.Ctx, aurora.Cancel = context.WithCancel(vCtx) //重新封装上下文，把连接对象保存在上下文中，在次之前使用aurora.Ctx 将可能无法释放资源
-
-	return aurora.Ctx
-}
-
-// SetResourceRoot 设置静态资源根路径
-func SetResourceRoot(root string) {
-	if root == "" { //不允许设置""
-		return
-	}
-	rl := len(root)
-	if root[:1] == "/" {
+	if strings.HasPrefix(root, "/") {
 		root = root[1:]
 	}
-	if root[rl-1:] == "/" {
-		root = root[:rl-1]
+	if strings.HasSuffix(root, "/") {
+		root = root[:len(root)-1]
 	}
-	aurora.Resource = root
+	a.Resource = root
+}
+
+// RouteIntercept path路径上添加一个或者多个路由拦截器
+func (a *Aurora) RouteIntercept(path string, interceptor ...Interceptor) {
+	a.Router.RegisterInterceptor(path, interceptor...)
+}
+
+// DefaultInterceptor 配置默认顶级拦截器
+func (a *Aurora) DefaultInterceptor(interceptor Interceptor) {
+	a.InterceptorList[0] = interceptor
+	l := fmt.Sprintf("Web Default Global Rout Interceptor successds")
+	a.StartInfo <- l
+}
+
+// AddInterceptor 追加全局拦截器
+func (a *Aurora) AddInterceptor(interceptor ...Interceptor) {
+	//追加全局拦截器
+	for _, v := range interceptor {
+		a.InterceptorList = append(a.InterceptorList, v)
+		l := fmt.Sprintf("Web Global Rout Interceptor successds")
+		a.StartInfo <- l
+	}
+}
+
+// GET 请求
+func (a *Aurora) GET(path string, servlet Servlet) {
+	a.Register(http.MethodGet, path, servlet)
+}
+
+// POST 请求
+func (a *Aurora) POST(path string, servlet Servlet) {
+	a.Register(http.MethodPost, path, servlet)
+}
+
+// PUT 请求
+func (a *Aurora) PUT(path string, servlet Servlet) {
+	a.Register(http.MethodPut, path, servlet)
+}
+
+// DELETE 请求
+func (a *Aurora) DELETE(path string, servlet Servlet) {
+	a.Register(http.MethodDelete, path, servlet)
+}
+
+// HEAD 请求
+func (a *Aurora) HEAD(path string, servlet Servlet) {
+	a.Register(http.MethodHead, path, servlet)
+}
+
+// Group 路由分组  必须以 “/” 开头分组
+func (a *Aurora) Group(path string) *Group {
+	if strings.HasSuffix(path, "/") {
+		path = path[:len(path)-1]
+	}
+	return &Group{
+		prefix: path,
+		a:      a,
+	}
 }
 
 // startLoading 启动加载
-func startLoading() {
-
+func startLoading(a *Aurora) {
 	//启动日志
-	go func(aurora *Aurora) {
+	go func(a *Aurora) {
 
-		s := "    /\\\n   /  \\  _   _ _ __ ___  _ __ __ _\n  / /\\ \\| | | | '__/ _ \\| '__/ _` |\n / ____ \\ |_| | | | (_) | | | (_| |\n/_/    \\_\\__,_|_|  \\___/|_|  \\__,_|\n:: Aurora ::   (v0.0.7.RELEASE)"
+		s := "    /\\\n   /  \\  _   _ _ __ ___  _ __ __ _\n  / /\\ \\| | | | '__/ _ \\| '__/ _` |\n / ____ \\ |_| | | | (_) | | | (_| |\n/_/    \\_\\__,_|_|  \\___/|_|  \\__,_|\n:: Aurora ::   (v0.0.8.RELEASE)"
 		/*
 		       /\
 		      /  \  _   _ _ __ ___  _ __ __ _
@@ -162,38 +198,15 @@ func startLoading() {
 		fmt.Println(s)
 		for true {
 			select {
-			case msg := <-aurora.StartInfo: //启动日志，暂时不做处理
+			case msg := <-a.StartInfo: //
 				log.Info(msg)
-			case msg := <-aurora.Api: //启动日志，暂时不做处理
-				rlog.Info(msg)
-			case err := <-aurora.InitError: //启动初始化错误处理
+			case api := <-a.Api:
+				rlog.Info(api)
+			case err := <-a.InitError: //启动初始化错误处理
 				log.Error(err.Error())
 				os.Exit(-1) //结束程序
 			}
 		}
-	}(aurora)
-
-	//session 生命周期检查，定时任务
-	go func(aurora *Aurora) {
-		Ticker := time.NewTicker(time.Second * 65) //每隔 65秒执行一次 session 清理，存在占用资源bug，在没有任何session情况下会做无用的定时任务（待解决）
-		defer Ticker.Stop()
-		for true {
-			select {
-			case t := <-Ticker.C:
-				if len(aurora.sessionMap) > 0 {
-					aurora.rw.Lock()
-					for k, _ := range aurora.sessionMap {
-						s := aurora.sessionMap[k]
-						if t.After(s.MaxAge) {
-							//session过期 删除
-							delete(aurora.sessionMap, k)
-						}
-					}
-					aurora.rw.Unlock()
-				}
-			case <-aurora.InitError: //初始化错误 结束线程
-				return
-			}
-		}
-	}(aurora)
+		fmt.Println(11111)
+	}(a)
 }

@@ -29,18 +29,6 @@ import (
 	如此我们需要配置一个专门处理这一类请求的服务
 	Golang Web 默认处理静态资源 是通过写入的方式
 */
-func init() {
-	//预加载 头信息，根据结尾判别不同的响应头
-	aurora.resourceMapType["js"] = "text/javascript"
-	aurora.resourceMapType["css"] = "text/css"
-	aurora.resourceMapType["html"] = "text/html"
-	aurora.resourceMapType["encoding"] = "charset=utf-8"
-	aurora.resourceMapType["gif"] = "image/gif"
-	aurora.resourceMapType["png"] = "image/png"
-	aurora.resourceMapType["svg"] = "image/svg+xml"
-	aurora.resourceMapType["webp"] = "image/webp"
-	aurora.resourceMapType["ico"] = "image/x-icon"
-}
 
 const ContentType = "Content-Type"
 
@@ -50,18 +38,14 @@ type Views interface {
 
 type ViewFunc func(*Context, string)
 
-// Resource w 响应体，path 资源真实路径，rt资源类型
+// ResourceFun w 响应体，path 资源真实路径，rt资源类型
 // 根据rt资源类型去找到对应的resourceMapType 存储的响应头，进行发送资源
-func Resource(w http.ResponseWriter, req *http.Request, path string, rt string) {
-	data := readResource(path)
+func (a *Aurora) ResourceFun(w http.ResponseWriter, req *http.Request, path string, rt string) {
+	data := readResource(a.ProjectRoot + "/" + a.Resource + path)
 	if data != nil {
-		w.Header().Set(ContentType, aurora.resourceMapType[rt])
+		w.Header().Set(ContentType, a.ResourceMapType[rt])
 		SendResource(w, data)
 	}
-	//else {
-	//	//读取失败表示资源不存在
-	//	http.NotFound(w, req)
-	//}
 }
 
 // SendResource 发送静态资源
@@ -78,7 +62,7 @@ func SendResource(w http.ResponseWriter, data []byte) {
 
 // readResource 读取成功则返回结果，失败则返回nil
 func readResource(path string) []byte {
-	if f, err := ioutil.ReadFile(aurora.ProjectRoot + "/" + aurora.Resource + path); err == nil {
+	if f, err := ioutil.ReadFile(path); err == nil {
 		return f
 	} else {
 		if os.IsNotExist(err) {
@@ -89,11 +73,25 @@ func readResource(path string) []byte {
 	return nil
 }
 
+// DefaultView 默认视图解析
+func (a *Aurora) DefaultView(ctx *Context, html string) {
+	parseFiles, err := template.ParseFiles(a.ProjectRoot + "/" + a.Resource + html)
+	if err != nil {
+		log.Fatal("ParseFiles" + err.Error())
+		return
+	}
+	err = parseFiles.Execute(ctx.Response, ctx.Attribute)
+	if err != nil {
+		log.Fatal("Execute" + err.Error())
+		return
+	}
+}
+
 // RegisterResourceType 加载静态资源路径，静态资源读取路径，服务器处理静态资源策略改为ServeHTTP处判别，最终静态资源的处理取决于 resource 根的设置
 //存在不同的图片类型需要多次调用设置对应的存储路径（图片类型存在不同，待解决）
-func RegisterResourceType(t string, paths ...string) {
-	if aurora.resourceMapping == nil {
-		aurora.resourceMapping = make(map[string][]string)
+func (a *Aurora) RegisterResourceType(t string, paths ...string) {
+	if a.ResourceMappings == nil {
+		a.ResourceMappings = make(map[string][]string)
 	}
 	for i := 0; i < len(paths); i++ {
 		pl := len(paths[i])
@@ -104,19 +102,17 @@ func RegisterResourceType(t string, paths ...string) {
 			paths[i] = paths[i] + "/"
 		}
 	}
-	aurora.resourceMapping[t] = paths
+	a.ResourceMappings[t] = paths
 }
 
-// DefaultView 默认视图解析
-func DefaultView(ctx *Context, html string) {
-	parseFiles, err := template.ParseFiles(aurora.ProjectRoot + "/" + aurora.Resource + html)
-	if err != nil {
-		log.Fatal(err.Error())
-		return
-	}
-	err = parseFiles.Execute(ctx.Response, ctx.Attribute)
-	if err != nil {
-		log.Fatal(err.Error())
-		return
-	}
+func LoadResourceHead(a *Aurora) {
+	a.ResourceMapType["js"] = "text/javascript"
+	a.ResourceMapType["css"] = "text/css"
+	a.ResourceMapType["html"] = "text/html"
+	a.ResourceMapType["encoding"] = "charset=utf-8"
+	a.ResourceMapType["gif"] = "image/gif"
+	a.ResourceMapType["png"] = "image/png"
+	a.ResourceMapType["svg"] = "image/svg+xml"
+	a.ResourceMapType["webp"] = "image/webp"
+	a.ResourceMapType["ico"] = "image/x-icon"
 }

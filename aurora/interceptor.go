@@ -42,7 +42,7 @@ func (de *DefaultInterceptor) AfterCompletion(ctx *Context) {
 		radd = ip + radd
 	}
 	l := fmt.Sprintf(" %s → %s | %s %s | %s", radd, re.URL.Host, re.Method, re.URL.Path, times)
-	aurora.Api <- l
+	ctx.AR.Api <- l
 }
 
 // InterceptorData 实现拦截器压栈出栈功能
