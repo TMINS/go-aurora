@@ -1,9 +1,8 @@
 package main
 
 import (
+	"fmt"
 	"github.com/awensir/Aurora/aurora"
-	"github.com/awensir/Aurora/aurora/start"
-	"github.com/awensir/Aurora/request/get"
 	"testing"
 )
 
@@ -32,33 +31,11 @@ func Servlet(ctx *aurora.Context) interface{} {
 }
 
 func TestRunning(t *testing.T) {
-	p := []string{
-		"/",
-		"/a/b",
-		"/a/c",
-		"/a/d",
-		"/a/e",
-		"/a/f",
-		"/ag/mac",
-		"/a/bc",
-		"/a/bbb",
-		"/a/cab",
-		"/a/ccc",
-		"/a/mack",
-		"/a/old",
-		"/index",
-		"/index/home",
-		"/index/user",
-		"/index/use",
-		"/index/user/login",
-		"/index/user/lout",
-		"/index/user/update",
-		"/aa",
-		"/aaa",
-	}
-	for _, v := range p {
-		get.Mapping(v, Servlet)
-	}
+	sss(1)
+}
 
-	start.Running("8080")
+func sss(a ...int) {
+	if a == nil {
+		fmt.Println("nil")
+	}
 }
