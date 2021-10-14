@@ -1,16 +1,43 @@
-Aurora
-
-[TOC]
-
-
+# Aurora
 
 ## 简介
 
-​		框架特点，简单易配置，通过包名对服务器中的各种属性进行设置，甚至不需要初始化任何变量，开发者可以专注的处理业。对请求返回值的处理也更加灵活，约定自动返回json格式，也可以进行视图解析加载给浏览器。自定义的错误机制可以让业务逻辑中经可能减少err的判空，也可以对专属错误进行可控的提示响应给浏览器。官方交流群:836414068，备注hub，部分功能不完善使用过程中有任何疑问可以添加QQ：1219449282，微信：Saber__o，备注hub，即可。
+​		框架特点，简单易配置。对请求返回值的处理也更加灵活，约定自动返回json格式，也可以进行视图解析加载给浏览器。自定义的错误机制可以让业务逻辑中经可能减少err的判空，也可以对专属错误进行可控的提示响应给浏览器。官方交流群:836414068，备注hub，部分功能不完善使用过程中有任何疑问可以添加QQ：1219449282，微信：Saber__o，备注hub，即可。
+
+## Demo
+
+入门示例
+
+```go
+package main
+
+import (
+	"github.com/awensir/Aurora/aurora"
+)
+
+func main() {
+	//获取 aurora 路由实例
+	a := aurora.Default()
+
+	// GET 方法注册 web get请求
+	a.GET("/", func(c *aurora.Context) interface{} {
+
+		//结果响应给 调用者
+		return "hello web"
+	})
+
+	// 启动服务器 默认端口8080，更改端口号 a.Guide(”8081“) 即可
+	a.Guide()
+}
+out：
+hello web
+```
+
+
 
 ## 路由注册
 
-aurora支持REST API，在方便的同时以意味着也有一定的缺陷，使用了rest api的路由注册容易和其它路径产生冲突。
+​			aurora支持REST API，在方便的同时以意味着也有一定的缺陷，使用了rest api的路由注册容易和其它路径产生冲突。
 
 aurora路由设计规则如下：
 
@@ -37,85 +64,186 @@ aurora路由设计规则如下：
 
 ## 映射管理
 
-管理服务器启动期间注册的Web服务，服务将分别存放到各自类型的服务容器中，Aurora中的路由管理默认提供两种方式，get和post请求。后续会支持更多的请求方式
-
-- get
-- post
-- put
-- delete
-- head
-
 服务处理函数签名：
 
 ```go
-	type Servlet func(ctx *Context) interface{}
+	type Servlet func(c *Context) interface{}
 ```
 
-接口统一注册签名
+支持常用的注册方式：
 
 ```go
-	func Mapping(url string,fun aurora.Servlet)
+type Routes interface {
+	GET(string, Servlet) interface{}
+	POST(string, Servlet) interface{}
+	PUT(string, Servlet) interface{}
+	DELETE(string, Servlet) interface{}
+	HEAD(string, Servlet) interface{}
+}
 ```
 
-通过包名对不同类型的请求进行注册
+## 响应处理
+
+### String
+
+```
+package main
+
+import (
+	"github.com/awensir/Aurora/aurora"
+)
+
+func main() {
+	//获取 aurora 路由实例
+	a := aurora.Default()
+
+	// GET 方法注册 web get请求
+	a.GET("/", func(c *aurora.Context) interface{} {
+
+		//直接返回字符串
+		return "hello web"
+	})
+
+	// 启动服务器 默认端口8080，更改端口号 a.Guide(”8081“) 即可
+	a.Guide()
+}
+##############################################################################################################################
+out：
+hello web
+```
+
+
+
+### Json
 
 ```go
-	func main() {
-        config.Resource("js", "js", "test")
+package main
 
-        //get
-        get.Mapping("/", func(ctx *aurora.Context) interface{} {
+import (
+	"github.com/awensir/Aurora/aurora"
+)
 
-            return "/html/index.html"
-        })
-        //post
-        post.Mapping("/", func(ctx *aurora.Context) interface{} {
+func main() {
+	//获取 aurora 路由实例
+	a := aurora.Default()
+	// GET 方法注册 web get请求
+	a.GET("/", func(c *aurora.Context) interface{} {
 
-            return "/html/index.html"
-        })
-        //put
-        put.Mapping("/", func(ctx *aurora.Context) interface{} {
+		s:=struct {
+			Name string
+			Age  int
+		}{Name: "test",Age: 20}
+		//直接返回结构体，自动编码json
+		return s
+	})
+	// 启动服务器 默认端口8080，更改端口号 a.Guide(”8081“) 即可
+	a.Guide()
+}
+##############################################################################################################################
+out:
+{"Name":"test","Age":20}
+```
 
-            return "/html/index.html"
-        })
-        //delete
-        delet.Mapping("/", func(ctx *aurora.Context) interface{} {
 
-            return "/html/index.html"
-        })
 
-        start.Running("8080")
+### Error
+
+```go
+package main
+
+import (
+	"errors"
+	"github.com/awensir/Aurora/aurora"
+)
+
+func main() {
+	//获取 aurora 路由实例
+	a := aurora.Default()
+	// GET 方法注册 web get请求
+	a.GET("/", func(c *aurora.Context) interface{} {
+
+		return errors.New("is error")
+	})
+	// 启动服务器 默认端口8080，更改端口号 a.Guide(”8081“) 即可
+	a.Guide()
+}
+##############################################################################################################################
+out: status：500
+error:is error
+```
+
+
+
+### WebError
+
+```go
+package main
+
+import (
+	"errors"
+	"github.com/awensir/Aurora/aurora"
+)
+// 绑定 ErrorHandler(c *aurora.Context) interface{} 函数即可
+type AgeErr struct {
+	err error
 }
 
+func (receiver *AgeErr) ErrorHandler(c *aurora.Context) interface{}{
+	/*
+		对同一类型的错误 统一处理
+	*/
+	return receiver.err
+}
+
+func main() {
+	//获取 aurora 路由实例
+	a := aurora.Default()
+	// GET 方法注册 web get请求
+	a.GET("/", func(c *aurora.Context) interface{} {
+		s:=struct {
+			Name string
+			Age  int
+		}{Name: "test",Age: 20}
+		if s.Age==20{
+			return &AgeErr{err:errors.New("is error") }
+		}
+		return s
+	})
+	// 启动服务器 默认端口8080，更改端口号 a.Guide(”8081“) 即可
+	a.Guide()
+}
+##############################################################################################################################
+out: status：500
+error:is error
 ```
 
-## 请求处理
+使用WebError 进行统一错误处理的方式，一定要避免返回其它错误机制，必须处理错误给出确切响应，继续返回错误机制会造成服务器资源崩溃。
 
-请求返回值是一个interface{}类型，意味着你可以返回任何类型，aurora约定返回三种类型，结构体，页面，错误，自定义错误处理
+### Nil
 
-- struct
+```go
+package main
 
-  struct：返回一个任意的结构体，将被解析为json发送给浏览器
+import (
+	"github.com/awensir/Aurora/aurora"
+)
+func main() {
+	//获取 aurora 路由实例
+	a := aurora.Default()
+	// GET 方法注册 web get请求
+	a.GET("/", func(c *aurora.Context) interface{} {
 
-- path
+		return nil
+	})
+	// 启动服务器 默认端口8080，更改端口号 a.Guide(”8081“) 即可
+	a.Guide()
+}
+##############################################################################################################################
+out: 
 
-  path：是一个页面路径，约定必须以 / 开头，path一定是静态资源目录下开始的路径，一般是返回html页面
+```
 
-- string
-
-  string：非特殊情况是作为字符串直接响应给浏览器。特殊情况包括（页面响应，服务转发）
-
-- error
-
-  error：返回一个错误(对错误的处理暂定直接发送浏览器json串)
-
-  页面响应对模板的支持还在设计中，预计只是对golang的模板语法简单的封装一下，还是尽可能的以json方式为主。
-  
-- nil
-
-  nil：主要处理api 形式的服务转发，服务器对所有的nil业务结果不做任何处理，非服务转发api 请谨慎使用nil作为业务结果返回值。
-
-
+返回nil ，框架不会对 nil 结果做出任何响应，等于本次访问什么都没发生
 
 ### 自定义错误处理：
 
@@ -136,18 +264,9 @@ func (t TestErr) ErrorHandler(ctx *aurora.Context) interface{} {
 	return "error"
 }
 
-func main() {
-	config.RegisterResource("js", "js","test")
-	get.Mapping("/", func(ctx *aurora.Context) interface{} {
-
-		return TestErr{fmt.Errorf("err")}
-	})
-	aurora.RunApplication("8080")
-}
-
 ```
 
-***错误处理，中需要避免再次返回处理者本身的类型，会造成死循环，无限递归最终栈溢出。请求处理的返回值同样适用于错误处理的返回值***
+***错误处理，中需要避免再次返回错误处理类型，会造成死循环，无限递归最终栈溢出。请求处理的返回值同样适用于错误处理的返回值***
 
 ## 静态资源
 
@@ -158,91 +277,114 @@ func main() {
 配置静态资源
 
 ```go
-//t 静态资源类型，paths为对应静态资源下的路径，对于图片的资源处理，还在优化
-func Resource(t string,paths ...string) 
+package main
 
+import (
+	"github.com/awensir/Aurora/aurora"
+)
 func main() {
-    //设置js文件的静态资源路径
-	config.Resource("js","js")
-	get.Mapping("/", func(ctx *aurora.Context) interface{} {
+	//获取 aurora 路由实例
+	a := aurora.Default()
+    //设置静态资源根路径
+	a.StaticRoot("static")
+    // ResourceMapping 资源映射
+	//添加静态资源配置，t资源类型必须以置源后缀命名，
+    //paths为t类型资源的子路径(一级子路径：static/xxx/aaa,xxx为第一级)，可以一次性设置多个。
+	//每个资源类型最调用一次设置方法否则覆盖原有设置
+	a.ResourceMapping("js","js","jsfiles")
+	// GET 方法注册 web get请求
+	a.GET("/", func(c *aurora.Context) interface{} {
 
+		//直接返回静态资源中的 页面作为响应数据
 		return "/html/index.html"
 	})
-
-	post.Mapping("/", func(ctx *aurora.Context) interface{} {
-
-		return "/html/index.html"
-	})
-	
-	aurora.RunApplication("8080")
+	// 启动服务器 默认端口8080，更改端口号 a.Guide(”8081“) 即可
+	a.Guide()
 }
 ```
 
-更改默认静态资源根路径
+
+
+## REST FUL
 
 ```go
+package main
+
+import (
+	"github.com/awensir/Aurora/aurora"
+)
 func main() {
-	config.Resource("js","js")
-	
-	//更改默认静态资源根路径为resource
-	config.ResourceRoot("resource")
-    
-	get.Mapping("/", func(ctx *aurora.Context) interface{} {
+	//获取 aurora 路由实例
+	a := aurora.Default()
 
-		return "/html/index.html"
+	// GET 方法注册 web get请求
+	a.GET("/${name}", func(c *aurora.Context) interface{} {
+		args := c.GetArgs()
+
+		return args["name"]
 	})
-
-	post.Mapping("/", func(ctx *aurora.Context) interface{} {
-
-		return "/html/index.html"
-	})
-
-	aurora.RunApplication("8080")
+	// 启动服务器 默认端口8080，更改端口号 a.Guide(”8081“) 即可
+	a.Guide()
 }
 ```
+
+
 
 ## 上下文对象
 
-rest api 参数获取，REST API参数的解析都放在了ctx对象中可以通过api获取对应属性名的值
+### 请求转发
+
+支持2中方式，ctx api调用和返回值转发，api调用转发，可以选择本服务返回nil作为结果返回，真实处理交给转发者返回给浏览器，或者返回值转发服务，两者转发的格式遵循路由注册的url方式，理论上是可以支持RAST API转发，但是不推荐。
 
 ```go
-get.Mapping("/user/${name}/${age}", func(ctx *aurora.Context) interface{} {
-		n:=ctx.GetArgs("name")
-		a:=ctx.GetArgs("age")
-		s:= struct {
-			Name string
-			Age  string
-		}{n,a}
-		return s   //返回的结构体将编码为json
-	})
-```
+package main
 
-请求转发，支持2中方式，ctx api调用和返回值转发，api调用转发，可以选择本服务返回nil作为结果返回，真实处理交给转发者返回给浏览器，或者返回值转发服务，两者转发的格式遵循路由注册的url方式，理论上是可以支持RAST API转发，但是不推荐。
+import (
+	"github.com/awensir/Aurora/aurora"
+)
 
-```go
 func main() {
-	config.Resource("js", "js", "test")
+	//获取 aurora 路由实例
+	a := aurora.Default()
+	// GET 方法注册 web get请求
+	a.GET("/", func(c *aurora.Context) interface{} {
 
-	get.Mapping("/abc", func(ctx *aurora.Context) interface{} {
-        //将服务转发至/abc/bbc/asd处理器
-		ctx.RequestForward("/abc/bbc/asd")
-		return nil
-	})
-	get.Mapping("/abc/bbc", func(ctx *aurora.Context) interface{} {
-
-		return "forward:/abc/bbc/asd"   //将服务转发至/abc/bbc/asd处理器
-	})
-	get.Mapping("/abc/bbc/asd", func(ctx *aurora.Context) interface{} {
-
-		return "/abc/bbc/asd"
+		return "forward:/abc"
 	})
 
+	a.GET("/abc", func(c *aurora.Context) interface{} {
 
-	start.Running("8080")
+		return "/abc"
+	})
+
+	// 启动服务器 默认端口8080，更改端口号 a.Guide(”8081“) 即可
+	a.Guide()
 }
 ```
 
-上下文对象没有对原始的web api做封装，但是提供了暴露了请求体和响应体。给开发者使用，后续会逐渐完善。web的请求处理可以完全按照go web的方式进行，把页面响应交给框架即可，同时对浏览器响应信息可能导致冲突，但是响应头的设置不会有所影响。
+上下文对象对原始的web api封装不是很，但是提供了暴露了请求体和响应体。给开发者使用，后续会逐渐完善。web的请求处理可以完全按照go web的方式进行，把页面响应交给框架即可，同时对浏览器响应信息可能导致冲突，但是响应头的设置不会有所影响。
+
+```go
+// Get 获取一个字符串参数
+func (c *Context) Get(Args string) (string, error)
+
+// GetInt 获取一个整数参数
+func (c *Context) GetInt(Args string) (int, error)
+
+// GetFloat64 获取一个64位浮点参数
+func (c *Context) GetFloat64(Args string) (float64, error) 
+
+// GetSlice 获取切片类型参数
+func (c *Context) GetSlice(Args string) ([]string, error) 
+
+// GetIntSlice 整数切片
+func (c *Context) GetIntSlice(Args string) ([]int, error) 
+
+// GetFloat64Slice 浮点切片
+func (c *Context) GetFloat64Slice(Args string) ([]float64, error) 
+```
+
+
 
 ## 拦截器
 
@@ -281,97 +423,47 @@ func (de DefaultInterceptor) AfterCompletion(ctx *Context)  {
 }
 ```
 
-默认连接器实现了对服务访问的控制台日志输出，如果想要自定义默认全局拦截器，可以通过config包的方法DefaultInterceptor(interceptor aurora.Interceptor) 修改默认拦截器如下，然后自己实现拦截器逻辑即可
+默认连接器实现了对服务访问的控制台日志输出，如果想要自定义默认全局拦截器，可以修改默认拦截器如下，然后自己实现拦截器逻辑即可
 
 ```go
-config.DefaultInterceptor(v Interceptor)
+// DefaultInterceptor 配置默认顶级拦截器
+func (a *Aurora) DefaultInterceptor(interceptor Interceptor) 
 ```
 
-拦截器的注册（config包中调用方法）
+拦截器的注册
 
 ```go
-func main() {
-    //Interceptor添加全局拦截器
-	config.Interceptor(MyInterceptor1{})
-	post.Mapping("/", func(ctx *aurora.Context) interface{} {
-		var body Body
-		ctx.PostBody(&body)
-		return body
-	})
+// AddInterceptor 追加全局拦截器
+func (a *Aurora) AddInterceptor(interceptor ...Interceptor)
 
-	get.Mapping("/abc", func(ctx *aurora.Context) interface{} {
-
-		return "/abc"
-	})
-	get.Mapping("/", func(ctx *aurora.Context) interface{} {
-
-		return "/abc"
-	})
-	config.PathInterceptor("/abc",MyInterceptor2{})
-
-	config.PathInterceptor("/",MyInterceptor3{})
-
-	aurora.RunApplication("8080")
-}
+// RouteIntercept path路径上添加一个或者多个路由拦截器
+func (a *Aurora) RouteIntercept(path string, interceptor ...Interceptor)
 ```
 
-通配符拦截器
+​		通配符拦截器，eg： /abc/* 只能匹配以/abc/结尾的父路径以及 /abc 本身，如果继续单独添加RouteIntercept("/abc", MyInterceptor2{}) 配置访问/abc 会被两个配置分别拦截，两种方式不冲突。
 
-```go
-func main() {
-
-	get.Mapping("/abc/bbc", func(ctx *aurora.Context) interface{} {
-
-		return "/abc"
-	})
-	get.Mapping("/abc/bbc/asd", func(ctx *aurora.Context) interface{} {
-
-		return "/abc/bbc/asd"
-	})
-
-	get.Mapping("/abc/bbc/aaa", func(ctx *aurora.Context) interface{} {
-
-		return "/abc/bbc/aaa"
-	})
-	get.Mapping("/abc/qaq", func(ctx *aurora.Context) interface{} {
-
-		return "/abc/qaq"
-	})
-	get.Mapping("/abc/qaq/csdn", func(ctx *aurora.Context) interface{} {
-
-		return "/abc/qaq/csdn"
-	})
-	get.Mapping("/", func(ctx *aurora.Context) interface{} {
-
-		return "/"
-	})
-    
-    // /abc/* 只能匹配以/abc/结尾的父路径以及 /abc 本身
-    // 如果继续单独添加config.RegisterPathInterceptor("/abc", MyInterceptor2{}) 配置访问/abc 会被两个配置分别拦截，两种方式不冲突
-	config.PathInterceptor("/abc/*", MyInterceptor2{})
-
-	config.PathInterceptor("/", MyInterceptor3{})
-
-	config.PathInterceptor("/abc/bbc/aaa", MyInterceptor4{})
-
-	aurora.RunApplication("8080")
-}
-```
-
-注意事项：通配符配置拦截器，只支持 /xxx/* ,xxx是具体完整的父路径，不支持使用*来切割子路径进行匹配
+​		注意事项：通配符配置拦截器，只支持 /xxx/* ,xxx是具体完整的父路径，不支持使用*来切割子路径进行匹配
 
 局部拦截器，依赖于路由树，所以注册局部拦截器时候必须等待路由注册完毕才能正常注册成功，全局则不需要依赖于路由树。
 
 aurora也支持go web 最常用的中间件编写处理
 
 ```go
+package main
+
+import (
+	"fmt"
+	"github.com/awensir/Aurora/aurora"
+)
 func Test(ctx *aurora.Context) interface{} {
 	return "test"
 }
 func main() {
-	config.Resource("js", "js", "test")
+	//获取 aurora 路由实例
+	a := aurora.Default()
 
-	get.Mapping("/", func (next aurora.Servlet) aurora.Servlet {
+	// GET 方法注册 web get请求
+	a.GET("/", func (next aurora.Servlet) aurora.Servlet {
 		return func(ctx *aurora.Context) interface{} {
 			fmt.Println("before")
 			v:=next(ctx)
@@ -379,27 +471,7 @@ func main() {
 			return v
 		}
 	}(Test))
-
-	start.Running("8080")
+	// 启动服务器 默认端口8080，更改端口号 a.Guide(”8081“) 即可
+	a.Guide()
 }
 ```
-
-
-
-## session机制（不完善）
-
-session机制的只是做了简单的实现，后续根据需要做进一步提升，在获取session之前，服务器是不会保存任何session对象的，session在请求对象第一次调用时产生，session的默认生命值为60s(后续会提供修改)，同一个session在没有被销毁之前，连续被连接请求访问会刷新session生命时间，也就是延长存活时间，session的销毁是通过后台go程执行定时任务销毁，服务器在没有任何session的情况下依旧会检擦。会造成性能问题，待解决中
-
-如何获取session
-
-```go
-get.Mapping("/abc/bbc/aaa", func(ctx *aurora.Context) interface{} {
-		session:=ctx.GetSession()
-		return session.GetSessionId()
-	})
-```
-
-
-
-
-
