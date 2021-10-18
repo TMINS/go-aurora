@@ -1,16 +1,17 @@
-package aurora
+package mux
 
 import (
+	"errors"
 	"fmt"
 	"net/http"
-	"os"
+	"reflect"
+	"runtime"
 	"strings"
 	"sync"
 )
 
 /*
-	路由存储规则参考HttpRouter
-	基于查询树的路由器
+	基于字典树的路由器
 	路由器规则:
 		1.无法存储相同的路径
 			1)形同路径的判定：校验参数相同，并且节点函数不为nil，节点函数为nil的节点说明，这个路径是未注册过，被提取为公共根
@@ -38,75 +39,101 @@ type Routes interface {
 type ResourceHandler func(w http.ResponseWriter, r *http.Request)
 
 type ServletHandler interface {
-	ServletHandler(c *Context) interface{}
+	ServletHandler(c *Ctx) interface{}
 }
 
-type Servlet func(c *Context) interface{}
+type Servlet func(c *Ctx) interface{}
 
-func (s Servlet) ServletHandler(ctx *Context) interface{} {
+func (s Servlet) ServletHandler(ctx *Ctx) interface{} {
+	//ctx.monitor.En(ExecuteInfo(nil))
 	return s(ctx)
 }
 
 // ServerRouter Aurora核心路由器
 type ServerRouter struct {
-	rw   *sync.Mutex
-	tree map[string]*Node
-	View ViewFunc
-	AR   *Aurora // Aurora 引用
+	mx          *sync.Mutex
+	tree        map[string]*Node
+	DefaultView ViewFunc
+	AR          *Aurora // Aurora 引用
 }
 
 // Node 路由节点
 type Node struct {
-	Path      string         //当前节点路径
-	handle    ServletHandler //服务处理函数
-	Child     []*Node        //子节点
-	InterList []Interceptor  //当前路径拦截链，默认为空，只要经过该路径，就
-	TreeInter []Interceptor  //路径匹配拦截器，默认为空
+	Path      string        //当前节点路径
+	handle    Servlet       //服务处理函数
+	Child     []*Node       //子节点
+	InterList []Interceptor //当前路径拦截链，默认为空
+	TreeInter []Interceptor //路径匹配拦截器，默认为空
 }
 
 //——————————————————————————————————————————————————————————————————————————路由注册————————————————————————————————————————————————————————————————————————————————————————————
 
 // addRoute 预处理被添加路径
-func (r *ServerRouter) addRoute(method, path string, fun ServletHandler) {
-	if r.tree == nil {
-		r.tree = make(map[string]*Node) //初始化路由树
-	}
-	if _, ok := r.tree[method]; !ok {
-		r.tree[method] = &Node{} //初始化制定
-	}
-	root := r.tree[method] //拿到根路径
-	if path[0:1] != "/" {  //校验path开头
+func (r *ServerRouter) addRoute(method, path string, fun Servlet, monitor *LocalMonitor) {
+
+	if path[0:1] != "/" { //校验path开头
 		path += "/" + path //没有写 "/" 则添加斜杠开头
 	}
 	if path != "/" && path[len(path)-1:] == "/" {
-		r.AR.InitError <- UrlPathError{Type: "路径注册", Path: path, Message: "注册路径不能以 '/' 结尾", Method: method}
+		e := UrlPathError{Type: "路径注册", Path: path, Message: "注册路径不能以 '/' 结尾", Method: method}
+		monitor.En(ExecuteInfo(e))
+		r.AR.runtime <- monitor //发生错误，需要打印调用链进行提示
+		r.AR.initError <- e
 	}
 	if strings.HasPrefix(path, "//") { //解决 根 / 路径分组产生的bug
 		path = path[1:]
 	}
-	r.add(method, root, path, fun, path) //把路径添加到根路径中中
+	if strings.Contains(path, "{}") {
+		//校验注册 REST API 的路径格式。如果存在空的属性，不给注册
+		e := errors.New(method + ":" + path + " path cannot exist {}")
+		monitor.En(ExecuteInfo(e))
+		r.AR.runtime <- monitor
+		r.AR.initError <- e
+	}
+	//防止go程产生并发操作覆盖路径
+	r.mx.Lock()
+	defer r.mx.Unlock()
+	//初始化路由树
+	if r.tree == nil {
+		r.tree = make(map[string]*Node)
+	}
+	if _, ok := r.tree[method]; !ok {
+		//初始化 请求类型根
+		r.tree[method] = &Node{}
+	}
+	//拿到根路径
+	root := r.tree[method]
+	monitor.En(ExecuteInfo(nil))
+	r.add(method, root, path, fun, path, monitor) //把路径添加到根路径中中
 }
 
 // add 添加路径节点
 // method 指定请求类型，root 根路径，Path和fun 被添加的路径和处理函数，path携带路径副本添加过程中不会有任何操作仅用于日志处理
-func (r *ServerRouter) add(method string, root *Node, Path string, fun ServletHandler, path string) {
+// method: 请求类型(日志相关参数)
+// path: 插入的路径(日志相关参数)
+// monitor: 链路日志(日志相关参数)
+func (r *ServerRouter) add(method string, root *Node, Path string, fun Servlet, path string, monitor *LocalMonitor) {
 
 	//初始化根
 	if root.Path == "" && root.Child == nil {
 		root.Path = Path
 		root.Child = nil
 		root.handle = fun
-		l := fmt.Sprintf("Web Rout Mapping successds | %s ", path)
-		r.AR.StartInfo <- l
+		l := fmt.Sprintf("Web Rout Mapping successds | %-10s %-20s bind (%-5s)", method, path, GetFunName(fun))
+		r.AR.message <- l
 		return
 	}
 	if root.Path == Path { //相同路径可能是分裂或者提取的公共根
 		if root.handle != nil { //判断这个路径是否被注册过
-			r.AR.InitError <- UrlPathError{Type: "路径注册", Path: Path, NodePath: root.Path, Message: "路径已存在，重复注册!", Method: method}
+			e := errors.New(method + ":" + Path + " and " + root.Path + " repeated!")
+			monitor.En(ExecuteInfo(e))
+			r.AR.runtime <- monitor
+			r.AR.initError <- e
 		} else {
 			root.handle = fun
-			l := fmt.Sprintf("Web Rout Mapping successds | %s ", path)
-			r.AR.StartInfo <- l
+			l := fmt.Sprintf("Web Rout Mapping successds | %-10s %-20s bind (%-5s)", method, path, GetFunName(fun))
+			r.AR.message <- l
+			return
 		}
 	}
 	//如果当前的节点是 REST API 节点 ，子节点可以添加REST API节点
@@ -131,7 +158,7 @@ func (r *ServerRouter) add(method string, root *Node, Path string, fun ServletHa
 						存在父子关系则进入递归
 					*/
 					if strings.HasPrefix(root.Child[i].Path, c) || strings.HasPrefix(c, root.Child[i].Path) {
-						r.add(method, root.Child[i], c, fun, path)
+						r.add(method, root.Child[i], c, fun, path, monitor)
 						return
 					}
 				}
@@ -143,14 +170,17 @@ func (r *ServerRouter) add(method string, root *Node, Path string, fun ServletHa
 				if len(root.Child) > 0 {
 					//如果存储的路径是REST API 检索 当前子节点是否存有路径，存有路径则为冲突
 					for i := 0; i < len(root.Child); i++ {
-						if !(strings.HasPrefix(root.Child[i].Path, "$") && strings.HasPrefix(Path, "$")) {
-							r.AR.InitError <- UrlPathError{Method: method, Type: "REST API路径注册", Path: Path, NodePath: root.Child[i].Path, Message: "路径发生冲突!"}
+						if !(strings.HasPrefix(root.Child[i].Path, "{") && strings.HasPrefix(Path, "{")) {
+							e := errors.New(method + ":" + Path + " and " + root.Child[i].Path + " collide with each other")
+							monitor.En(ExecuteInfo(e))
+							r.AR.runtime <- monitor
+							r.AR.initError <- e
 						}
 					}
 				}
 				root.Child = append(root.Child, &Node{Path: c, Child: nil, handle: fun})
-				l := fmt.Sprintf("Web Rout Mapping successds | %s ", path)
-				r.AR.StartInfo <- l
+				l := fmt.Sprintf("Web Rout Mapping successds | %-10s %-20s bind (%-5s)", method, path, GetFunName(fun))
+				r.AR.message <- l
 				return
 			}
 		}
@@ -168,7 +198,7 @@ func (r *ServerRouter) add(method string, root *Node, Path string, fun ServletHa
 						存在父子关系则进入递归
 					*/
 					if strings.HasPrefix(root.Child[i].Path, c) || strings.HasPrefix(c, root.Child[i].Path) {
-						r.add(method, root.Child[i], c, fun, path)
+						r.add(method, root.Child[i], c, fun, path, monitor)
 						return
 					}
 				}
@@ -181,8 +211,11 @@ func (r *ServerRouter) add(method string, root *Node, Path string, fun ServletHa
 				if len(root.Child) > 0 {
 					//如果存储的路径是REST API 需要检索当前子节点是否存有路径，存有路径则为冲突
 					for i := 0; i < len(root.Child); i++ {
-						if !(strings.HasPrefix(root.Child[i].Path, "$") && strings.HasPrefix(Path, "$")) {
-							r.AR.InitError <- UrlPathError{Method: method, Type: "REST API路径注册", Path: Path, NodePath: root.Child[i].Path, Message: "路径发生冲突!"}
+						if !(strings.HasPrefix(root.Child[i].Path, "{") && strings.HasPrefix(Path, "{")) {
+							e := errors.New(method + ":" + Path + " and " + root.Child[i].Path + " collide with each other")
+							monitor.En(ExecuteInfo(e))
+							r.AR.runtime <- monitor
+							r.AR.initError <- e
 						}
 					}
 				}
@@ -191,20 +224,27 @@ func (r *ServerRouter) add(method string, root *Node, Path string, fun ServletHa
 				root.Child = append(root.Child, &Node{Path: c, Child: tempChild, handle: root.handle}) //封装被分裂的子节点 添加到当前根的子节点中
 				root.Path = root.Path[:i]                                                              //修改当前节点为添加的路径
 				root.handle = fun                                                                      //更改当前处理函数
-				l := fmt.Sprintf("Web Rout Mapping successds | %s ", path)
-				r.AR.StartInfo <- l
+				l := fmt.Sprintf("Web Rout Mapping successds | %-10s %-20s bind (%-5s)", method, path, GetFunName(fun))
+				r.AR.message <- l
 				return
 			}
 		}
 	}
 	//情况3.节点和被添加节点无直接关系 抽取公共前缀最为公共根
-	r.Merge(method, root, Path, fun, path)
+	r.Merge(method, root, Path, fun, path, root.Path, monitor)
 	return
 }
 
 // Merge 检测root节点 和待添加路径 是否有公共根，有则提取合并公共根
-func (r *ServerRouter) Merge(method string, root *Node, Path string, fun ServletHandler, path string) bool {
-	pub := FindPublicRoot(root.Path, Path) //公共路径
+// method: 请求类型(日志相关参数)
+// path: 插入的路径(日志相关参数)
+// rpath: 节点的路径(日志相关参数)
+// monitor: 链路日志(日志相关参数)
+// root: 根合并相关参数
+// Path: 根合并相关参数
+// fun: 根合并相关参数
+func (r *ServerRouter) Merge(method string, root *Node, Path string, fun Servlet, path string, rpath string, monitor *LocalMonitor) bool {
+	pub := r.FindPublicRoot(method, root.Path, Path, monitor) //公共路径
 	if pub != "" {
 		pl := len(pub)
 		/*
@@ -228,17 +268,23 @@ func (r *ServerRouter) Merge(method string, root *Node, Path string, fun Servlet
 			if len(root.Child) > 0 {
 				for i := 0; i < len(root.Child); i++ {
 					//单纯的被添加到此节点的子节点列表中 需要递归检测子节点和被添加节点是否有公共根
-					if r.Merge(method, root.Child[i], ch2, fun, path) {
+					if r.Merge(method, root.Child[i], ch2, fun, path, rpath, monitor) {
 						return true
 					}
 				}
 				//检索插入路径REST API冲突
 				for i := 0; i < len(root.Child); i++ {
-					if strings.HasPrefix(root.Child[i].Path, "$") || strings.HasPrefix(ch2, "$") {
-						r.AR.InitError <- UrlPathError{Method: method, Type: "REST API路径注册", Path: Path, NodePath: root.Child[i].Path, Message: "路径发生冲突!"}
+					if strings.HasPrefix(root.Child[i].Path, "{") || strings.HasPrefix(ch2, "{") {
+						e := errors.New(method + ":" + path + " and " + rpath + " collide with each other")
+						monitor.En(ExecuteInfo(e))
+						r.AR.runtime <- monitor
+						r.AR.initError <- e
 					}
-					if strings.HasPrefix(root.Child[i].Path, "$") && strings.HasPrefix(ch2, "$") {
-						r.AR.InitError <- UrlPathError{Method: method, Type: "REST API路径注册", Path: Path, NodePath: root.Child[i].Path, Message: "路径发生冲突!"}
+					if strings.HasPrefix(root.Child[i].Path, "{") && strings.HasPrefix(ch2, "{") {
+						e := errors.New(method + ":" + path + " and " + rpath + " collide with each other")
+						monitor.En(ExecuteInfo(e))
+						r.AR.runtime <- monitor
+						r.AR.initError <- e
 					}
 				}
 			}
@@ -250,15 +296,16 @@ func (r *ServerRouter) Merge(method string, root *Node, Path string, fun Servlet
 			}
 		}
 		root.Path = pub //覆盖原有值设置公共根
-		l := fmt.Sprintf("Web Rout Mapping successds | %s ", path)
-		r.AR.StartInfo <- l
+
+		l := fmt.Sprintf("Web Rout Mapping successds | %-10s %-20s bind (%-5s)", method, path, GetFunName(fun))
+		r.AR.message <- l
 		return true
 	}
 	return false
 }
 
 // FindPublicRoot 查找公共前缀，如无公共前缀则返回 ""
-func FindPublicRoot(p1, p2 string) string {
+func (r *ServerRouter) FindPublicRoot(method, p1, p2 string, monitor *LocalMonitor) string {
 	l := len(p1)
 	if l > len(p2) {
 		l = len(p2) //取长度短的
@@ -271,10 +318,14 @@ func FindPublicRoot(p1, p2 string) string {
 		//提取公共根 遇到REST API时候 需要阻止提取  主要修改 /aaa/${name} 和 /aaa/${nme} 情况下会造成提取公共根，作为rest api 参数 是不合法的
 		s1 := p1[:index]
 		for i := len(s1); i > 0 && s1[i-1:i] != "/"; i-- { //从后往前检索到第一个 / 如果没有遇到 $ 则没有以取 REST API为公共根
-			if s1[i-1:i] == "$" {
-				fmt.Println(" REST API 路径冲突 : " + s1)
+			if s1[i-1:i] == "{" {
+				e := errors.New(method + ":" + p1 + " and " + p2 + " collide with each other")
+				monitor.En(ExecuteInfo(e))
+				r.AR.runtime <- monitor
+				r.AR.initError <- e
+				//fmt.Println(" REST API 路径冲突 : " + s1)
 				//panic("REST API 路径冲突")
-				os.Exit(-1)
+				//os.Exit(-1)
 			}
 		}
 		return s1
@@ -328,7 +379,7 @@ func OptimizeSort(child []*Node, start int, end int) {
 // —————————————————————————————局部拦截器——(插入拦截器查询算法和，路由查询算法一直)—————————————————————————————————————————————————————————————————————————————————————————————————
 
 // RegisterInterceptor 向路由树上添加拦截器，添加规则只要是匹配的路径都会添加上对应的拦截器，不区分拦截的请求方式，REST API暂定还未调试支持
-func (r *ServerRouter) RegisterInterceptor(path string, interceptor ...Interceptor) {
+func (r *ServerRouter) RegisterInterceptor(path string, monitor *LocalMonitor, interceptor ...Interceptor) {
 	pl := len(path)
 	if pl > 1 {
 		if path[pl-1:] == "*" && path[pl-2:] != "/*" {
@@ -339,13 +390,14 @@ func (r *ServerRouter) RegisterInterceptor(path string, interceptor ...Intercept
 		return
 	}
 	//为每个路径添加上拦截器
+	monitor.En(ExecuteInfo(nil))
 	for k, _ := range r.tree {
-		r.register(r.tree[k], path, interceptor...)
+		r.register(r.tree[k], path, monitor, interceptor...)
 	}
 }
 
 // register 拦截器添加和路径查找方式一样，参数path是需要添加的路径，interceptor则是需要添加的拦截器集合，root则是表示为某种请求类型进行添加拦截器
-func (r *ServerRouter) register(root *Node, path string, interceptor ...Interceptor) {
+func (r *ServerRouter) register(root *Node, path string, monitor *LocalMonitor, interceptor ...Interceptor) {
 	if root == nil {
 		return
 	}
@@ -359,12 +411,12 @@ func (r *ServerRouter) register(root *Node, path string, interceptor ...Intercep
 				root.InterList = interceptor
 			}
 			l := fmt.Sprintf("Web Rout Interceptor successds | %s ", path)
-			r.AR.StartInfo <- l
+			r.AR.message <- l
 			return
 		}
 		root.InterList = interceptor //再次添加会覆盖通配拦截器
 		l := fmt.Sprintf("Web Rout Interceptor successds | %s ", path)
-		r.AR.StartInfo <- l
+		r.AR.message <- l
 		return
 	}
 
@@ -374,16 +426,19 @@ func (r *ServerRouter) register(root *Node, path string, interceptor ...Intercep
 	psl := len(ps)
 	sub := ""
 	if psl < rsl {
-		fmt.Println("访问路径不存在! 未注册 : " + path)
-		return
+		e := errors.New(path + " does not exist")
+		monitor.En(ExecuteInfo(e))
+		r.AR.runtime <- monitor
+		r.AR.initError <- e
+		//return
 	}
 	for i := 0; i < rsl; i++ { //解析当前路径和查找路径是否有相同部分
 		//if 逐一对路径进行 比较或者解析
 		if rs[i] == ps[i] { //检查rs是否和查询路径一致
 			continue //如果一致则进行下一个检查
 		}
-		if rs[i] != ps[i] && strings.Contains(rs[i], "$") { //检测 rs是否为rest api
-			if rs[i][0:1] != "$" {
+		if rs[i] != ps[i] && strings.Contains(rs[i], "{") { //检测 rs是否为rest api
+			if rs[i][0:1] != "{" {
 				panic("REST API 解析错误")
 			}
 			//kl := len(rs[i])
@@ -401,8 +456,11 @@ func (r *ServerRouter) register(root *Node, path string, interceptor ...Intercep
 				continue
 			}
 		}
-		fmt.Println("访问路径不存在! 未注册 : " + path)
-		return
+		e := errors.New(path + " does not exist")
+		monitor.En(ExecuteInfo(e))
+		r.AR.runtime <- monitor
+		r.AR.initError <- e
+		//return
 	}
 	//此处修复 if sub=="" 为 if sub=="" && rsl==psl， /user/${name}/update  和 /user 类型情况下  /user 解析出 [""."user"]和[""."user","xxx","update"],上面的检查
 	//无法检测出字串 导致/user/${name}/update 会走到/user里面，上面无法检测出子路径是查询路径和当前节点路径完全一致情况下，并且没有子路径
@@ -443,14 +501,18 @@ func (r *ServerRouter) register(root *Node, path string, interceptor ...Intercep
 			str = sub + str //子前缀一定要加在前面
 		}
 		for i := 0; i < len(root.Child); i++ { //子路径解析完成，开始遍历子节点路径，找到一个符合的路径继续走下去
-			pub := FindPublicRoot(str, root.Child[i].Path)
+			pub := r.FindPublicRoot("", str, root.Child[i].Path, monitor)
 			if pub != "" {
-				r.register(root.Child[i], str, interceptor...)
+				r.register(root.Child[i], str, monitor, interceptor...)
 				return
 			}
 		}
-		fmt.Println(path, "拦截器注册失败")
-		return
+		//fmt.Println(path, "拦截器注册失败")
+		e := errors.New(path + " does not exist")
+		monitor.En(ExecuteInfo(e))
+		r.AR.runtime <- monitor
+		r.AR.initError <- e
+		//return
 	}
 }
 
@@ -460,14 +522,15 @@ func (r *ServerRouter) register(root *Node, path string, interceptor ...Intercep
 
 // SearchPath 检索指定的path路由
 // method 请求类型，path 查询路径，rw，req http生成的请求响应，ctx 主要用于转发请求时携带
-func (r *ServerRouter) SearchPath(method, path string, rw http.ResponseWriter, req *http.Request, ctx *Context) {
+func (r *ServerRouter) SearchPath(method, path string, rw http.ResponseWriter, req *http.Request, ctx *Ctx, monitor *LocalMonitor) {
 	if n, ok := r.tree[method]; ok { //查找指定的Method树
-		r.search(n, path, nil, rw, req, ctx)
+		r.search(n, path, nil, rw, req, ctx, monitor)
 	}
 }
 
 // Search 路径查找，参数和 SearchPath意义 一致， Args map主要用于存储解析REST API路径参数，默认传nil,Interceptor拦截器可变参数，用于生成最终拦截链
-func (r *ServerRouter) search(root *Node, path string, Args map[string]interface{}, rw http.ResponseWriter, req *http.Request, ctx *Context, Interceptor ...Interceptor) {
+func (r *ServerRouter) search(root *Node, path string, Args map[string]interface{}, rw http.ResponseWriter, req *http.Request, ctx *Ctx, monitor *LocalMonitor, Interceptor ...Interceptor) {
+
 	if root == nil {
 		return
 	}
@@ -481,8 +544,8 @@ func (r *ServerRouter) search(root *Node, path string, Args map[string]interface
 	if root.TreeInter != nil && Interceptor == nil {
 		Interceptor = root.TreeInter
 	}
-
-	if root.Path == path { //当前路径处理匹配成功
+	monitor.En(ExecuteInfo(nil)) //执行链
+	if root.Path == path {       //当前路径处理匹配成功
 		if root.handle != nil { //校验是否为有效路径
 			//服务处理方法入口
 			proxy := ServletProxy{
@@ -493,8 +556,9 @@ func (r *ServerRouter) search(root *Node, path string, Args map[string]interface
 				ctx:             ctx,
 				InterceptorList: root.InterList,
 				TreeInter:       Interceptor,
-				view:            r.View,
-				AR:              r.AR,
+				view:            r.DefaultView, //使用路由器ServerRouter 的默认处理函数
+				ar:              r.AR,
+				monitor:         monitor,
 			}
 			proxy.Start() //开始执行
 			return        //执行结束
@@ -505,7 +569,7 @@ func (r *ServerRouter) search(root *Node, path string, Args map[string]interface
 	}
 
 	rs := strings.Split(root.Path, "/") //当前节点进行切割
-	ps := strings.Split(path, "/")      //查询路径进行切割
+	ps := strings.Split(path, "/")      //查询路径进行切割--path是访问服务器的请求
 	rsl := len(rs)
 	psl := len(ps)
 	sub := ""
@@ -519,12 +583,12 @@ func (r *ServerRouter) search(root *Node, path string, Args map[string]interface
 		if rs[i] == ps[i] { //检查rs是否和查询路径一致
 			continue //如果一致则进行下一个检查
 		}
-		if rs[i] != ps[i] && strings.Contains(rs[i], "$") { //检测 rs是否为rest api
-			if rs[i][0:1] != "$" && rs[i][1:2] != "{" && rs[i][len(rs[i])-1:] != "}" { // rs[i][0:1] != "$"  添加了修改了 参数解析检查
+		if rs[i] != ps[i] && strings.Contains(rs[i], "{") { //检测 rs是否为rest api
+			if rs[i][0:1] != "{" && rs[i][len(rs[i])-1:] != "}" { // rs[i][0:1] != "{"  添加了修改了 参数解析检查
 				panic("REST API 解析错误")
 			}
 			kl := len(rs[i])
-			key := rs[i][2 : kl-1]
+			key := rs[i][1 : kl-1]
 			if Args == nil {
 				Args = make(map[string]interface{})
 			}
@@ -554,8 +618,9 @@ func (r *ServerRouter) search(root *Node, path string, Args map[string]interface
 				args:            Args,
 				ctx:             ctx,
 				InterceptorList: root.InterList,
-				view:            r.View,
-				AR:              r.AR,
+				view:            r.DefaultView,
+				ar:              r.AR,
+				monitor:         monitor,
 			}
 			proxy.Start()
 			return
@@ -584,9 +649,9 @@ func (r *ServerRouter) search(root *Node, path string, Args map[string]interface
 			str = sub + str //子前缀一定要加在前面
 		}
 		for i := 0; i < len(root.Child); i++ { //子路径解析完成，开始遍历子节点路径，找到一个符合的路径继续走下去
-			pub := FindPublicRoot(str, root.Child[i].Path)
+			pub := r.FindPublicRoot("", str, root.Child[i].Path, monitor)
 			if pub != "" {
-				r.search(root.Child[i], str, Args, rw, req, ctx, Interceptor...)
+				r.search(root.Child[i], str, Args, rw, req, ctx, monitor, Interceptor...)
 				return
 			}
 		}
@@ -600,10 +665,12 @@ func (r *ServerRouter) search(root *Node, path string, Args map[string]interface
 
 // ServeHTTP 一切的开始
 func (a *Aurora) ServeHTTP(rw http.ResponseWriter, req *http.Request) {
+	list := &LocalMonitor{mx: &sync.Mutex{}}
+	list.En(ExecuteInfo(nil))
 	mapping := req.RequestURI
 	if index := strings.LastIndex(mapping, "."); index != -1 { //静态资源处理
 		t := mapping[index+1:]             //截取资源类型,（图片类型存在不同，待解决）
-		paths, ok := a.ResourceMappings[t] //资源对应的路径映射
+		paths, ok := a.resourceMappings[t] //资源对应的路径映射
 		if !ok {
 			http.NotFound(rw, req)
 		}
@@ -613,13 +680,20 @@ func (a *Aurora) ServeHTTP(rw http.ResponseWriter, req *http.Request) {
 				mp = mapping[i:] //找到匹配的一条映射,截取到真实资源路径
 			}
 		}
-		a.ResourceFun(rw, req, mp, t)
+		a.ResourceFun(rw, req, mp, t, list)
 		return
 	}
-	a.Router.SearchPath(req.Method, req.URL.Path, rw, req, nil) //初始一个nil ctx
+
+	a.router.SearchPath(req.Method, req.URL.Path, rw, req, nil, list) //初始一个nil ctx
 }
 
 // Register 通用注册器
-func (a *Aurora) Register(method string, mapping string, fun ServletHandler) {
-	a.Router.addRoute(method, mapping, fun)
+func (a *Aurora) Register(method string, mapping string, fun Servlet) {
+	list := &LocalMonitor{mx: &sync.Mutex{}}
+	list.En(ExecuteInfo(nil))
+	a.router.addRoute(method, mapping, fun, list)
+}
+
+func GetFunName(fun Servlet) string {
+	return runtime.FuncForPC(reflect.ValueOf(fun).Pointer()).Name()
 }

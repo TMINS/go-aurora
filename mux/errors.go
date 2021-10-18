@@ -1,4 +1,4 @@
-package aurora
+package mux
 
 /*
 	错误定义
@@ -28,7 +28,7 @@ func (e UrlPathError) Error() string {
 
 // WebError 业务处理期间，的特定错误
 type WebError interface {
-	ErrorHandler(c *Context) interface{} //ErrorHandler 处理对应的错误
+	ErrorHandler(c *Ctx) interface{} //ErrorHandler 处理对应的错误
 }
 
-type WebErr func(c *Context) interface{}
+type WebErr func(c *Ctx) interface{}

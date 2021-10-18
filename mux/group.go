@@ -1,4 +1,4 @@
-package aurora
+package mux
 
 import (
 	"net/http"

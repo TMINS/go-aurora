@@ -12,11 +12,11 @@
 package main
 
 import (
-	"github.com/awensir/Aurora/aurora"
+	"github.com/awensir/Aurora/mux"
 )
 
 func main() {
-	//获取 aurora 路由实例
+	//获取 mux 路由实例
 	a := aurora.Default()
 
 	// GET 方法注册 web get请求
@@ -120,19 +120,19 @@ hello web
 package main
 
 import (
-	"github.com/awensir/Aurora/aurora"
+	"github.com/awensir/Aurora/mux"
 )
 
 func main() {
-	//获取 aurora 路由实例
+	//获取 mux 路由实例
 	a := aurora.Default()
 	// GET 方法注册 web get请求
 	a.GET("/", func(c *aurora.Context) interface{} {
 
-		s:=struct {
+		s := struct {
 			Name string
 			Age  int
-		}{Name: "test",Age: 20}
+		}{Name: "test", Age: 20}
 		//直接返回结构体，自动编码json
 		return s
 	})
@@ -141,7 +141,7 @@ func main() {
 }
 ##############################################################################################################################
 out:
-{"Name":"test","Age":20}
+{"Name":"test", "Age":20}
 ```
 
 
@@ -153,11 +153,11 @@ package main
 
 import (
 	"errors"
-	"github.com/awensir/Aurora/aurora"
+	"github.com/awensir/Aurora/mux"
 )
 
 func main() {
-	//获取 aurora 路由实例
+	//获取 mux 路由实例
 	a := aurora.Default()
 	// GET 方法注册 web get请求
 	a.GET("/", func(c *aurora.Context) interface{} {
@@ -181,14 +181,15 @@ package main
 
 import (
 	"errors"
-	"github.com/awensir/Aurora/aurora"
+	"github.com/awensir/Aurora/mux"
 )
-// 绑定 ErrorHandler(c *aurora.Context) interface{} 函数即可
+
+// 绑定 ErrorHandler(c *mux.Context) interface{} 函数即可
 type AgeErr struct {
 	err error
 }
 
-func (receiver *AgeErr) ErrorHandler(c *aurora.Context) interface{}{
+func (receiver *AgeErr) ErrorHandler(c *aurora.Context) interface{} {
 	/*
 		对同一类型的错误 统一处理
 	*/
@@ -196,16 +197,16 @@ func (receiver *AgeErr) ErrorHandler(c *aurora.Context) interface{}{
 }
 
 func main() {
-	//获取 aurora 路由实例
+	//获取 mux 路由实例
 	a := aurora.Default()
 	// GET 方法注册 web get请求
 	a.GET("/", func(c *aurora.Context) interface{} {
-		s:=struct {
+		s := struct {
 			Name string
 			Age  int
-		}{Name: "test",Age: 20}
-		if s.Age==20{
-			return &AgeErr{err:errors.New("is error") }
+		}{Name: "test", Age: 20}
+		if s.Age == 20 {
+			return &AgeErr{err: errors.New("is error")}
 		}
 		return s
 	})
@@ -225,10 +226,11 @@ error:is error
 package main
 
 import (
-	"github.com/awensir/Aurora/aurora"
+	"github.com/awensir/Aurora/mux"
 )
+
 func main() {
-	//获取 aurora 路由实例
+	//获取 mux 路由实例
 	a := aurora.Default()
 	// GET 方法注册 web get请求
 	a.GET("/", func(c *aurora.Context) interface{} {
@@ -239,7 +241,7 @@ func main() {
 	a.Guide()
 }
 ##############################################################################################################################
-out: 
+out:
 
 ```
 
@@ -280,18 +282,19 @@ func (t TestErr) ErrorHandler(ctx *aurora.Context) interface{} {
 package main
 
 import (
-	"github.com/awensir/Aurora/aurora"
+	"github.com/awensir/Aurora/mux"
 )
+
 func main() {
-	//获取 aurora 路由实例
+	//获取 mux 路由实例
 	a := aurora.Default()
-    //设置静态资源根路径
+	//设置静态资源根路径
 	a.StaticRoot("static")
-    // ResourceMapping 资源映射
+	// ResourceMapping 资源映射
 	//添加静态资源配置，t资源类型必须以置源后缀命名，
-    //paths为t类型资源的子路径(一级子路径：static/xxx/aaa,xxx为第一级)，可以一次性设置多个。
+	//paths为t类型资源的子路径(一级子路径：static/xxx/aaa,xxx为第一级)，可以一次性设置多个。
 	//每个资源类型最调用一次设置方法否则覆盖原有设置
-	a.ResourceMapping("js","js","jsfiles")
+	a.ResourceMapping("js", "js", "jsfiles")
 	// GET 方法注册 web get请求
 	a.GET("/", func(c *aurora.Context) interface{} {
 
@@ -311,10 +314,11 @@ func main() {
 package main
 
 import (
-	"github.com/awensir/Aurora/aurora"
+	"github.com/awensir/Aurora/mux"
 )
+
 func main() {
-	//获取 aurora 路由实例
+	//获取 mux 路由实例
 	a := aurora.Default()
 
 	// GET 方法注册 web get请求
@@ -340,11 +344,11 @@ func main() {
 package main
 
 import (
-	"github.com/awensir/Aurora/aurora"
+	"github.com/awensir/Aurora/mux"
 )
 
 func main() {
-	//获取 aurora 路由实例
+	//获取 mux 路由实例
 	a := aurora.Default()
 	// GET 方法注册 web get请求
 	a.GET("/", func(c *aurora.Context) interface{} {
@@ -390,7 +394,9 @@ func (c *Context) GetFloat64Slice(Args string) ([]float64, error)
 
 拦截器机制，当前支持全局拦截器，和局部拦截器两种，局部拦截器支持path子路径匹配（/*,的形式），造成了一个缺陷需要匹配大多数路径而非常麻烦，后续改进。
 
-拦截器机制，和springboot类似的效果：
+### 拦截器机制
+
+和springboot类似的效果：
 
 ```go
 // Interceptor 拦截器统一接口，实现这个接口就可以向服务器注册一个全局或者指定路径的处理拦截，此处的Context是aurora包下的上下文变量
@@ -430,7 +436,7 @@ func (de DefaultInterceptor) AfterCompletion(ctx *Context)  {
 func (a *Aurora) DefaultInterceptor(interceptor Interceptor) 
 ```
 
-拦截器的注册
+### 拦截器的注册
 
 ```go
 // AddInterceptor 追加全局拦截器
@@ -444,7 +450,7 @@ func (a *Aurora) RouteIntercept(path string, interceptor ...Interceptor)
 
 ​		注意事项：通配符配置拦截器，只支持 /xxx/* ,xxx是具体完整的父路径，不支持使用*来切割子路径进行匹配
 
-局部拦截器，依赖于路由树，所以注册局部拦截器时候必须等待路由注册完毕才能正常注册成功，全局则不需要依赖于路由树。
+***局部拦截器，依赖于路由树，所以注册局部拦截器时候必须等待路由注册完毕才能正常注册成功，全局则不需要依赖于路由树。***
 
 aurora也支持go web 最常用的中间件编写处理
 
@@ -453,20 +459,21 @@ package main
 
 import (
 	"fmt"
-	"github.com/awensir/Aurora/aurora"
+	"github.com/awensir/Aurora/mux"
 )
+
 func Test(ctx *aurora.Context) interface{} {
 	return "test"
 }
 func main() {
-	//获取 aurora 路由实例
+	//获取 mux 路由实例
 	a := aurora.Default()
 
 	// GET 方法注册 web get请求
-	a.GET("/", func (next aurora.Servlet) aurora.Servlet {
+	a.GET("/", func(next aurora.Servlet) aurora.Servlet {
 		return func(ctx *aurora.Context) interface{} {
 			fmt.Println("before")
-			v:=next(ctx)
+			v := next(ctx)
 			fmt.Println("after")
 			return v
 		}

@@ -1,4 +1,4 @@
-package aurora
+package mux
 
 import (
 	"fmt"
@@ -33,17 +33,22 @@ import (
 const ContentType = "Content-Type"
 
 type Views interface {
-	View(*Context, string)
+	View(*Ctx, string)
 }
 
-type ViewFunc func(*Context, string)
+type ViewFunc func(*Ctx, string)
 
 // ResourceFun w 响应体，path 资源真实路径，rt资源类型
 // 根据rt资源类型去找到对应的resourceMapType 存储的响应头，进行发送资源
-func (a *Aurora) ResourceFun(w http.ResponseWriter, req *http.Request, path string, rt string) {
-	data := readResource(a.ProjectRoot + "/" + a.Resource + path)
+func (a *Aurora) ResourceFun(w http.ResponseWriter, req *http.Request, path string, rt string, monitor *LocalMonitor) {
+	monitor.En(ExecuteInfo(nil))
+	data := a.readResource(a.projectRoot+"/"+a.resource+path, monitor)
 	if data != nil {
-		w.Header().Set(ContentType, a.ResourceMapType[rt])
+		h := w.Header()
+		if h.Get(ContentType) == "" {
+			h.Set(ContentType, a.resourceMapType[rt])
+		}
+		h.Add(ContentType, a.resourceMapType[rt])
 		SendResource(w, data)
 	}
 }
@@ -61,21 +66,21 @@ func SendResource(w http.ResponseWriter, data []byte) {
 }
 
 // readResource 读取成功则返回结果，失败则返回nil
-func readResource(path string) []byte {
+func (a *Aurora) readResource(path string, monitor *LocalMonitor) []byte {
 	if f, err := ioutil.ReadFile(path); err == nil {
 		return f
 	} else {
 		if os.IsNotExist(err) {
-			//logs.Errors(err.Error())
-			fmt.Println(err.Error())
+			monitor.En(ExecuteInfo(err))
+			a.runtime <- monitor
 		}
 	}
 	return nil
 }
 
 // DefaultView 默认视图解析
-func (a *Aurora) DefaultView(ctx *Context, html string) {
-	parseFiles, err := template.ParseFiles(a.ProjectRoot + "/" + a.Resource + html)
+func (a *Aurora) DefaultView(ctx *Ctx, html string) {
+	parseFiles, err := template.ParseFiles(a.projectRoot + "/" + a.resource + html)
 	if err != nil {
 		log.Fatal("ParseFiles" + err.Error())
 		return
@@ -90,8 +95,8 @@ func (a *Aurora) DefaultView(ctx *Context, html string) {
 // RegisterResourceType 加载静态资源路径，静态资源读取路径，服务器处理静态资源策略改为ServeHTTP处判别，最终静态资源的处理取决于 resource 根的设置
 //存在不同的图片类型需要多次调用设置对应的存储路径（图片类型存在不同，待解决）
 func (a *Aurora) RegisterResourceType(t string, paths ...string) {
-	if a.ResourceMappings == nil {
-		a.ResourceMappings = make(map[string][]string)
+	if a.resourceMappings == nil {
+		a.resourceMappings = make(map[string][]string)
 	}
 	for i := 0; i < len(paths); i++ {
 		pl := len(paths[i])
@@ -102,17 +107,17 @@ func (a *Aurora) RegisterResourceType(t string, paths ...string) {
 			paths[i] = paths[i] + "/"
 		}
 	}
-	a.ResourceMappings[t] = paths
+	a.resourceMappings[t] = paths
 }
 
 func LoadResourceHead(a *Aurora) {
-	a.ResourceMapType["js"] = "text/javascript"
-	a.ResourceMapType["css"] = "text/css"
-	a.ResourceMapType["html"] = "text/html"
-	a.ResourceMapType["encoding"] = "charset=utf-8"
-	a.ResourceMapType["gif"] = "image/gif"
-	a.ResourceMapType["png"] = "image/png"
-	a.ResourceMapType["svg"] = "image/svg+xml"
-	a.ResourceMapType["webp"] = "image/webp"
-	a.ResourceMapType["ico"] = "image/x-icon"
+	a.resourceMapType["js"] = "text/javascript"
+	a.resourceMapType["css"] = "text/css"
+	a.resourceMapType["html"] = "text/html"
+	a.resourceMapType["encoding"] = "charset=utf-8"
+	a.resourceMapType["gif"] = "image/gif"
+	a.resourceMapType["png"] = "image/png"
+	a.resourceMapType["svg"] = "image/svg+xml"
+	a.resourceMapType["webp"] = "image/webp"
+	a.resourceMapType["ico"] = "image/x-icon"
 }
