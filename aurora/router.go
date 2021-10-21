@@ -50,7 +50,7 @@ func (s Servlet) ServletHandler(ctx *Ctx) interface{} {
 }
 
 // ServerRouter Aurora核心路由器
-type router struct {
+type route struct {
 	mx          *sync.Mutex
 	tree        map[string]*node
 	defaultView Views
@@ -69,7 +69,7 @@ type node struct {
 //——————————————————————————————————————————————————————————————————————————路由注册————————————————————————————————————————————————————————————————————————————————————————————
 
 // addRoute 预处理被添加路径
-func (r *router) addRoute(method, path string, fun Servlet, monitor *localMonitor) {
+func (r *route) addRoute(method, path string, fun Servlet, monitor *localMonitor) {
 
 	if path[0:1] != "/" { //校验path开头
 		path += "/" + path //没有写 "/" 则添加斜杠开头
@@ -112,7 +112,7 @@ func (r *router) addRoute(method, path string, fun Servlet, monitor *localMonito
 // method: 请求类型(日志相关参数)
 // path: 插入的路径(日志相关参数)
 // monitor: 链路日志(日志相关参数)
-func (r *router) add(method string, root *node, Path string, fun Servlet, path string, monitor *localMonitor) {
+func (r *route) add(method string, root *node, Path string, fun Servlet, path string, monitor *localMonitor) {
 
 	//初始化根
 	if root.Path == "" && root.Child == nil {
@@ -243,7 +243,7 @@ func (r *router) add(method string, root *node, Path string, fun Servlet, path s
 // root: 根合并相关参数
 // Path: 根合并相关参数
 // fun: 根合并相关参数
-func (r *router) Merge(method string, root *node, Path string, fun Servlet, path string, rpath string, monitor *localMonitor) bool {
+func (r *route) Merge(method string, root *node, Path string, fun Servlet, path string, rpath string, monitor *localMonitor) bool {
 	pub := r.findPublicRoot(method, root.Path, Path, monitor) //公共路径
 	if pub != "" {
 		pl := len(pub)
@@ -305,7 +305,7 @@ func (r *router) Merge(method string, root *node, Path string, fun Servlet, path
 }
 
 // FindPublicRoot 查找公共前缀，如无公共前缀则返回 ""
-func (r *router) findPublicRoot(method, p1, p2 string, monitor *localMonitor) string {
+func (r *route) findPublicRoot(method, p1, p2 string, monitor *localMonitor) string {
 	l := len(p1)
 	if l > len(p2) {
 		l = len(p2) //取长度短的
@@ -334,14 +334,14 @@ func (r *router) findPublicRoot(method, p1, p2 string, monitor *localMonitor) st
 }
 
 // OptimizeTree 优化路由树
-func (r *router) OptimizeTree() {
+func (r *route) optimizeTree() {
 	for _, v := range r.tree {
-		Optimize(v)
+		optimize(v)
 	}
 }
 
 // Optimize 递归排序所有子树
-func Optimize(root *node) {
+func optimize(root *node) {
 	if root == nil {
 		return
 	}
@@ -349,13 +349,13 @@ func Optimize(root *node) {
 		return
 	}
 	for i := 0; i < len(root.Child); i++ {
-		Optimize(root.Child[i])
+		optimize(root.Child[i])
 	}
-	OptimizeSort(root.Child, 0, len(root.Child)-1)
+	optimizeSort(root.Child, 0, len(root.Child)-1)
 }
 
 // OptimizeSort 对子树进行快排
-func OptimizeSort(child []*node, start int, end int) {
+func optimizeSort(child []*node, start int, end int) {
 	if start < end {
 		i := start
 		j := end
@@ -369,8 +369,8 @@ func OptimizeSort(child []*node, start int, end int) {
 			}
 			child[i], child[j] = child[j], child[i]
 		}
-		OptimizeSort(child, start, i-1)
-		OptimizeSort(child, i+1, end)
+		optimizeSort(child, start, i-1)
+		optimizeSort(child, i+1, end)
 	}
 }
 
@@ -379,7 +379,7 @@ func OptimizeSort(child []*node, start int, end int) {
 // —————————————————————————————局部拦截器——(插入拦截器查询算法和，路由查询算法一直)—————————————————————————————————————————————————————————————————————————————————————————————————
 
 // RegisterInterceptor 向路由树上添加拦截器，添加规则只要是匹配的路径都会添加上对应的拦截器，不区分拦截的请求方式，REST API暂定还未调试支持
-func (r *router) RegisterInterceptor(path string, monitor *localMonitor, interceptor ...Interceptor) {
+func (r *route) RegisterInterceptor(path string, monitor *localMonitor, interceptor ...Interceptor) {
 	pl := len(path)
 	if pl < 1 {
 		err := errors.New(path + "The path cannot be empty")
@@ -411,7 +411,7 @@ func (r *router) RegisterInterceptor(path string, monitor *localMonitor, interce
 }
 
 // register 拦截器添加和路径查找方式一样，参数path是需要添加的路径，interceptor则是需要添加的拦截器集合，root则是表示为某种请求类型进行添加拦截器
-func (r *router) register(root *node, path string, lpath string, monitor *localMonitor, interceptor ...Interceptor) {
+func (r *route) register(root *node, path string, lpath string, monitor *localMonitor, interceptor ...Interceptor) {
 	if root == nil {
 		return
 	}
@@ -543,14 +543,14 @@ func (r *router) register(root *node, path string, lpath string, monitor *localM
 
 // SearchPath 检索指定的path路由
 // method 请求类型，path 查询路径，rw，req http生成的请求响应，ctx 主要用于转发请求时携带
-func (r *router) SearchPath(method, path string, rw http.ResponseWriter, req *http.Request, ctx *Ctx, monitor *localMonitor) {
+func (r *route) SearchPath(method, path string, rw http.ResponseWriter, req *http.Request, ctx *Ctx, monitor *localMonitor) {
 	if n, ok := r.tree[method]; ok { //查找指定的Method树
 		r.search(n, path, nil, rw, req, ctx, monitor)
 	}
 }
 
 // Search 路径查找，参数和 SearchPath意义 一致， Args map主要用于存储解析REST API路径参数，默认传nil,Interceptor拦截器可变参数，用于生成最终拦截链
-func (r *router) search(root *node, path string, Args map[string]interface{}, rw http.ResponseWriter, req *http.Request, ctx *Ctx, monitor *localMonitor, Interceptor ...Interceptor) {
+func (r *route) search(root *node, path string, Args map[string]interface{}, rw http.ResponseWriter, req *http.Request, ctx *Ctx, monitor *localMonitor, Interceptor ...Interceptor) {
 
 	if root == nil {
 		return
@@ -702,6 +702,7 @@ func (a *Aurora) ServeHTTP(rw http.ResponseWriter, req *http.Request) {
 		paths, ok := a.resourceMappings[t] //资源对应的路径映射
 		if !ok {
 			http.NotFound(rw, req)
+			return
 		}
 		mp := ""
 		for _, v := range paths {
@@ -714,13 +715,6 @@ func (a *Aurora) ServeHTTP(rw http.ResponseWriter, req *http.Request) {
 	}
 
 	a.router.SearchPath(req.Method, req.URL.Path, rw, req, nil, list) //初始一个nil ctx
-}
-
-// Register 通用注册器
-func (a *Aurora) Register(method string, mapping string, fun Servlet) {
-	list := &localMonitor{mx: &sync.Mutex{}}
-	list.En(executeInfo(nil))
-	a.router.addRoute(method, mapping, fun, list)
 }
 
 func getFunName(fun Servlet) string {
