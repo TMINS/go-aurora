@@ -10,15 +10,15 @@ import (
 	web 链路链路调用
 */
 
-type Monitor struct {
+type monitor struct {
 	FunName  string   //函数名
 	FileName string   //函数所在文件名
 	CodeLine int      //所在行数
 	Err      error    //是否头错误
-	Next     *Monitor //下一个调用
+	Next     *monitor //下一个调用
 }
 
-func (m *Monitor) ToString() string {
+func (m *monitor) ToString() string {
 	if m.Err != nil {
 		s := fmt.Sprintf("method: %s at %s:%d by error: %s ", m.FunName, m.FileName, m.CodeLine, m.Err.Error())
 		return s
@@ -27,13 +27,13 @@ func (m *Monitor) ToString() string {
 	return s
 }
 
-type LocalMonitor struct {
+type localMonitor struct {
 	mx   *sync.Mutex
-	Head *Monitor
-	End  *Monitor
+	Head *monitor
+	End  *monitor
 }
 
-func (l *LocalMonitor) En(monitor *Monitor) {
+func (l *localMonitor) En(monitor *monitor) {
 	l.mx.Lock()
 	defer l.mx.Unlock()
 	if l.Head == nil {
@@ -45,7 +45,7 @@ func (l *LocalMonitor) En(monitor *Monitor) {
 	l.End = monitor
 }
 
-func (l *LocalMonitor) Message() string {
+func (l *localMonitor) Message() string {
 	t := l
 	s := "Monitor Error List: start "
 	for t.Head != nil {
@@ -56,13 +56,13 @@ func (l *LocalMonitor) Message() string {
 	return s
 }
 
-func ExecuteInfo(err error) *Monitor {
+func executeInfo(err error) *monitor {
 	caller, file, line, ok := runtime.Caller(1)
 	if !ok {
 		panic("ExecuteInfo Caller filed! ")
 	}
 	FunName := runtime.FuncForPC(caller).Name()
-	m := &Monitor{
+	m := &monitor{
 		FunName:  FunName,
 		FileName: file,
 		CodeLine: line,

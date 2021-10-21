@@ -4,6 +4,7 @@ import (
 	"context"
 	"fmt"
 	"github.com/awensir/Aurora/logs"
+	"html/template"
 	"net"
 	"net/http"
 	"os"
@@ -28,14 +29,12 @@ func init() {
 
 var log = logs.NewLog()
 
-type CtxListenerKey string
-
 type Aurora struct {
 	rw               *sync.RWMutex
 	ctx              context.Context     //服务器顶级上下文，通过此上下文可以跳过web 上下文去开启纯净的子go程
 	cancel           func()              //取消上下文
 	port             string              //服务端口号
-	router           *ServerRouter       //路由服务管理
+	router           *router             //路由服务管理
 	projectRoot      string              //项目根路径
 	resource         string              //静态资源管理 默认为 root 目录
 	resourceMappings map[string][]string //静态资源映射路径标识
@@ -43,10 +42,10 @@ type Aurora struct {
 	load             chan struct{}
 	message          chan string        //启动自带的日志信息
 	initError        chan error         //路由器级别错误通道 一旦初始化出错，则结束服务，检查配置
-	runtime          chan *LocalMonitor //单体服务运行时错误时候的链路调用日志
-	routeInterceptor []InterceptorArgs
-	interceptorList  []Interceptor //全局拦截器
-	Server           *http.Server  //web服务器
+	runtime          chan *localMonitor //单体服务运行时错误时候的链路调用日志
+	routeInterceptor []interceptorArgs  //拦截器初始华切片
+	interceptorList  []Interceptor      //全局拦截器
+	Server           *http.Server       //web服务器
 }
 
 // New :最基础的 Aurora 实例
@@ -54,7 +53,7 @@ func New() *Aurora {
 	a := &Aurora{
 		rw:   &sync.RWMutex{},
 		port: "8080", //默认端口号
-		router: &ServerRouter{
+		router: &router{
 			mx: &sync.Mutex{},
 		},
 		Server:          &http.Server{},
@@ -63,16 +62,16 @@ func New() *Aurora {
 		resourceMapType: make(map[string]string),
 		load:            make(chan struct{}),
 		message:         make(chan string),
-		runtime:         make(chan *LocalMonitor),
+		runtime:         make(chan *localMonitor),
 	}
 	startLoading(a)
-	LoadResourceHead(a)
+	loadResourceHead(a)
 	projectRoot, _ := os.Getwd()
 	a.projectRoot = projectRoot
-	a.router.DefaultView = a //初始化使用默认视图解析,aurora的视图解析是一个简单的实现，可以通过修改 a.Router.DefaultView 实现自定义的试图处理，框架最终调用此方法返回页面响应
+	a.router.defaultView = a //初始化使用默认视图解析,aurora的视图解析是一个简单的实现，可以通过修改 a.Router.DefaultView 实现自定义的试图处理，框架最终调用此方法返回页面响应
 	a.router.AR = a
 	a.interceptorList = []Interceptor{
-		0: &DefaultInterceptor{},
+		0: &defaultInterceptor{},
 	}
 	a.message <- fmt.Sprintf("Golang Version :%1s", runtime.Version())
 	a.message <- fmt.Sprintf("Project Path:%1s", a.projectRoot)
@@ -113,7 +112,7 @@ func (a *Aurora) run(port ...string) {
 //paths为t类型资源的子路径，可以一次性设置多个。
 //每个资源类型最调用一次设置方法否则覆盖原有设置
 func (a *Aurora) ResourceMapping(Type string, Paths ...string) {
-	a.RegisterResourceType(Type, Paths...)
+	a.registerResourceType(Type, Paths...)
 }
 
 // StaticRoot 设置静态资源根路径
@@ -133,9 +132,9 @@ func (a *Aurora) StaticRoot(root string) {
 // RouteIntercept path路径上添加一个或者多个路由拦截器
 func (a *Aurora) RouteIntercept(path string, interceptor ...Interceptor) {
 	if a.routeInterceptor == nil {
-		a.routeInterceptor = make([]InterceptorArgs, 0)
+		a.routeInterceptor = make([]interceptorArgs, 0)
 	}
-	r := InterceptorArgs{path: path, list: interceptor}
+	r := interceptorArgs{path: path, list: interceptor}
 	a.routeInterceptor = append(a.routeInterceptor, r)
 	//a.router.RegisterInterceptor(path, &LocalMonitor{mx: &sync.Mutex{}}, interceptor...)
 }
@@ -183,25 +182,39 @@ func (a *Aurora) HEAD(path string, servlet Servlet) {
 }
 
 // Group 路由分组  必须以 “/” 开头分组
-func (a *Aurora) Group(path string) *Group {
+func (a *Aurora) Group(path string) *group {
 	if strings.HasSuffix(path, "/") {
 		path = path[:len(path)-1]
 	}
-	return &Group{
+	return &group{
 		prefix: path,
 		a:      a,
 	}
 }
 
 func (a *Aurora) ViewHandle(views Views) {
-	a.router.DefaultView = views
+	a.router.defaultView = views
+}
+
+// View 默认视图解析
+func (a *Aurora) View(ctx *Ctx, html string) {
+	parseFiles, err := template.ParseFiles(a.projectRoot + "/" + a.resource + html)
+	if err != nil {
+		log.Fatal("ParseFiles" + err.Error())
+		return
+	}
+	err = parseFiles.Execute(ctx.Response, ctx.Attribute)
+	if err != nil {
+		log.Fatal("Execute" + err.Error())
+		return
+	}
 }
 
 func (a *Aurora) loadingInterceptor() {
 	if a.routeInterceptor != nil {
 		for i := 0; i < len(a.routeInterceptor); i++ {
 			e := a.routeInterceptor[i]
-			a.router.RegisterInterceptor(e.path, &LocalMonitor{mx: &sync.Mutex{}}, e.list...)
+			a.router.RegisterInterceptor(e.path, &localMonitor{mx: &sync.Mutex{}}, e.list...)
 		}
 	}
 }

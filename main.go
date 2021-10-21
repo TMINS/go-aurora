@@ -8,6 +8,7 @@ func main() {
 
 	//获取 aurora 路由实例
 	a := aurora.New()
+
 	//a.RouteIntercept("",&MyInterceptor{})
 	//a.RouteIntercept("/",&MyInterceptor{},&MyInterceptor1{},&MyInterceptor2{})
 	//a.RouteIntercept("/b",&MyInterceptor{})

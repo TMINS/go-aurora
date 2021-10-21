@@ -19,20 +19,20 @@ type Interceptor interface {
 }
 
 // DefaultInterceptor 实现全局请求处理前后环绕
-type DefaultInterceptor struct {
+type defaultInterceptor struct {
 	t time.Time
 }
 
-func (de *DefaultInterceptor) PreHandle(ctx *Ctx) bool {
+func (de *defaultInterceptor) PreHandle(ctx *Ctx) bool {
 	de.t = time.Now()
 	return true
 }
 
-func (de *DefaultInterceptor) PostHandle(ctx *Ctx) {
+func (de *defaultInterceptor) PostHandle(ctx *Ctx) {
 
 }
 
-func (de *DefaultInterceptor) AfterCompletion(ctx *Ctx) {
+func (de *defaultInterceptor) AfterCompletion(ctx *Ctx) {
 	times := time.Now().Sub(de.t)
 	re := ctx.Request
 	radd := re.RemoteAddr
@@ -46,29 +46,29 @@ func (de *DefaultInterceptor) AfterCompletion(ctx *Ctx) {
 }
 
 // InterceptorData 实现拦截器压栈出栈功能
-type InterceptorData struct {
+type interceptorData struct {
 	imp Interceptor
-	pre *InterceptorData
+	pre *interceptorData
 }
 
-type InterceptorStack struct {
-	top   *InterceptorData
-	stack *InterceptorData
+type interceptorStack struct {
+	top   *interceptorData
+	stack *interceptorData
 }
 
-func (s *InterceptorStack) Push(i Interceptor) {
+func (s *interceptorStack) Push(i Interceptor) {
 	if s.stack == nil && s.top == nil {
-		s.stack = &InterceptorData{imp: i}
+		s.stack = &interceptorData{imp: i}
 		s.top = s.stack
 		return
 	}
-	t := &InterceptorData{imp: i, pre: s.top}
+	t := &interceptorData{imp: i, pre: s.top}
 	//更新栈顶
 	s.top = t
 }
 
 // Pull 栈为空时 返回为nil
-func (s *InterceptorStack) Pull() Interceptor {
+func (s *interceptorStack) Pull() Interceptor {
 	if s.stack == nil && s.top == nil {
 		return nil
 	}
@@ -82,7 +82,7 @@ func (s *InterceptorStack) Pull() Interceptor {
 	return fun
 }
 
-type InterceptorArgs struct {
+type interceptorArgs struct {
 	path string
 	list []Interceptor
 }
