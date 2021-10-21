@@ -7,7 +7,7 @@ import (
 )
 
 // ServletProxy 代理 路由处理，负责生成上下文变量和调用具体处理函数
-type ServletProxy struct {
+type proxy struct {
 	rw             sync.RWMutex
 	rew            http.ResponseWriter
 	req            *http.Request
@@ -17,34 +17,34 @@ type ServletProxy struct {
 	result         interface{}            //业务结果
 	view           Views                  //支持自定义视图渲染机制
 	ar             *Aurora
-	monitor        *LocalMonitor
+	monitor        *localMonitor
 	Interceptor    bool //是否放行拦截器
 
-	ExecuteStack, AfterStack *InterceptorStack // ExecuteStack,AfterStack 全局拦截器
+	ExecuteStack, AfterStack *interceptorStack // ExecuteStack,AfterStack 全局拦截器
 
 	TreeInter                                  []Interceptor //通配拦截器集合
-	TreeExecuteInterStack, TreeAfterInterStack *InterceptorStack
+	TreeExecuteInterStack, TreeAfterInterStack *interceptorStack
 
 	InterceptorList        []Interceptor     //局部拦截器
-	ExecutePart, AfterPart *InterceptorStack //ExecutePart,AfterPart
+	ExecutePart, AfterPart *interceptorStack //ExecutePart,AfterPart
 }
 
 // Start 路由查询入口
-func (sp *ServletProxy) Start() {
-	sp.monitor.En(ExecuteInfo(nil))
-	sp.Init()
-	sp.Before()
+func (sp *proxy) start() {
+	sp.monitor.En(executeInfo(nil))
+	sp.initCtx()
+	sp.before()
 	if sp.Interceptor {
-		sp.Execute()
-		sp.After()
+		sp.execute()
+		sp.after()
 	}
 }
 
 // Before 服务处理之前
-func (sp *ServletProxy) Before() {
-	sp.monitor.En(ExecuteInfo(nil))
+func (sp *proxy) before() {
+	sp.monitor.En(executeInfo(nil))
 	sp.Interceptor = true //初始化放行所有拦截器
-	defer func(ctx *Ctx, sp *ServletProxy) {
+	defer func(ctx *Ctx, sp *proxy) {
 		//处理全局拦截器和局部拦截器之前，临时构造一个拦截器执行序列
 
 		//全局拦截器
@@ -55,8 +55,8 @@ func (sp *ServletProxy) Before() {
 					break //拦截器不放行,后续拦截器也不再执行
 				}
 				if sp.ExecuteStack == nil && sp.AfterStack == nil {
-					sp.ExecuteStack = &InterceptorStack{}
-					sp.AfterStack = &InterceptorStack{}
+					sp.ExecuteStack = &interceptorStack{}
+					sp.AfterStack = &interceptorStack{}
 				}
 				sp.ExecuteStack.Push(v)
 				sp.AfterStack.Push(v)
@@ -70,8 +70,8 @@ func (sp *ServletProxy) Before() {
 					break
 				}
 				if sp.TreeExecuteInterStack == nil && sp.TreeAfterInterStack == nil {
-					sp.TreeExecuteInterStack = &InterceptorStack{}
-					sp.TreeAfterInterStack = &InterceptorStack{}
+					sp.TreeExecuteInterStack = &interceptorStack{}
+					sp.TreeAfterInterStack = &interceptorStack{}
 				}
 				sp.TreeExecuteInterStack.Push(v)
 				sp.TreeAfterInterStack.Push(v)
@@ -85,8 +85,8 @@ func (sp *ServletProxy) Before() {
 					break
 				}
 				if sp.ExecutePart == nil && sp.AfterPart == nil {
-					sp.ExecutePart = &InterceptorStack{}
-					sp.AfterPart = &InterceptorStack{}
+					sp.ExecutePart = &interceptorStack{}
+					sp.AfterPart = &interceptorStack{}
 				}
 				sp.ExecutePart.Push(v)
 				sp.AfterPart.Push(v)
@@ -96,9 +96,9 @@ func (sp *ServletProxy) Before() {
 }
 
 // Execute 执行业务
-func (sp *ServletProxy) Execute() {
-	sp.monitor.En(ExecuteInfo(nil))
-	defer func(ctx *Ctx, sp *ServletProxy) {
+func (sp *proxy) execute() {
+	sp.monitor.En(executeInfo(nil))
+	defer func(ctx *Ctx, sp *proxy) {
 		if len(sp.ar.interceptorList) > 0 { //全局拦截器
 			for {
 				if f := sp.ExecuteStack.Pull(); f != nil {
@@ -132,10 +132,10 @@ func (sp *ServletProxy) Execute() {
 }
 
 // After 服务处理之后，主要处理业务结果
-func (sp *ServletProxy) After() {
-	sp.monitor.En(ExecuteInfo(nil))
+func (sp *proxy) after() {
+	sp.monitor.En(executeInfo(nil))
 	//全局拦截器
-	defer func(ctx *Ctx, sp *ServletProxy) {
+	defer func(ctx *Ctx, sp *proxy) {
 		if len(sp.ar.interceptorList) > 0 {
 			for {
 				if f := sp.AfterStack.Pull(); f != nil {
@@ -166,12 +166,12 @@ func (sp *ServletProxy) After() {
 			}
 		}
 	}(sp.ctx, sp)
-	sp.ResultHandler()
+	sp.resultHandler()
 }
 
 // Init 初始化 Context变量
-func (sp *ServletProxy) Init() {
-	sp.monitor.En(ExecuteInfo(nil))
+func (sp *proxy) initCtx() {
+	sp.monitor.En(executeInfo(nil))
 	if sp.ctx == nil {
 		sp.ctx = &Ctx{}
 		sp.ctx.Request = sp.req
@@ -185,7 +185,7 @@ func (sp *ServletProxy) Init() {
 	}
 }
 
-func (sp *ServletProxy) ResultHandler() {
+func (sp *proxy) resultHandler() {
 	switch sp.result.(type) {
 	case string:
 		path := sp.result.(string)
@@ -215,12 +215,12 @@ func (sp *ServletProxy) ResultHandler() {
 		//}
 		//r := value[0].Interface()
 		sp.result = a.ErrorHandler(sp.ctx) //更新递归变量
-		sp.ResultHandler()                 //递归处理错误输出
+		sp.resultHandler()                 //递归处理错误输出
 		return
 	case error:
 		//直接返回错误处理,让调用者根据错误进行处理
 		sp.ctx.SetStatus(500)
-		sp.monitor.En(ExecuteInfo(sp.result.(error)))
+		sp.monitor.En(executeInfo(sp.result.(error)))
 		sp.ar.runtime <- sp.monitor
 		sp.ctx.json("error:" + sp.result.(error).Error())
 		return

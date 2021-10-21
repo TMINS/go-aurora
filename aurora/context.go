@@ -6,15 +6,10 @@ import (
 	"sync"
 )
 
-type Attribute interface {
-	SetAttribute(key string, value interface{})
-	GetAttribute(key string) interface{}
-}
-
 type Ctx struct {
 	rw        *sync.RWMutex
 	ar        *Aurora // Aurora 引用
-	monitor   *LocalMonitor
+	monitor   *localMonitor
 	Response  http.ResponseWriter
 	Request   *http.Request
 	Args      map[string]interface{} //REST API 参数
@@ -27,20 +22,20 @@ func (c *Ctx) json(data interface{}) {
 	if b {
 		_, err := c.Response.Write([]byte(s))
 		if err != nil {
-			c.monitor.En(ExecuteInfo(err))
+			c.monitor.En(executeInfo(err))
 			c.ar.runtime <- c.monitor
 		}
 		return
 	}
 	marshal, err := json.Marshal(data)
 	if err != nil {
-		c.monitor.En(ExecuteInfo(err))
+		c.monitor.En(executeInfo(err))
 		c.ar.runtime <- c.monitor
 		return
 	}
 	_, err = c.Response.Write(marshal)
 	if err != nil {
-		c.monitor.En(ExecuteInfo(err))
+		c.monitor.En(executeInfo(err))
 		c.ar.runtime <- c.monitor
 	}
 }
