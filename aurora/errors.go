@@ -1,4 +1,4 @@
-package mux
+package aurora
 
 /*
 	错误定义

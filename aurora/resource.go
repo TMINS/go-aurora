@@ -1,4 +1,4 @@
-package mux
+package aurora
 
 import (
 	"fmt"
@@ -37,6 +37,10 @@ type Views interface {
 }
 
 type ViewFunc func(*Ctx, string)
+
+func (vf ViewFunc) View(c *Ctx, p string) {
+	vf(c, p)
+}
 
 // ResourceFun w 响应体，path 资源真实路径，rt资源类型
 // 根据rt资源类型去找到对应的resourceMapType 存储的响应头，进行发送资源
@@ -78,8 +82,8 @@ func (a *Aurora) readResource(path string, monitor *LocalMonitor) []byte {
 	return nil
 }
 
-// DefaultView 默认视图解析
-func (a *Aurora) DefaultView(ctx *Ctx, html string) {
+// View 默认视图解析
+func (a *Aurora) View(ctx *Ctx, html string) {
 	parseFiles, err := template.ParseFiles(a.projectRoot + "/" + a.resource + html)
 	if err != nil {
 		log.Fatal("ParseFiles" + err.Error())

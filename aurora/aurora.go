@@ -1,4 +1,4 @@
-package mux
+package aurora
 
 import (
 	"context"
@@ -13,14 +13,14 @@ import (
 )
 
 func init() {
-	s := "    /\\\n   /  \\  _   _ _ __ ___  _ __ __ _\n  / /\\ \\| | | | '__/ _ \\| '__/ _` |\n / ____ \\ |_| | | | (_) | | | (_| |\n/_/    \\_\\__,_|_|  \\___/|_|  \\__,_|\n:: Aurora ::   (v0.0.8.RELEASE)"
+	s := "    /\\\n   /  \\  _   _ _ __ ___  _ __ __ _\n  / /\\ \\| | | | '__/ _ \\| '__/ _` |\n / ____ \\ |_| | | | (_) | | | (_| |\n/_/    \\_\\__,_|_|  \\___/|_|  \\__,_|\n:: aurora ::   (v0.0.8.RELEASE)"
 	/*
 	       /\
 	      /  \  _   _ _ __ ___  _ __ __ _
 	     / /\ \| | | | '__/ _ \| '__/ _` |
 	    / ____ \ |_| | | | (_) | | | (_| |
 	   /_/    \_\__,_|_|  \___/|_|  \__,_|
-	   :: Aurora ::   (v0.0.1.RELEASE)
+	   :: aurora ::   (v0.0.1.RELEASE)
 
 	*/
 	fmt.Println(s)
@@ -44,8 +44,9 @@ type Aurora struct {
 	message          chan string        //启动自带的日志信息
 	initError        chan error         //路由器级别错误通道 一旦初始化出错，则结束服务，检查配置
 	runtime          chan *LocalMonitor //单体服务运行时错误时候的链路调用日志
-	interceptorList  []Interceptor      //全局拦截器
-	Server           *http.Server       //web服务器
+	routeInterceptor []InterceptorArgs
+	interceptorList  []Interceptor //全局拦截器
+	Server           *http.Server  //web服务器
 }
 
 // New :最基础的 Aurora 实例
@@ -68,7 +69,7 @@ func New() *Aurora {
 	LoadResourceHead(a)
 	projectRoot, _ := os.Getwd()
 	a.projectRoot = projectRoot
-	a.router.DefaultView = a.DefaultView //初始化使用默认视图解析,aurora的视图解析是一个简单的实现，可以通过修改 a.Router.DefaultView 实现自定义的试图处理，框架最终调用此方法返回页面响应
+	a.router.DefaultView = a //初始化使用默认视图解析,aurora的视图解析是一个简单的实现，可以通过修改 a.Router.DefaultView 实现自定义的试图处理，框架最终调用此方法返回页面响应
 	a.router.AR = a
 	a.interceptorList = []Interceptor{
 		0: &DefaultInterceptor{},
@@ -131,7 +132,12 @@ func (a *Aurora) StaticRoot(root string) {
 
 // RouteIntercept path路径上添加一个或者多个路由拦截器
 func (a *Aurora) RouteIntercept(path string, interceptor ...Interceptor) {
-	a.router.RegisterInterceptor(path, &LocalMonitor{}, interceptor...)
+	if a.routeInterceptor == nil {
+		a.routeInterceptor = make([]InterceptorArgs, 0)
+	}
+	r := InterceptorArgs{path: path, list: interceptor}
+	a.routeInterceptor = append(a.routeInterceptor, r)
+	//a.router.RegisterInterceptor(path, &LocalMonitor{mx: &sync.Mutex{}}, interceptor...)
 }
 
 // DefaultInterceptor 配置默认顶级拦截器
@@ -187,13 +193,21 @@ func (a *Aurora) Group(path string) *Group {
 	}
 }
 
-func (a *Aurora) Loading(f ...func(args ...interface{})) {
-	for _, fun := range f {
-		fun()
+func (a *Aurora) ViewHandle(views Views) {
+	a.router.DefaultView = views
+}
+
+func (a *Aurora) loadingInterceptor() {
+	if a.routeInterceptor != nil {
+		for i := 0; i < len(a.routeInterceptor); i++ {
+			e := a.routeInterceptor[i]
+			a.router.RegisterInterceptor(e.path, &LocalMonitor{mx: &sync.Mutex{}}, e.list...)
+		}
 	}
 }
 
 func (a *Aurora) baseContext(ln net.Listener) context.Context {
+	a.loadingInterceptor() //加载 拦截器
 	l := fmt.Sprintf("The server successfully runs on port %s", a.port)
 	c, f := context.WithCancel(context.TODO())
 	a.ctx = c
@@ -209,10 +223,13 @@ func startLoading(a *Aurora) {
 
 		for true {
 			select {
+
 			case msg := <-a.message:
 				log.Info(msg)
+
 			case m := <-a.runtime:
 				log.Error(m.Message())
+
 			case err := <-a.initError: //启动初始化错误处理
 				log.Error(err.Error())
 				os.Exit(-1) //结束程序

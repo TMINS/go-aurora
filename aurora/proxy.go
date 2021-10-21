@@ -1,4 +1,4 @@
-package mux
+package aurora
 
 import (
 	"net/http"
@@ -15,7 +15,7 @@ type ServletProxy struct {
 	args           map[string]interface{} //REST API 参数解析
 	ctx            *Ctx                   //上下文
 	result         interface{}            //业务结果
-	view           ViewFunc               //支持自定义视图渲染机制
+	view           Views                  //支持自定义视图渲染机制
 	ar             *Aurora
 	monitor        *LocalMonitor
 	Interceptor    bool //是否放行拦截器
@@ -63,6 +63,7 @@ func (sp *ServletProxy) Before() {
 			}
 		}
 
+		//通配拦截器链
 		if sp.TreeInter != nil && len(sp.TreeInter) > 0 && sp.Interceptor { //通配拦截器
 			for _, v := range sp.TreeInter {
 				if sp.Interceptor = v.PreHandle(ctx); !sp.Interceptor {
@@ -77,6 +78,7 @@ func (sp *ServletProxy) Before() {
 			}
 		}
 
+		//路径拦截器
 		if sp.InterceptorList != nil && len(sp.InterceptorList) > 0 && sp.Interceptor { //局部拦截器
 			for _, v := range sp.InterceptorList {
 				if sp.Interceptor = v.PreHandle(ctx); !sp.Interceptor {
@@ -132,8 +134,9 @@ func (sp *ServletProxy) Execute() {
 // After 服务处理之后，主要处理业务结果
 func (sp *ServletProxy) After() {
 	sp.monitor.En(ExecuteInfo(nil))
+	//全局拦截器
 	defer func(ctx *Ctx, sp *ServletProxy) {
-		if len(sp.ar.interceptorList) > 0 { //全局拦截器
+		if len(sp.ar.interceptorList) > 0 {
 			for {
 				if f := sp.AfterStack.Pull(); f != nil {
 					f.AfterCompletion(ctx)
@@ -142,19 +145,21 @@ func (sp *ServletProxy) After() {
 				}
 			}
 		}
-		if sp.TreeInter != nil { //通配
+		//通配
+		if sp.TreeInter != nil {
 			for {
 				if f := sp.TreeAfterInterStack.Pull(); f != nil {
-					f.PostHandle(ctx)
+					f.AfterCompletion(ctx)
 				} else {
 					break
 				}
 			}
 		}
-		if sp.InterceptorList != nil { //局部
+		//局部
+		if sp.InterceptorList != nil {
 			for {
 				if f := sp.AfterPart.Pull(); f != nil {
-					f.PostHandle(ctx)
+					f.AfterCompletion(ctx)
 				} else {
 					break
 				}
@@ -186,7 +191,7 @@ func (sp *ServletProxy) ResultHandler() {
 		path := sp.result.(string)
 		//处理普通页面响应
 		if strings.HasSuffix(path, ".html") {
-			sp.view(sp.ctx, path) //视图解析 响应 html 页面
+			sp.view.View(sp.ctx, path) //视图解析 响应 html 页面
 			return
 		}
 		//处理重定向

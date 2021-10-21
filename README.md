@@ -12,12 +12,12 @@
 package main
 
 import (
-	"github.com/awensir/Aurora/mux"
+	"github.com/awensir/Aurora/aurora"
 )
 
 func main() {
-	//获取 mux 路由实例
-	a := aurora.Default()
+	//获取 aurora 路由实例
+	a := aurora.New()
 
 	// GET 方法注册 web get请求
 	a.GET("/", func(c *aurora.Context) interface{} {
@@ -58,6 +58,7 @@ aurora路由设计规则如下：
       2)REST 作为根路径也只能拥有一个REST 子路径
       3)REST 路径会和其它非REST同级路径发生冲突
    7.注册路径不能以/结尾（bug未修复，/user /user/ 产生 /user 的公共根 使用切割解析路径方式，解析子路径，拼接剩余子路径会存在bug ,注册路径的时候强制无法注册 / 结尾的 url）
+   8. 浏览器访问接口，不能带有可编码符号，特别是{} ，{}是框架解析rest ful 参数的标识，接收到带有{},比如/a/b/{sss}/c,带有{或}的请求都视为非法url
 ```
 
 
@@ -95,7 +96,7 @@ import (
 
 func main() {
 	//获取 aurora 路由实例
-	a := aurora.Default()
+	a := aurora.New()
 
 	// GET 方法注册 web get请求
 	a.GET("/", func(c *aurora.Context) interface{} {
@@ -120,12 +121,12 @@ hello web
 package main
 
 import (
-	"github.com/awensir/Aurora/mux"
+	"github.com/awensir/Aurora/aurora"
 )
 
 func main() {
-	//获取 mux 路由实例
-	a := aurora.Default()
+	//获取 aurora 路由实例
+	a := aurora.New()
 	// GET 方法注册 web get请求
 	a.GET("/", func(c *aurora.Context) interface{} {
 
@@ -153,12 +154,12 @@ package main
 
 import (
 	"errors"
-	"github.com/awensir/Aurora/mux"
+	"github.com/awensir/Aurora/aurora"
 )
 
 func main() {
-	//获取 mux 路由实例
-	a := aurora.Default()
+	//获取 aurora 路由实例
+	a := aurora.New()
 	// GET 方法注册 web get请求
 	a.GET("/", func(c *aurora.Context) interface{} {
 
@@ -181,10 +182,10 @@ package main
 
 import (
 	"errors"
-	"github.com/awensir/Aurora/mux"
+	"github.com/awensir/Aurora/aurora"
 )
 
-// 绑定 ErrorHandler(c *mux.Context) interface{} 函数即可
+// 绑定 ErrorHandler(c *aurora.Context) interface{} 函数即可
 type AgeErr struct {
 	err error
 }
@@ -197,8 +198,8 @@ func (receiver *AgeErr) ErrorHandler(c *aurora.Context) interface{} {
 }
 
 func main() {
-	//获取 mux 路由实例
-	a := aurora.Default()
+	//获取 aurora 路由实例
+	a := aurora.New()
 	// GET 方法注册 web get请求
 	a.GET("/", func(c *aurora.Context) interface{} {
 		s := struct {
@@ -226,12 +227,12 @@ error:is error
 package main
 
 import (
-	"github.com/awensir/Aurora/mux"
+	"github.com/awensir/Aurora/aurora"
 )
 
 func main() {
-	//获取 mux 路由实例
-	a := aurora.Default()
+	//获取 aurora 路由实例
+	a := aurora.New()
 	// GET 方法注册 web get请求
 	a.GET("/", func(c *aurora.Context) interface{} {
 
@@ -282,12 +283,12 @@ func (t TestErr) ErrorHandler(ctx *aurora.Context) interface{} {
 package main
 
 import (
-	"github.com/awensir/Aurora/mux"
+	"github.com/awensir/Aurora/aurora"
 )
 
 func main() {
-	//获取 mux 路由实例
-	a := aurora.Default()
+	//获取 aurora 路由实例
+	a := aurora.New()
 	//设置静态资源根路径
 	a.StaticRoot("static")
 	// ResourceMapping 资源映射
@@ -314,15 +315,15 @@ func main() {
 package main
 
 import (
-	"github.com/awensir/Aurora/mux"
+	"github.com/awensir/Aurora/aurora"
 )
 
 func main() {
-	//获取 mux 路由实例
-	a := aurora.Default()
+	//获取 aurora 路由实例
+	a := aurora.New()
 
 	// GET 方法注册 web get请求
-	a.GET("/${name}", func(c *aurora.Context) interface{} {
+	a.GET("/{name}", func(c *aurora.Context) interface{} {
 		args := c.GetArgs()
 
 		return args["name"]
@@ -344,12 +345,12 @@ func main() {
 package main
 
 import (
-	"github.com/awensir/Aurora/mux"
+	"github.com/awensir/Aurora/aurora"
 )
 
 func main() {
-	//获取 mux 路由实例
-	a := aurora.Default()
+	//获取 aurora 路由实例
+	a := aurora.New()
 	// GET 方法注册 web get请求
 	a.GET("/", func(c *aurora.Context) interface{} {
 
@@ -452,6 +453,308 @@ func (a *Aurora) RouteIntercept(path string, interceptor ...Interceptor)
 
 ***局部拦截器，依赖于路由树，所以注册局部拦截器时候必须等待路由注册完毕才能正常注册成功，全局则不需要依赖于路由树。***
 
+### 准备一下接口
+
+```go
+// GET 方法注册 web get请求
+	a.GET("/", func(c *aurora.Ctx) interface{} {
+
+		return c.Args
+	})
+
+	a.GET("/a", func(c *aurora.Ctx) interface{} {
+
+		return c.Args
+	})
+	a.GET("/b", func(c *aurora.Ctx) interface{} {
+
+		return c.Args
+	})
+	a.GET("/a/b", func(c *aurora.Ctx) interface{} {
+
+		return c.Args
+	})
+
+	a.GET("/a/b/c/{name}", func(c *aurora.Ctx) interface{} {
+
+		return c.Args
+	})
+
+	a.GET("/a/b/cc", func(c *aurora.Ctx) interface{} {
+
+		return c.Args
+	})
+```
+
+### 创建拦截器
+
+```go
+package main
+
+import (
+	"fmt"
+	"github.com/awensir/Aurora/aurora"
+)
+
+
+type MyInterceptor struct {
+}
+
+func (de *MyInterceptor) PreHandle(c *aurora.Ctx) bool {
+	fmt.Println("MyPreHandle")
+	return true
+}
+
+func (de *MyInterceptor) PostHandle(c *aurora.Ctx) {
+	fmt.Println("MyPostHandle")
+}
+
+func (de *MyInterceptor) AfterCompletion(c *aurora.Ctx) {
+	fmt.Println("MyAfterCompletion")
+}
+
+type MyInterceptor1 struct {
+}
+
+func (de *MyInterceptor1) PreHandle(c *aurora.Ctx) bool {
+	fmt.Println("MyPreHandle1")
+	return true
+}
+
+func (de *MyInterceptor1) PostHandle(c *aurora.Ctx) {
+	fmt.Println("MyPostHandle1")
+}
+
+func (de *MyInterceptor1) AfterCompletion(c *aurora.Ctx) {
+	fmt.Println("MyAfterCompletion1")
+}
+
+
+type MyInterceptor2 struct {
+}
+
+func (de *MyInterceptor2) PreHandle(c *aurora.Ctx) bool {
+	fmt.Println("MyPreHandle2")
+	return true
+}
+
+func (de *MyInterceptor2) PostHandle(c *aurora.Ctx) {
+	fmt.Println("MyPostHandle2")
+}
+
+func (de *MyInterceptor2) AfterCompletion(c *aurora.Ctx) {
+	fmt.Println("MyAfterCompletion2")
+}
+
+
+type MyInterceptor3 struct {
+}
+
+func (de *MyInterceptor3) PreHandle(c *aurora.Ctx) bool {
+	fmt.Println("MyPreHandle3")
+	return true
+}
+
+func (de *MyInterceptor3) PostHandle(c *aurora.Ctx) {
+	fmt.Println("MyPostHandle3")
+}
+
+func (de *MyInterceptor3) AfterCompletion(c *aurora.Ctx) {
+	fmt.Println("MyAfterCompletion3")
+}
+
+
+type MyInterceptor4 struct {
+}
+
+func (de *MyInterceptor4) PreHandle(c *aurora.Ctx) bool {
+	fmt.Println("MyPreHandle4")
+	return true
+}
+
+func (de *MyInterceptor4) PostHandle(c *aurora.Ctx) {
+	fmt.Println("MyPostHandle4")
+}
+
+func (de *MyInterceptor4) AfterCompletion(c *aurora.Ctx) {
+	fmt.Println("MyAfterCompletion4")
+}
+
+
+type MyInterceptor5 struct {
+}
+
+func (de *MyInterceptor5) PreHandle(c *aurora.Ctx) bool {
+	fmt.Println("MyPreHandle5")
+	return true
+}
+
+func (de *MyInterceptor5) PostHandle(c *aurora.Ctx) {
+	fmt.Println("MyPostHandle5")
+}
+
+func (de *MyInterceptor5) AfterCompletion(c *aurora.Ctx) {
+	fmt.Println("MyAfterCompletion5")
+}
+
+
+type MyInterceptor6 struct {
+}
+
+func (de *MyInterceptor6) PreHandle(c *aurora.Ctx) bool {
+	fmt.Println("MyPreHandle6")
+	return true
+}
+
+func (de *MyInterceptor6) PostHandle(c *aurora.Ctx) {
+	fmt.Println("MyPostHandle6")
+}
+
+func (de *MyInterceptor6) AfterCompletion(c *aurora.Ctx) {
+	fmt.Println("MyAfterCompletion6")
+}
+```
+
+
+
+### 添加全局拦截器
+
+```go
+// DefaultInterceptor 配置默认顶级拦截器
+func (a *Aurora) DefaultInterceptor(interceptor Interceptor)
+// AddInterceptor 追加全局拦截器
+func (a *Aurora) AddInterceptor(interceptor ...Interceptor)
+```
+
+全局拦截器的代表是内置的api 访问信息拦截，每次访问提示访问那个接口。以上api是配置全局拦截器。在此不做演示
+
+### 指定路径添加拦截器
+
+```go
+a.RouteIntercept("/",&MyInterceptor{})
+a.RouteIntercept("/b",&MyInterceptor{})
+
+访问：localhost:8080/  , localhost:8080/b
+控制台输出：
+MyPreHandle
+MyPostHandle
+MyAfterCompletion
+2021/10/21 10:50:03 [info  ] ==>  172.0.0.1:59291 →  | GET / | 535.8µs
+MyPreHandle
+MyPostHandle
+MyAfterCompletion
+2021/10/21 10:50:19 [info  ] ==>  172.0.0.1:59291 →  | GET /b | 0s
+```
+
+
+
+### 指定路径添加多个拦截器
+
+```go
+a.RouteIntercept("/",&MyInterceptor{},&MyInterceptor1{},&MyInterceptor2{})
+
+访问：localhost:8080/ 
+控制台输出：
+MyPreHandle
+MyPreHandle1
+MyPreHandle2
+MyPostHandle2
+MyPostHandle1
+MyPostHandle
+MyAfterCompletion2
+MyAfterCompletion1
+MyAfterCompletion
+2021/10/21 10:52:09 [info  ] ==>  172.0.0.1:65145 →  | GET / | 0s
+```
+
+
+
+### 指定路径添加通配拦截器
+
+```go
+a.RouteIntercept("/a/*",&MyInterceptor1{})
+访问：localhost:8080/a, localhost:8080/a/b, localhost:8080/a/b/cc , localhost:8080/a/b/c/{name}
+控制台输出：
+MyPreHandle1
+MyPreHandle1
+MyPostHandle1
+MyPostHandle1
+MyAfterCompletion1
+MyAfterCompletion1
+2021/10/21 10:55:36 [info  ] ==>  172.0.0.1:55582 →  | GET /a | 0s
+MyPreHandle1
+MyPostHandle1
+MyAfterCompletion1
+2021/10/21 10:55:50 [info  ] ==>  172.0.0.1:55582 →  | GET /a/b | 0s
+MyPreHandle1
+MyPostHandle1
+MyAfterCompletion1
+2021/10/21 10:56:03 [info  ] ==>  172.0.0.1:55582 →  | GET /a/b/cc | 0s
+MyPreHandle1
+MyPostHandle1
+MyAfterCompletion1
+2021/10/21 10:56:18 [info  ] ==>  172.0.0.1:55582 →  | GET /a/b/c/test | 271µs
+```
+
+
+
+### 指定路径添加多个通配拦截器
+
+```go
+a.RouteIntercept("/a/*",&MyInterceptor1{},&MyInterceptor2{})
+
+访问：localhost:8080/a, localhost:8080/a/b, localhost:8080/a/b/cc , localhost:8080/a/b/c/{name}
+控制台输出：
+MyPreHandle1
+MyPreHandle2
+MyPreHandle1
+MyPreHandle2
+MyPostHandle2
+MyPostHandle1
+MyPostHandle2
+MyPostHandle1
+MyAfterCompletion2
+MyAfterCompletion1
+MyAfterCompletion2
+MyAfterCompletion1
+2021/10/21 11:01:08 [info  ] ==>  172.0.0.1:65037 →  | GET /a | 0s
+MyPreHandle1
+MyPreHandle2
+MyPostHandle2
+MyPostHandle1
+MyAfterCompletion2
+MyAfterCompletion1
+2021/10/21 11:01:11 [info  ] ==>  172.0.0.1:65037 →  | GET /a/b | 0s
+MyPreHandle1
+MyPreHandle2
+MyPostHandle2
+MyPostHandle1
+MyAfterCompletion2
+MyAfterCompletion1
+2021/10/21 11:01:16 [info  ] ==>  172.0.0.1:65037 →  | GET /a/b/cc | 0s
+MyPreHandle1
+MyPreHandle2
+MyPostHandle2
+MyPostHandle1
+MyAfterCompletion2
+MyAfterCompletion1
+2021/10/21 11:01:21 [info  ] ==>  172.0.0.1:65037 →  | GET /a/b/c/test | 866.6µs
+```
+
+
+
+拦截器注册的规则：
+
+1. 拦截器只支持注册已存在的路径
+2. 一个普通路径可以注册多个拦截器，多次调用注册拦截器将覆盖前一次的拦截器
+3. 路径添加通配路径拦截器，同时路径本身也添加，访问到路径本身会触发2次，一次是通配路径，一次是路径本身，（运行时会触发1次通配和路径本身的拦截器）
+4. REST FUL 风格的路径不支持拦截器注册，但支持使用通配的形式进行拦截。
+5. 拦截器是按照路径进行注册，不区分方法，对特殊路径，请求方法在拦截器上面有冲突的可以使用中间件的写法来避免。
+6. 全局拦截器，任何路径都会触发。
+7. 拦截器的触发优先级：全局注册顺序 > 通配顺序 > 局部顺序 (注：中间件的拦截处理需要根据处理函数定义，其执行顺序不在拦截器规则范围内)
+
+## 常用中间件写法
+
 aurora也支持go web 最常用的中间件编写处理
 
 ```go
@@ -459,14 +762,14 @@ package main
 
 import (
 	"fmt"
-	"github.com/awensir/Aurora/mux"
+	"github.com/awensir/Aurora/aurora"
 )
-
+//真实业务处理
 func Test(ctx *aurora.Context) interface{} {
 	return "test"
 }
 func main() {
-	//获取 mux 路由实例
+	//获取 aurora 路由实例
 	a := aurora.Default()
 
 	// GET 方法注册 web get请求

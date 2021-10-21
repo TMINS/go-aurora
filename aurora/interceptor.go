@@ -1,4 +1,4 @@
-package mux
+package aurora
 
 import (
 	"fmt"
@@ -80,4 +80,9 @@ func (s *InterceptorStack) Pull() Interceptor {
 		s.stack = nil
 	}
 	return fun
+}
+
+type InterceptorArgs struct {
+	path string
+	list []Interceptor
 }

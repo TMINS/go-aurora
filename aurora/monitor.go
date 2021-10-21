@@ -1,4 +1,4 @@
-package mux
+package aurora
 
 import (
 	"fmt"
@@ -39,8 +39,9 @@ func (l *LocalMonitor) En(monitor *Monitor) {
 	if l.Head == nil {
 		l.Head = monitor
 		l.End = monitor
+		return
 	}
-	l.End.Next = monitor
+	l.Head.Next = monitor
 	l.End = monitor
 }
 

@@ -1,4 +1,4 @@
-package mux
+package aurora
 
 import (
 	"errors"
@@ -53,7 +53,7 @@ func (s Servlet) ServletHandler(ctx *Ctx) interface{} {
 type ServerRouter struct {
 	mx          *sync.Mutex
 	tree        map[string]*Node
-	DefaultView ViewFunc
+	DefaultView Views
 	AR          *Aurora // Aurora 引用
 }
 
@@ -381,28 +381,42 @@ func OptimizeSort(child []*Node, start int, end int) {
 // RegisterInterceptor 向路由树上添加拦截器，添加规则只要是匹配的路径都会添加上对应的拦截器，不区分拦截的请求方式，REST API暂定还未调试支持
 func (r *ServerRouter) RegisterInterceptor(path string, monitor *LocalMonitor, interceptor ...Interceptor) {
 	pl := len(path)
+	if pl < 1 {
+		err := errors.New(path + "The path cannot be empty")
+		monitor.En(ExecuteInfo(err))
+		r.AR.runtime <- monitor
+		return
+	}
 	if pl > 1 {
+		//如果是通配路径 则进行校验
 		if path[pl-1:] == "*" && path[pl-2:] != "/*" {
+			err := errors.New(path + " Wildcard interceptor path error must end with /*")
+			monitor.En(ExecuteInfo(err))
+			r.AR.runtime <- monitor
 			return
 		}
 	}
+	//校验路径开头是否以 / 否则不给添加
 	if path[0:1] != "/" {
+		err := errors.New(path + " The path interceptor cannot end with /")
+		monitor.En(ExecuteInfo(err))
+		r.AR.runtime <- monitor
 		return
 	}
 	//为每个路径添加上拦截器
 	monitor.En(ExecuteInfo(nil))
 	for k, _ := range r.tree {
-		r.register(r.tree[k], path, monitor, interceptor...)
+		r.register(r.tree[k], path, path, monitor, interceptor...)
 	}
 }
 
 // register 拦截器添加和路径查找方式一样，参数path是需要添加的路径，interceptor则是需要添加的拦截器集合，root则是表示为某种请求类型进行添加拦截器
-func (r *ServerRouter) register(root *Node, path string, monitor *LocalMonitor, interceptor ...Interceptor) {
+func (r *ServerRouter) register(root *Node, path string, lpath string, monitor *LocalMonitor, interceptor ...Interceptor) {
 	if root == nil {
 		return
 	}
-
-	if root.Path == path[:len(path)-1] || root.Path == path || root.Path == path[:len(path)-2] { //当前路径处理匹配成功  root.Path == path[:len(path)-2]用于匹配  /* 通配拦截器
+	//当前路径处理匹配成功  root.Path == path[:len(path)-2]用于匹配  /* 通配拦截器    //root.Path == path[:len(path)-1] || root.Path == path ||
+	if len(path) >= 2 && root.Path == path[:len(path)-2] || root.Path == path[:len(path)-1] {
 		if path[len(path)-1:] == "*" { //检测是否是通配拦截器，通配拦截器可以放在没有处理函数的路上
 			//注册匹配路径
 			root.TreeInter = interceptor
@@ -410,12 +424,19 @@ func (r *ServerRouter) register(root *Node, path string, monitor *LocalMonitor, 
 				//添加通配拦截器 的路径是一个服务的话就一并设置
 				root.InterList = interceptor
 			}
-			l := fmt.Sprintf("Web Rout Interceptor successds | %s ", path)
+			l := fmt.Sprintf("Web Rout Interceptor successds | %s  ", lpath)
 			r.AR.message <- l
 			return
 		}
+		//root.InterList = interceptor //再次添加会覆盖通配拦截器
+		//l := fmt.Sprintf("Web Rout Interceptor successds | %s ", path)
+		//r.AR.message <- l
+		//return
+	}
+
+	if root.Path == path && root.handle != nil {
 		root.InterList = interceptor //再次添加会覆盖通配拦截器
-		l := fmt.Sprintf("Web Rout Interceptor successds | %s ", path)
+		l := fmt.Sprintf("Web Rout Interceptor successds | %s  ", lpath)
 		r.AR.message <- l
 		return
 	}
@@ -503,7 +524,7 @@ func (r *ServerRouter) register(root *Node, path string, monitor *LocalMonitor, 
 		for i := 0; i < len(root.Child); i++ { //子路径解析完成，开始遍历子节点路径，找到一个符合的路径继续走下去
 			pub := r.FindPublicRoot("", str, root.Child[i].Path, monitor)
 			if pub != "" {
-				r.register(root.Child[i], str, monitor, interceptor...)
+				r.register(root.Child[i], str, lpath, monitor, interceptor...)
 				return
 			}
 		}
@@ -621,6 +642,7 @@ func (r *ServerRouter) search(root *Node, path string, Args map[string]interface
 				view:            r.DefaultView,
 				ar:              r.AR,
 				monitor:         monitor,
+				TreeInter:       Interceptor,
 			}
 			proxy.Start()
 			return
@@ -667,7 +689,14 @@ func (r *ServerRouter) search(root *Node, path string, Args map[string]interface
 func (a *Aurora) ServeHTTP(rw http.ResponseWriter, req *http.Request) {
 	list := &LocalMonitor{mx: &sync.Mutex{}}
 	list.En(ExecuteInfo(nil))
+
 	mapping := req.RequestURI
+	if err := checkUrl(mapping); err != nil {
+		list.En(ExecuteInfo(err))
+		a.runtime <- list
+		http.NotFound(rw, req)
+		return
+	}
 	if index := strings.LastIndex(mapping, "."); index != -1 { //静态资源处理
 		t := mapping[index+1:]             //截取资源类型,（图片类型存在不同，待解决）
 		paths, ok := a.resourceMappings[t] //资源对应的路径映射
@@ -696,4 +725,11 @@ func (a *Aurora) Register(method string, mapping string, fun Servlet) {
 
 func GetFunName(fun Servlet) string {
 	return runtime.FuncForPC(reflect.ValueOf(fun).Pointer()).Name()
+}
+
+func checkUrl(url string) error {
+	if strings.Contains(url, "%7B") || strings.Contains(url, "%7D") {
+		return errors.New("url request is illegal ")
+	}
+	return nil
 }
