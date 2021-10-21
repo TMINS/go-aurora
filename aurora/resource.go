@@ -30,6 +30,7 @@ import (
 */
 
 const contentType = "Content-Type"
+const favicon = "favicon.ico"
 
 type Views interface {
 	View(*Ctx, string)

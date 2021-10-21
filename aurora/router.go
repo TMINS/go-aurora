@@ -702,6 +702,7 @@ func (a *Aurora) ServeHTTP(rw http.ResponseWriter, req *http.Request) {
 		paths, ok := a.resourceMappings[t] //资源对应的路径映射
 		if !ok {
 			http.NotFound(rw, req)
+			return
 		}
 		mp := ""
 		for _, v := range paths {
