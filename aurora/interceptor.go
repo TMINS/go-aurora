@@ -13,9 +13,9 @@ import (
 
 // Interceptor 拦截器统一接口，实现这个接口就可以向服务器注册一个全局或者指定路径的处理拦截
 type Interceptor interface {
-	PreHandle(ctx *Context) bool
-	PostHandle(ctx *Context)
-	AfterCompletion(ctx *Context)
+	PreHandle(c *Ctx) bool
+	PostHandle(c *Ctx)
+	AfterCompletion(c *Ctx)
 }
 
 // DefaultInterceptor 实现全局请求处理前后环绕
@@ -23,16 +23,16 @@ type DefaultInterceptor struct {
 	t time.Time
 }
 
-func (de *DefaultInterceptor) PreHandle(ctx *Context) bool {
+func (de *DefaultInterceptor) PreHandle(ctx *Ctx) bool {
 	de.t = time.Now()
 	return true
 }
 
-func (de *DefaultInterceptor) PostHandle(ctx *Context) {
+func (de *DefaultInterceptor) PostHandle(ctx *Ctx) {
 
 }
 
-func (de *DefaultInterceptor) AfterCompletion(ctx *Context) {
+func (de *DefaultInterceptor) AfterCompletion(ctx *Ctx) {
 	times := time.Now().Sub(de.t)
 	re := ctx.Request
 	radd := re.RemoteAddr
@@ -42,7 +42,7 @@ func (de *DefaultInterceptor) AfterCompletion(ctx *Context) {
 		radd = ip + radd
 	}
 	l := fmt.Sprintf(" %s → %s | %s %s | %s", radd, re.URL.Host, re.Method, re.URL.Path, times)
-	ctx.AR.Api <- l
+	ctx.ar.message <- l
 }
 
 // InterceptorData 实现拦截器压栈出栈功能
@@ -80,4 +80,9 @@ func (s *InterceptorStack) Pull() Interceptor {
 		s.stack = nil
 	}
 	return fun
+}
+
+type InterceptorArgs struct {
+	path string
+	list []Interceptor
 }

@@ -13,10 +13,11 @@ type ServletProxy struct {
 	req            *http.Request
 	ServletHandler                        //处理函数
 	args           map[string]interface{} //REST API 参数解析
-	ctx            *Context               //上下文
+	ctx            *Ctx                   //上下文
 	result         interface{}            //业务结果
-	view           ViewFunc               //支持自定义视图渲染机制
-	AR             *Aurora
+	view           Views                  //支持自定义视图渲染机制
+	ar             *Aurora
+	monitor        *LocalMonitor
 	Interceptor    bool //是否放行拦截器
 
 	ExecuteStack, AfterStack *InterceptorStack // ExecuteStack,AfterStack 全局拦截器
@@ -30,6 +31,7 @@ type ServletProxy struct {
 
 // Start 路由查询入口
 func (sp *ServletProxy) Start() {
+	sp.monitor.En(ExecuteInfo(nil))
 	sp.Init()
 	sp.Before()
 	if sp.Interceptor {
@@ -40,13 +42,14 @@ func (sp *ServletProxy) Start() {
 
 // Before 服务处理之前
 func (sp *ServletProxy) Before() {
+	sp.monitor.En(ExecuteInfo(nil))
 	sp.Interceptor = true //初始化放行所有拦截器
-	defer func(ctx *Context, sp *ServletProxy) {
+	defer func(ctx *Ctx, sp *ServletProxy) {
 		//处理全局拦截器和局部拦截器之前，临时构造一个拦截器执行序列
 
 		//全局拦截器
-		if len(sp.AR.InterceptorList) > 0 {
-			for _, v := range sp.AR.InterceptorList { //依次执行注册过的 拦截器
+		if len(sp.ar.interceptorList) > 0 {
+			for _, v := range sp.ar.interceptorList { //依次执行注册过的 拦截器
 				if sp.Interceptor = v.PreHandle(ctx); !sp.Interceptor { //如果返回false 则终止
 					//清空拦截器栈，释放资源
 					break //拦截器不放行,后续拦截器也不再执行
@@ -60,6 +63,7 @@ func (sp *ServletProxy) Before() {
 			}
 		}
 
+		//通配拦截器链
 		if sp.TreeInter != nil && len(sp.TreeInter) > 0 && sp.Interceptor { //通配拦截器
 			for _, v := range sp.TreeInter {
 				if sp.Interceptor = v.PreHandle(ctx); !sp.Interceptor {
@@ -74,6 +78,7 @@ func (sp *ServletProxy) Before() {
 			}
 		}
 
+		//路径拦截器
 		if sp.InterceptorList != nil && len(sp.InterceptorList) > 0 && sp.Interceptor { //局部拦截器
 			for _, v := range sp.InterceptorList {
 				if sp.Interceptor = v.PreHandle(ctx); !sp.Interceptor {
@@ -92,9 +97,9 @@ func (sp *ServletProxy) Before() {
 
 // Execute 执行业务
 func (sp *ServletProxy) Execute() {
-
-	defer func(ctx *Context, sp *ServletProxy) {
-		if len(sp.AR.InterceptorList) > 0 { //全局拦截器
+	sp.monitor.En(ExecuteInfo(nil))
+	defer func(ctx *Ctx, sp *ServletProxy) {
+		if len(sp.ar.interceptorList) > 0 { //全局拦截器
 			for {
 				if f := sp.ExecuteStack.Pull(); f != nil {
 					f.PostHandle(ctx)
@@ -128,9 +133,10 @@ func (sp *ServletProxy) Execute() {
 
 // After 服务处理之后，主要处理业务结果
 func (sp *ServletProxy) After() {
-
-	defer func(ctx *Context, sp *ServletProxy) {
-		if len(sp.AR.InterceptorList) > 0 { //全局拦截器
+	sp.monitor.En(ExecuteInfo(nil))
+	//全局拦截器
+	defer func(ctx *Ctx, sp *ServletProxy) {
+		if len(sp.ar.interceptorList) > 0 {
 			for {
 				if f := sp.AfterStack.Pull(); f != nil {
 					f.AfterCompletion(ctx)
@@ -139,19 +145,21 @@ func (sp *ServletProxy) After() {
 				}
 			}
 		}
-		if sp.TreeInter != nil { //通配
+		//通配
+		if sp.TreeInter != nil {
 			for {
 				if f := sp.TreeAfterInterStack.Pull(); f != nil {
-					f.PostHandle(ctx)
+					f.AfterCompletion(ctx)
 				} else {
 					break
 				}
 			}
 		}
-		if sp.InterceptorList != nil { //局部
+		//局部
+		if sp.InterceptorList != nil {
 			for {
 				if f := sp.AfterPart.Pull(); f != nil {
-					f.PostHandle(ctx)
+					f.AfterCompletion(ctx)
 				} else {
 					break
 				}
@@ -163,14 +171,16 @@ func (sp *ServletProxy) After() {
 
 // Init 初始化 Context变量
 func (sp *ServletProxy) Init() {
+	sp.monitor.En(ExecuteInfo(nil))
 	if sp.ctx == nil {
-		sp.ctx = &Context{}
+		sp.ctx = &Ctx{}
 		sp.ctx.Request = sp.req
 		sp.ctx.Response = sp.rew
 		sp.ctx.rw = &sync.RWMutex{}
-		sp.ctx.AR = sp.AR
+		sp.ctx.ar = sp.ar
+		sp.ctx.monitor = sp.monitor
 		if sp.args != nil {
-			sp.ctx.args = sp.args
+			sp.ctx.Args = sp.args
 		}
 	}
 }
@@ -181,18 +191,17 @@ func (sp *ServletProxy) ResultHandler() {
 		path := sp.result.(string)
 		//处理普通页面响应
 		if strings.HasSuffix(path, ".html") {
-			//SendResource(sp.rew, readResource(path)) //直接响应 html 页面
-			sp.view(sp.ctx, path)
+			sp.view.View(sp.ctx, path) //视图解析 响应 html 页面
 			return
 		}
 		//处理重定向
 		if strings.HasPrefix(path, "forward:") {
 			path = path[8:]
-			sp.ctx.RequestForward(path)
+			sp.ctx.forward(path)
 			return
 		}
 		//处理字符串输出
-		sp.ctx.JSON(sp.result)
+		sp.ctx.json(sp.result)
 	case WebError:
 		//处理自定义错误处理器
 		a := sp.result.(WebError)
@@ -211,13 +220,15 @@ func (sp *ServletProxy) ResultHandler() {
 	case error:
 		//直接返回错误处理,让调用者根据错误进行处理
 		sp.ctx.SetStatus(500)
-		sp.ctx.JSON("error:" + sp.result.(error).Error())
+		sp.monitor.En(ExecuteInfo(sp.result.(error)))
+		sp.ar.runtime <- sp.monitor
+		sp.ctx.json("error:" + sp.result.(error).Error())
 		return
 	case nil:
 		//对结果不做出处理
 		return
 	default:
 		//其它类型直接编码json发送
-		sp.ctx.JSON(sp.result)
+		sp.ctx.json(sp.result)
 	}
 }
