@@ -34,7 +34,7 @@ type Aurora struct {
 	ctx              context.Context     //服务器顶级上下文，通过此上下文可以跳过web 上下文去开启纯净的子go程
 	cancel           func()              //取消上下文
 	port             string              //服务端口号
-	router           *router             //路由服务管理
+	router           *route              //路由服务管理
 	projectRoot      string              //项目根路径
 	resource         string              //静态资源管理 默认为 root 目录
 	resourceMappings map[string][]string //静态资源映射路径标识
@@ -53,7 +53,7 @@ func New() *Aurora {
 	a := &Aurora{
 		rw:   &sync.RWMutex{},
 		port: "8080", //默认端口号
-		router: &router{
+		router: &route{
 			mx: &sync.Mutex{},
 		},
 		Server:          &http.Server{},
@@ -158,27 +158,34 @@ func (a *Aurora) AddInterceptor(interceptor ...Interceptor) {
 
 // GET 请求
 func (a *Aurora) GET(path string, servlet Servlet) {
-	a.Register(http.MethodGet, path, servlet)
+	a.register(http.MethodGet, path, servlet)
 }
 
 // POST 请求
 func (a *Aurora) POST(path string, servlet Servlet) {
-	a.Register(http.MethodPost, path, servlet)
+	a.register(http.MethodPost, path, servlet)
 }
 
 // PUT 请求
 func (a *Aurora) PUT(path string, servlet Servlet) {
-	a.Register(http.MethodPut, path, servlet)
+	a.register(http.MethodPut, path, servlet)
 }
 
 // DELETE 请求
 func (a *Aurora) DELETE(path string, servlet Servlet) {
-	a.Register(http.MethodDelete, path, servlet)
+	a.register(http.MethodDelete, path, servlet)
 }
 
 // HEAD 请求
 func (a *Aurora) HEAD(path string, servlet Servlet) {
-	a.Register(http.MethodHead, path, servlet)
+	a.register(http.MethodHead, path, servlet)
+}
+
+// Register 通用注册器
+func (a *Aurora) register(method string, mapping string, fun Servlet) {
+	list := &localMonitor{mx: &sync.Mutex{}}
+	list.En(executeInfo(nil))
+	a.router.addRoute(method, mapping, fun, list)
 }
 
 // Group 路由分组  必须以 “/” 开头分组

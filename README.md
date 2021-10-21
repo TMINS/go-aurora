@@ -34,7 +34,7 @@ func main() {
 	a := aurora.New()
 
 	// GET 方法注册 web get请求
-	a.GET("/", func(c *aurora.Context) interface{} {
+	a.GET("/", func(c *aurora.Ctx) interface{} {
 
 		//结果响应给 调用者
 		return "hello web"
@@ -82,7 +82,7 @@ aurora路由设计规则如下：
 服务处理函数签名：
 
 ```go
-	type Servlet func(c *Context) interface{}
+	type Servlet func(c *Ctx) interface{}
 ```
 
 支持常用的注册方式：
@@ -113,7 +113,7 @@ func main() {
 	a := aurora.New()
 
 	// GET 方法注册 web get请求
-	a.GET("/", func(c *aurora.Context) interface{} {
+	a.GET("/", func(c *aurora.Ctx) interface{} {
 
 		//直接返回字符串
 		return "hello web"
@@ -142,7 +142,7 @@ func main() {
 	//获取 aurora 路由实例
 	a := aurora.New()
 	// GET 方法注册 web get请求
-	a.GET("/", func(c *aurora.Context) interface{} {
+	a.GET("/", func(c *aurora.Ctx) interface{} {
 
 		s := struct {
 			Name string
@@ -175,7 +175,7 @@ func main() {
 	//获取 aurora 路由实例
 	a := aurora.New()
 	// GET 方法注册 web get请求
-	a.GET("/", func(c *aurora.Context) interface{} {
+	a.GET("/", func(c *aurora.Ctx) interface{} {
 
 		return errors.New("is error")
 	})
@@ -204,7 +204,7 @@ type AgeErr struct {
 	err error
 }
 
-func (receiver *AgeErr) ErrorHandler(c *aurora.Context) interface{} {
+func (receiver *AgeErr) ErrorHandler(c *aurora.Ctx) interface{} {
 	/*
 		对同一类型的错误 统一处理
 	*/
@@ -215,7 +215,7 @@ func main() {
 	//获取 aurora 路由实例
 	a := aurora.New()
 	// GET 方法注册 web get请求
-	a.GET("/", func(c *aurora.Context) interface{} {
+	a.GET("/", func(c *aurora.Ctx) interface{} {
 		s := struct {
 			Name string
 			Age  int
@@ -248,7 +248,7 @@ func main() {
 	//获取 aurora 路由实例
 	a := aurora.New()
 	// GET 方法注册 web get请求
-	a.GET("/", func(c *aurora.Context) interface{} {
+	a.GET("/", func(c *aurora.Ctx) interface{} {
 
 		return nil
 	})
@@ -267,15 +267,15 @@ out:
 实现错误处理方法既可以自定义错误的处理，错误处理和服务处理参数虽然相同，但是不会走全局拦截器，只负责对产生的错误进行包装处理，然后给浏览器做出需要的响应。
 
 ```go
- ErrorHandler(ctx *Context) interface{}
+ ErrorHandler(ctx *Ctx) interface{}
 
 
-//编写一个结构体 实现  ErrorHandler(ctx *Context) interface{} 方法即可
+//编写一个结构体 实现  ErrorHandler(ctx *Ctx) interface{} 方法即可
 type TestErr struct {
 	 error
 }
 // 绑定的方式 使用结构体方式即可，对于指针的支持后续进行改进
-func (t TestErr) ErrorHandler(ctx *aurora.Context) interface{} {
+func (t TestErr) ErrorHandler(ctx *aurora.Ctx) interface{} {
 	//对error 进行指定处理，选择输出
 
 	return "error"
@@ -311,7 +311,7 @@ func main() {
 	//每个资源类型最调用一次设置方法否则覆盖原有设置
 	a.ResourceMapping("js", "js", "jsfiles")
 	// GET 方法注册 web get请求
-	a.GET("/", func(c *aurora.Context) interface{} {
+	a.GET("/", func(c *aurora.Ctx) interface{} {
 
 		//直接返回静态资源中的 页面作为响应数据
 		return "/html/index.html"
@@ -337,10 +337,9 @@ func main() {
 	a := aurora.New()
 
 	// GET 方法注册 web get请求
-	a.GET("/{name}", func(c *aurora.Context) interface{} {
-		args := c.GetArgs()
-
-		return args["name"]
+	a.GET("/{name}", func(c *aurora.Ctx) interface{} {
+		
+		return c.Args["name"]
 	})
 	// 启动服务器 默认端口8080，更改端口号 a.Guide(”8081“) 即可
 	a.Guide()
@@ -366,12 +365,12 @@ func main() {
 	//获取 aurora 路由实例
 	a := aurora.New()
 	// GET 方法注册 web get请求
-	a.GET("/", func(c *aurora.Context) interface{} {
+	a.GET("/", func(c *aurora.Ctx) interface{} {
 
 		return "forward:/abc"
 	})
 
-	a.GET("/abc", func(c *aurora.Context) interface{} {
+	a.GET("/abc", func(c *aurora.Ctx) interface{} {
 
 		return "/abc"
 	})
@@ -416,9 +415,9 @@ func (c *Context) GetFloat64Slice(Args string) ([]float64, error)
 ```go
 // Interceptor 拦截器统一接口，实现这个接口就可以向服务器注册一个全局或者指定路径的处理拦截，此处的Context是aurora包下的上下文变量
 type Interceptor interface {
-	PreHandle(ctx *Context) bool
-	PostHandle(ctx *Context)
-	AfterCompletion(ctx *Context)
+	PreHandle(ctx *Ctx) bool
+	PostHandle(ctx *Ctx)
+	AfterCompletion(ctx *Ctx)
 }
 ```
 
@@ -430,16 +429,16 @@ type DefaultInterceptor struct {
              
 }
 
-func (de DefaultInterceptor) PreHandle(ctx *Context) bool {
+func (de DefaultInterceptor) PreHandle(ctx *Ctx) bool {
 	//处理服务之前必须经过的函数，返回true表示放行服务继续执行后面的拦截器或者业务，false则会终止服务继续执行，将不会执行到对应业务
 	return true
 }
 
-func (de DefaultInterceptor) PostHandle(ctx *Context) {
+func (de DefaultInterceptor) PostHandle(ctx *Ctx) {
 	//业务完成处理后执行此函数，此刻还没有想浏览器发送视图信息
 }
 
-func (de DefaultInterceptor) AfterCompletion(ctx *Context)  {
+func (de DefaultInterceptor) AfterCompletion(ctx *Ctx)  {
 	//试图解析发送完成后执行，此处表示服务业务已经完全处理完毕
 }
 ```
