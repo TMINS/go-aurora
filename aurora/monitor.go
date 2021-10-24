@@ -41,7 +41,7 @@ func (l *localMonitor) En(monitor *monitor) {
 		l.End = monitor
 		return
 	}
-	l.Head.Next = monitor
+	l.End.Next = monitor
 	l.End = monitor
 }
 
