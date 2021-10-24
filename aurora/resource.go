@@ -45,7 +45,6 @@ func (vf ViewFunc) View(c *Ctx, p string) {
 // ResourceFun w 响应体，path 资源真实路径，rt资源类型
 // 根据rt资源类型去找到对应的resourceMapType 存储的响应头，进行发送资源
 func (a *Aurora) resourceFun(w http.ResponseWriter, req *http.Request, path string, rt string, monitor *localMonitor) {
-	monitor.En(executeInfo(nil))
 	data := a.readResource(a.projectRoot+"/"+a.resource+path, monitor)
 	if data != nil {
 		h := w.Header()

@@ -688,8 +688,6 @@ func (r *route) search(root *node, path string, Args map[string]interface{}, rw 
 // ServeHTTP 一切的开始
 func (a *Aurora) ServeHTTP(rw http.ResponseWriter, req *http.Request) {
 	list := &localMonitor{mx: &sync.Mutex{}}
-	list.En(executeInfo(nil))
-
 	mapping := req.RequestURI
 	if err := checkUrl(mapping); err != nil {
 		list.En(executeInfo(err))

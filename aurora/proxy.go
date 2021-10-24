@@ -31,7 +31,6 @@ type proxy struct {
 
 // Start 路由查询入口
 func (sp *proxy) start() {
-	sp.monitor.En(executeInfo(nil))
 	sp.initCtx()
 	sp.before()
 	if sp.Interceptor {
@@ -42,7 +41,6 @@ func (sp *proxy) start() {
 
 // Before 服务处理之前
 func (sp *proxy) before() {
-	sp.monitor.En(executeInfo(nil))
 	sp.Interceptor = true //初始化放行所有拦截器
 	defer func(ctx *Ctx, sp *proxy) {
 		//处理全局拦截器和局部拦截器之前，临时构造一个拦截器执行序列
@@ -97,7 +95,6 @@ func (sp *proxy) before() {
 
 // Execute 执行业务
 func (sp *proxy) execute() {
-	sp.monitor.En(executeInfo(nil))
 	defer func(ctx *Ctx, sp *proxy) {
 		if len(sp.ar.interceptorList) > 0 { //全局拦截器
 			for {
@@ -133,7 +130,6 @@ func (sp *proxy) execute() {
 
 // After 服务处理之后，主要处理业务结果
 func (sp *proxy) after() {
-	sp.monitor.En(executeInfo(nil))
 	//全局拦截器
 	defer func(ctx *Ctx, sp *proxy) {
 		if len(sp.ar.interceptorList) > 0 {
@@ -171,7 +167,6 @@ func (sp *proxy) after() {
 
 // Init 初始化 Context变量
 func (sp *proxy) initCtx() {
-	sp.monitor.En(executeInfo(nil))
 	if sp.ctx == nil {
 		sp.ctx = &Ctx{}
 		sp.ctx.Request = sp.req
