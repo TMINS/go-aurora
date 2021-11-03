@@ -77,6 +77,9 @@ func New() *Aurora {
 	a.message <- fmt.Sprintf("Project Path:%1s", a.projectRoot)
 	a.message <- fmt.Sprintf("Default Server Port :%1s", a.port)
 	a.message <- fmt.Sprintf("Default Static Resource Path:%1s", a.resource)
+
+	//加载 数据库配置
+
 	a.Server.BaseContext = a.baseContext
 	return a
 }
