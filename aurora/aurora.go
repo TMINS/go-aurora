@@ -4,7 +4,9 @@ import (
 	"context"
 	"fmt"
 	"github.com/awensir/Aurora/logs"
+	"github.com/sirupsen/logrus"
 	"html/template"
+	"log"
 	"net"
 	"net/http"
 	"os"
@@ -27,8 +29,6 @@ func init() {
 	fmt.Println(s)
 }
 
-var log = logs.NewLog()
-
 type Aurora struct {
 	rw               *sync.RWMutex
 	ctx              context.Context     //服务器顶级上下文，通过此上下文可以跳过web 上下文去开启纯净的子go程
@@ -43,10 +43,16 @@ type Aurora struct {
 	message          chan string        //启动自带的日志信息
 	initError        chan error         //路由器级别错误通道 一旦初始化出错，则结束服务，检查配置
 	runtime          chan *localMonitor //单体服务运行时错误时候的链路调用日志
-	routeInterceptor []interceptorArgs  //拦截器初始华切片
-	interceptorList  []Interceptor      //全局拦截器
-	container        *containers        //第三方配置整合容器,原型模式
-	Server           *http.Server       //web服务器
+	serviceInfo      chan string
+	serviceWarning   chan string
+	serviceError     chan string
+	servicePanic     chan string
+	routeInterceptor []interceptorArgs //拦截器初始华切片
+	interceptorList  []Interceptor     //全局拦截器
+	container        *containers       //第三方配置整合容器,原型模式
+	log              *logrus.Logger    // Aurora 实例日志变量
+	serviceLog       *logrus.Logger    // 业务实例日志
+	Server           *http.Server      // web服务器
 }
 
 // New :最基础的 Aurora 实例
@@ -64,10 +70,16 @@ func New() *Aurora {
 		load:            make(chan struct{}),
 		message:         make(chan string),
 		runtime:         make(chan *localMonitor),
+		serviceInfo:     make(chan string),
+		serviceWarning:  make(chan string),
+		servicePanic:    make(chan string),
+		serviceError:    make(chan string),
 		container: &containers{
 			rw:         &sync.RWMutex{},
 			prototypes: make(map[string]interface{}),
 		},
+		log:        logs.NewLog(),
+		serviceLog: logs.NewServiceLog(),
 	}
 	startLoading(a)
 	loadResourceHead(a)
@@ -241,8 +253,14 @@ func (a *Aurora) baseContext(ln net.Listener) context.Context {
 	return c
 }
 
-func (a *Aurora) GetContainer(name string) interface{} {
-	return a.container.Get(name)
+// Get 获取加载
+func (a *Aurora) Get(name string) interface{} {
+	return a.container.get(name)
+}
+
+// Store 加载
+func (a *Aurora) Store(name string, variable interface{}) {
+	a.container.store(name, variable)
 }
 
 // startLoading 启动加载
@@ -252,14 +270,27 @@ func startLoading(a *Aurora) {
 		for true {
 			select {
 
-			case msg := <-a.message:
-				log.Info(msg)
+			case info := <-a.message:
+				a.log.Info(info)
 
-			case m := <-a.runtime:
-				log.Error(m.Message())
+			case msg := <-a.runtime:
+				a.log.Error(msg.Message())
+
+			case info := <-a.serviceInfo:
+				a.serviceLog.Info(info)
+
+			case info := <-a.serviceWarning:
+				a.serviceLog.Warning(info)
+
+			case info := <-a.serviceError:
+				a.serviceLog.Error(info)
+
+			case info := <-a.servicePanic:
+				a.serviceLog.Error(info)
+				os.Exit(-2) //结束程序
 
 			case err := <-a.initError: //启动初始化错误处理
-				log.Error(err.Error())
+				a.log.Error(err.Error())
 				os.Exit(-1) //结束程序
 			}
 		}

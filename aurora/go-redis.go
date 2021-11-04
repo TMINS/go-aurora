@@ -16,5 +16,5 @@ func (a *Aurora) GoRedisConfig(opt *redis.Options) {
 		panic(errors.New("go-redis config option not find"))
 	}
 	r := redis.NewClient(opt)
-	a.container.Store(frame.GO_REDIS, r)
+	a.container.store(frame.GO_REDIS, r)
 }

@@ -34,5 +34,5 @@ func (a *Aurora) GormConfig(opt map[string]interface{}) {
 	if err != nil {
 		panic(err.Error())
 	}
-	a.container.Store(frame.GORM, db)
+	a.container.store(frame.GORM, db)
 }

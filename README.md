@@ -416,6 +416,24 @@ func (c *Context) GetIntSlice(Args string) ([]int, error)
 func (c *Context) GetFloat64Slice(Args string) ([]float64, error) 
 ```
 
+### 日志调用
+
+日志相关api，Aurora 默认使用的是logrus 日志框架作为封装提供上下文变量进行替代fmt.Print 输出消息信息，一下是相关的api
+
+```go
+// INFO 打印 info 日志信息
+func (c *Ctx) INFO(info ...interface{})
+
+// WARN 打印 警告信息
+func (c *Ctx) WARN(warning ...interface{}) 
+
+// ERROR 打印错误信息
+func (c *Ctx) ERROR(error ...interface{}) 
+
+// PANIC 打印信息并且结束程序
+func (c *Ctx) PANIC(panic ...interface{}) 
+```
+
 
 
 ## 拦截器
@@ -812,3 +830,142 @@ func main() {
 	a.Guide()
 }
 ```
+
+## 第三方框架整合
+
+Aurora约定设置了第三方框架或库的相关实例 的key
+
+```go
+package frame
+
+/*
+	整合第三方框架标准 key
+*/
+const (
+	GORM     = "gorm"     // gorm
+	GO_REDIS = "go-redis" // go-redis
+	DB       = "db"       // db作为原生 db
+)
+```
+
+第三方库相关 key 都在 frame包中定义
+
+### gorm 配置
+
+func (a *Aurora) GormConfig(opt map[string]interface{}) 方法 配置gorm 默认使用 v2 版本，若要使用其他版本可以通过func (a *Aurora) Store(name string, variable interface{})自行定义k并存储
+
+```go
+import (
+	"errors"
+	"github.com/awensir/Aurora/aurora/frame"
+	"gorm.io/gorm"
+)
+
+const (
+	DBT    = "database" //gorm 数据库类型
+	CONFIG = "config"   //gorm 配置项
+)
+
+/*
+	整合gorm 框架
+	默认使用 v2版本
+	提供配置项 初始化默认gorm变量
+	需要连接多个库，存放在容器中，实现 manage.Variable 接口 Clone() Variable 方法即可存入容器
+*/
+
+//GormConfig 整合gorm
+func (a *Aurora) GormConfig(opt map[string]interface{}) {
+	//读取配置项
+	dil, b := opt[DBT].(gorm.Dialector)
+	if !b {
+		panic(errors.New("gorm config option gorm.Dialector type error！"))
+	}
+
+	config, b := opt[CONFIG].(gorm.Option)
+	if !b {
+		panic(errors.New("gorm config option gorm.Option type error！"))
+	}
+	db, err := gorm.Open(dil, config)
+	if err != nil {
+		panic(err.Error())
+	}
+	a.container.store(frame.GORM, db)
+}
+```
+
+GormConfig 的opt 配置参数，注意按照 const  常量来指定配置项。
+
+### redis 配置
+
+redis 客户端，默认采用go-redis 框架进行配置。
+
+```go
+package aurora
+
+import (
+	"errors"
+	"github.com/awensir/Aurora/aurora/frame"
+	"github.com/go-redis/redis/v8"
+)
+
+// GoRedisConfig 根据配置项配置 go-redis
+func (a *Aurora) GoRedisConfig(opt *redis.Options) {
+	if opt == nil {
+		panic(errors.New("go-redis config option not find"))
+	}
+	r := redis.NewClient(opt)
+	a.container.store(frame.GO_REDIS, r)
+}
+```
+
+
+
+## 自定义配置
+
+第三方框架的整合，就是 做一个管理，支持简单的配置。管理实现基于map
+
+```go
+package aurora
+
+import (
+	"github.com/awensir/Aurora/aurora/frame"
+	"sync"
+)
+
+type containers struct {
+	rw         *sync.RWMutex
+	prototypes map[string]interface{} //容器存储的属性
+}
+
+// Get 获取容器内指定变量，不存在的key 返回默认零值
+func (c *containers) get(name string) interface{} {
+	c.rw.RLock()
+	defer c.rw.RUnlock()
+	return c.prototypes[name]
+}
+
+// Store 加载 指定变量
+func (c *containers) store(name string, variable interface{}) {
+	c.rw.Lock()
+	defer c.rw.Unlock()
+	c.prototypes[name] = variable
+}
+
+// Delete 提供删除自定义整合数据
+func (c *containers) Delete(name string) {
+	switch name {
+		// 内置整合 不允许删除
+		case frame.DB, frame.GORM, frame.GO_REDIS:
+			return
+	}
+	c.rw.Lock()
+	defer c.rw.Unlock()
+	if _, b := c.prototypes[name]; !b {
+		return
+	} else {
+		delete(c.prototypes, name)
+	}
+}
+```
+
+也可以通过容器管理托管自己的公有变量等....

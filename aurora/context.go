@@ -2,6 +2,7 @@ package aurora
 
 import (
 	"encoding/json"
+	"fmt"
 	"net/http"
 	"sync"
 )
@@ -14,6 +15,26 @@ type Ctx struct {
 	Request   *http.Request
 	Args      map[string]interface{} //REST API 参数
 	Attribute map[string]interface{} //Context属性
+}
+
+// INFO 打印 info 日志信息
+func (c *Ctx) INFO(info ...interface{}) {
+	c.ar.serviceInfo <- fmt.Sprint(info...)
+}
+
+// WARN 打印 警告信息
+func (c *Ctx) WARN(warning ...interface{}) {
+	c.ar.serviceWarning <- fmt.Sprint(warning...)
+}
+
+// ERROR 打印错误信息
+func (c *Ctx) ERROR(error ...interface{}) {
+	c.ar.serviceError <- fmt.Sprint(error...)
+}
+
+// PANIC 打印信息并且结束程序
+func (c *Ctx) PANIC(panic ...interface{}) {
+	c.ar.servicePanic <- fmt.Sprint(panic...)
 }
 
 // JSON 向浏览器输出json数据
