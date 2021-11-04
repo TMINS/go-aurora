@@ -1,16 +1,18 @@
 package main
 
 import (
-	"fmt"
+	"github.com/awensir/Aurora/aurora"
+	"github.com/awensir/Aurora/aurora/frame"
 	"testing"
 )
 
-func Ttt(a ...interface{}) {
-	for i, _ := range a {
-		fmt.Println(a[i])
-	}
-}
 func TestLoading(t *testing.T) {
-	a := []int{1, 2, 3}
-	Ttt(a)
+	gorms := &aurora.GORM{nil}
+	aurora.Container.Store(frame.GORM, gorms)
+
+	g := aurora.Container.Get(frame.GORM)
+	if gorms == g {
+		a := g.(*aurora.GORM)
+		a.String()
+	}
 }

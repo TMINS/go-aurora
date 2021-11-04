@@ -45,6 +45,7 @@ type Aurora struct {
 	runtime          chan *localMonitor //单体服务运行时错误时候的链路调用日志
 	routeInterceptor []interceptorArgs  //拦截器初始华切片
 	interceptorList  []Interceptor      //全局拦截器
+	container        *containers        //第三方配置整合容器,原型模式
 	Server           *http.Server       //web服务器
 }
 
@@ -63,6 +64,10 @@ func New() *Aurora {
 		load:            make(chan struct{}),
 		message:         make(chan string),
 		runtime:         make(chan *localMonitor),
+		container: &containers{
+			rw:         &sync.RWMutex{},
+			prototypes: make(map[string]interface{}),
+		},
 	}
 	startLoading(a)
 	loadResourceHead(a)
@@ -236,11 +241,14 @@ func (a *Aurora) baseContext(ln net.Listener) context.Context {
 	return c
 }
 
+func (a *Aurora) GetContainer(name string) interface{} {
+	return a.container.Get(name)
+}
+
 // startLoading 启动加载
 func startLoading(a *Aurora) {
 	//启动日志
 	go func(a *Aurora) {
-
 		for true {
 			select {
 

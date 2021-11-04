@@ -1,15 +1,14 @@
-package databases
+package aurora
 
 import (
 	"errors"
-	"github.com/awensir/Aurora/manage"
-	"github.com/awensir/Aurora/manage/frame"
+	"github.com/awensir/Aurora/aurora/frame"
 	"gorm.io/gorm"
 )
 
 const (
-	DBT    = "database"
-	CONFIG = "config"
+	DBT    = "database" //gorm 数据库类型
+	CONFIG = "config"   //gorm 配置项
 )
 
 /*
@@ -19,16 +18,8 @@ const (
 	需要连接多个库，存放在容器中，实现 manage.Variable 接口 Clone() Variable 方法即可存入容器
 */
 
-type GORM struct {
-	*gorm.DB
-}
-
-func (g *GORM) Clone() manage.Variable {
-	return g
-}
-
 //GormConfig 整合gorm
-func GormConfig(opt map[string]interface{}) {
+func (a *Aurora) GormConfig(opt map[string]interface{}) {
 	//读取配置项
 	dil, b := opt[DBT].(gorm.Dialector)
 	if !b {
@@ -43,6 +34,5 @@ func GormConfig(opt map[string]interface{}) {
 	if err != nil {
 		panic(err.Error())
 	}
-	gormDB := &GORM{db}
-	manage.Container.Store(frame.GORM, gormDB)
+	a.container.Store(frame.GORM, db)
 }
