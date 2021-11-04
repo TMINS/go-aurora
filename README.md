@@ -850,7 +850,7 @@ const (
 
 第三方库相关 key 都在 frame包中定义
 
-### gorm 配置
+### gorm 连接配置
 
 func (a *Aurora) GormConfig(opt map[string]interface{}) 方法 配置gorm 默认使用 v2 版本，若要使用其他版本可以通过func (a *Aurora) Store(name string, variable interface{})自行定义k并存储
 
@@ -895,7 +895,7 @@ func (a *Aurora) GormConfig(opt map[string]interface{}) {
 
 GormConfig 的opt 配置参数，注意按照 const  常量来指定配置项。
 
-### redis 配置
+### redis 连接配置
 
 redis 客户端，默认采用go-redis 框架进行配置。
 
@@ -915,6 +915,16 @@ func (a *Aurora) GoRedisConfig(opt *redis.Options) {
 	}
 	r := redis.NewClient(opt)
 	a.container.store(frame.GO_REDIS, r)
+}
+```
+
+### RabbitMQ 连接配置
+
+```go
+func (a *Aurora) RabbitMqConfig(address string) {
+	conn, err := amqp.Dial(address)
+	failOnError(err, "Failed to connect to RabbitMQ")
+	a.container.store(frame.RABBITMQ, conn)
 }
 ```
 
