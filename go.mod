@@ -5,6 +5,7 @@ go 1.17
 require (
 	github.com/go-redis/redis/v8 v8.11.4
 	github.com/sirupsen/logrus v1.8.1
+	github.com/streadway/amqp v1.0.0
 	gorm.io/gorm v1.22.2
 )
 

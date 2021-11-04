@@ -37,6 +37,11 @@ func (c *Ctx) PANIC(panic ...interface{}) {
 	c.ar.servicePanic <- fmt.Sprint(panic...)
 }
 
+// Get 获取加载 ,需要转换类型后使用
+func (c *Ctx) Get(name string) interface{} {
+	return c.ar.Get(name)
+}
+
 // JSON 向浏览器输出json数据
 func (c *Ctx) json(data interface{}) {
 	s, b := data.(string) //返回值如果是json字符串或者直接是字符串，将不再转码,json 二次转码对原有的json格式会进行二次转义

@@ -11,6 +11,7 @@ func main() {
 	// GET 方法注册 web get请求
 	a.GET("/", func(c *aurora.Ctx) interface{} {
 		c.INFO("message")
+
 		return nil
 	})
 	// 启动服务器 默认端口8080，更改端口号 a.Guide(”8081“) 即可

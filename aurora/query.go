@@ -11,8 +11,8 @@ import (
 	get 请求参数查询
 */
 
-// Get 获取一个字符串参数
-func (c *Ctx) Get(Args string) (string, error) {
+// GetString 获取一个字符串参数
+func (c *Ctx) GetString(Args string) (string, error) {
 	c.monitor.En(executeInfo(nil))
 	return c.get(Args, c.Request.URL.Query())
 }
