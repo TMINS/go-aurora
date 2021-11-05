@@ -979,3 +979,24 @@ func (c *containers) Delete(name string) {
 ```
 
 也可以通过容器管理托管自己的公有变量等....
+
+## 全局配置文件管理
+
+Aurora 会默认加载项目根目录下的 application.yml 配置文件。文件不存在则不做任何处理，文件存在就读取并初始化 viper 配置变量。
+
+示例（读取默认位置）：
+
+```go
+//读取项目根目录位置
+a.ViperConfig()
+```
+
+application.yml不在默认位置，可以通过传递文件夹参数进行指定。application.yml 配置文件及其类型是严格读取，不能更改的。
+
+示例：
+
+```go
+//（基于项目根目录）读取指定位置  static/config/application.yml  
+a.ViperConfig("static","config")
+```
+

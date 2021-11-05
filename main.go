@@ -8,6 +8,8 @@ func main() {
 
 	//获取 aurora 路由实例
 	a := aurora.New()
+
+	a.ViperConfig("static", "config")
 	// GET 方法注册 web get请求
 	a.GET("/", func(c *aurora.Ctx) interface{} {
 		c.INFO("message")

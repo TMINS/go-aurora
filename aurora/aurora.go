@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"github.com/awensir/Aurora/logs"
 	"github.com/sirupsen/logrus"
+	"github.com/spf13/viper"
 	"html/template"
 	"log"
 	"net"
@@ -43,16 +44,17 @@ type Aurora struct {
 	message          chan string        //启动自带的日志信息
 	initError        chan error         //路由器级别错误通道 一旦初始化出错，则结束服务，检查配置
 	runtime          chan *localMonitor //单体服务运行时错误时候的链路调用日志
-	serviceInfo      chan string
-	serviceWarning   chan string
-	serviceError     chan string
-	servicePanic     chan string
-	routeInterceptor []interceptorArgs //拦截器初始华切片
-	interceptorList  []Interceptor     //全局拦截器
-	container        *containers       //第三方配置整合容器,原型模式
-	log              *logrus.Logger    // Aurora 实例日志变量
-	serviceLog       *logrus.Logger    // 业务实例日志
-	Server           *http.Server      // web服务器
+	serviceInfo      chan string        //业务 info日志
+	serviceWarning   chan string        //业务 警告日志
+	serviceError     chan string        //业务 错误日志
+	servicePanic     chan string        //业务 panic日志
+	routeInterceptor []interceptorArgs  //拦截器初始华切片
+	interceptorList  []Interceptor      //全局拦截器
+	container        *containers        //第三方配置整合容器,原型模式
+	log              *logrus.Logger     // Aurora 实例日志变量
+	serviceLog       *logrus.Logger     // 业务实例日志
+	cnf              *viper.Viper       // 配置实例
+	Server           *http.Server       // web服务器
 }
 
 // New :最基础的 Aurora 实例
@@ -93,12 +95,15 @@ func New() *Aurora {
 	a.message <- fmt.Sprintf("Golang Version :%1s", runtime.Version())
 	a.message <- fmt.Sprintf("Project Path:%1s", a.projectRoot)
 	a.message <- fmt.Sprintf("Default Server Port :%1s", a.port)
+
+	//加载 cnf 配置实例
+	//a.ViperConfig()
 	a.message <- fmt.Sprintf("Default Static Resource Path:%1s", a.resource)
 	a.Server.BaseContext = a.baseContext
 	return a
 }
 
-// Guide 启动 Aurora 服务器
+// Guide 启动 Aurora 服务器，默认端口号8080
 func (a *Aurora) Guide(port ...string) {
 	a.run(port...)
 }
