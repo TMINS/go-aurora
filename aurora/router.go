@@ -111,7 +111,7 @@ func (r *route) addRoute(method, path string, fun Servlet, monitor *localMonitor
 // method 指定请求类型，root 根路径，Path和fun 被添加的路径和处理函数，path携带路径副本添加过程中不会有任何操作仅用于日志处理
 // method: 请求类型(日志相关参数)
 // path: 插入的路径(日志相关参数)
-// monitor: 链路日志(日志相关参数)
+// monitor: 链路日志(日志相关参数，如果需要撤掉，只要把参数和引用一起删除即可)
 func (r *route) add(method string, root *node, Path string, fun Servlet, path string, monitor *localMonitor) {
 
 	//初始化根
@@ -124,17 +124,23 @@ func (r *route) add(method string, root *node, Path string, fun Servlet, path st
 		return
 	}
 	if root.Path == Path { //相同路径可能是分裂或者提取的公共根
-		if root.handle != nil { //判断这个路径是否被注册过
-			e := errors.New(method + ":" + Path + " and " + root.Path + " repeated!")
-			monitor.En(executeInfo(e))
-			r.AR.runtime <- monitor
-			r.AR.initError <- e
-		} else {
-			root.handle = fun
-			l := fmt.Sprintf("Web Rout Mapping successds | %-10s %-20s bind (%-5s)", method, path, getFunName(fun))
-			r.AR.message <- l
-			return
-		}
+		//if root.handle != nil { //判断这个路径是否被注册过
+		//	e := errors.New(method + ":" + Path + " and " + root.Path + " repeated!")
+		//	monitor.En(executeInfo(e))
+		//	r.AR.runtime <- monitor
+		//	r.AR.initError <- e
+		//} else {
+		//	root.handle = fun
+		//	l := fmt.Sprintf("Web Rout Mapping successds | %-10s %-20s bind (%-5s)", method, path, getFunName(fun))
+		//	r.AR.message <- l
+		//	return
+		//}
+
+		//此处修改，注册同样的路径，选择覆盖前一个，若是出现bug，注释掉现在使用的代码，还原上面的注释部分即可
+		root.handle = fun
+		l := fmt.Sprintf("Web Rout Mapping successds | %-10s %-20s bind (%-5s)", method, path, getFunName(fun))
+		r.AR.message <- l
+		return
 	}
 	//如果当前的节点是 REST API 节点 ，子节点可以添加REST API节点
 	//如果当前节点的子节点存在REST API 则不允许添加子节点
@@ -231,7 +237,7 @@ func (r *route) add(method string, root *node, Path string, fun Servlet, path st
 		}
 	}
 	//情况3.节点和被添加节点无直接关系 抽取公共前缀最为公共根
-	r.Merge(method, root, Path, fun, path, root.Path, monitor)
+	r.merge(method, root, Path, fun, path, root.Path, monitor)
 	return
 }
 
@@ -243,7 +249,7 @@ func (r *route) add(method string, root *node, Path string, fun Servlet, path st
 // root: 根合并相关参数
 // Path: 根合并相关参数
 // fun: 根合并相关参数
-func (r *route) Merge(method string, root *node, Path string, fun Servlet, path string, rpath string, monitor *localMonitor) bool {
+func (r *route) merge(method string, root *node, Path string, fun Servlet, path string, rpath string, monitor *localMonitor) bool {
 	pub := r.findPublicRoot(method, root.Path, Path, monitor) //公共路径
 	if pub != "" {
 		pl := len(pub)
@@ -268,20 +274,20 @@ func (r *route) Merge(method string, root *node, Path string, fun Servlet, path 
 			if len(root.Child) > 0 {
 				for i := 0; i < len(root.Child); i++ {
 					//单纯的被添加到此节点的子节点列表中 需要递归检测子节点和被添加节点是否有公共根
-					if r.Merge(method, root.Child[i], ch2, fun, path, rpath, monitor) {
+					if r.merge(method, root.Child[i], ch2, fun, path, rpath, monitor) {
 						return true
 					}
 				}
 				//检索插入路径REST API冲突
 				for i := 0; i < len(root.Child); i++ {
 					if strings.HasPrefix(root.Child[i].Path, "{") || strings.HasPrefix(ch2, "{") {
-						e := errors.New(method + ":" + path + " and " + rpath + " collide with each other")
+						e := errors.New(method + " :" + path + "  Conflict with other rest ful")
 						monitor.En(executeInfo(e))
 						r.AR.runtime <- monitor
 						r.AR.initError <- e
 					}
 					if strings.HasPrefix(root.Child[i].Path, "{") && strings.HasPrefix(ch2, "{") {
-						e := errors.New(method + ":" + path + " and " + rpath + " collide with each other")
+						e := errors.New(method + " :" + path + "  Conflict with other rest ful")
 						monitor.En(executeInfo(e))
 						r.AR.runtime <- monitor
 						r.AR.initError <- e

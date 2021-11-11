@@ -32,7 +32,7 @@ func init() {
 
 type Aurora struct {
 	rw               *sync.RWMutex
-	ctx              context.Context     //服务器顶级上下文，通过此上下文可以跳过web 上下文去开启纯净的子go程
+	ctx              context.Context     //服务器顶级上下文，通过此上下文可以跳过 go web 自带的子上下文去开启纯净的子go程，结束此上下文 web服务也将结束
 	cancel           func()              //取消上下文
 	port             string              //服务端口号
 	router           *route              //路由服务管理
@@ -55,6 +55,7 @@ type Aurora struct {
 	serviceLog       *logrus.Logger     // 业务实例日志
 	cnf              *viper.Viper       // 配置实例
 	Server           *http.Server       // web服务器
+	Ln               net.Listener       // web服务器监听
 }
 
 // New :最基础的 Aurora 实例
@@ -99,7 +100,7 @@ func New() *Aurora {
 	//加载 cnf 配置实例
 	//a.ViperConfig()
 	a.message <- fmt.Sprintf("Default Static Resource Path:%1s", a.resource)
-	a.Server.BaseContext = a.baseContext
+	a.Server.BaseContext = a.baseContext //配置 上下文对象属性
 	return a
 }
 
@@ -203,7 +204,7 @@ func (a *Aurora) HEAD(path string, servlet Servlet) {
 	a.register(http.MethodHead, path, servlet)
 }
 
-// Register 通用注册器
+// register 通用注册器
 func (a *Aurora) register(method string, mapping string, fun Servlet) {
 	list := &localMonitor{mx: &sync.Mutex{}}
 	list.En(executeInfo(nil))
@@ -249,6 +250,8 @@ func (a *Aurora) loadingInterceptor() {
 }
 
 func (a *Aurora) baseContext(ln net.Listener) context.Context {
+	//初始化 Aurora net.Listener 变量，用于整合grpc
+	a.Ln = ln
 	a.loadingInterceptor() //加载 拦截器
 	l := fmt.Sprintf("The server successfully runs on port %s", a.port)
 	c, f := context.WithCancel(context.TODO())
