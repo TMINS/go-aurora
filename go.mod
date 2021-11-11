@@ -1,4 +1,4 @@
-module github.com/awensir/Aurora
+module github.com/awensir/go-aurora
 
 go 1.17
 

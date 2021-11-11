@@ -1,7 +1,7 @@
 package main
 
 import (
-	"github.com/awensir/Aurora/aurora"
+	"github.com/awensir/go-aurora/aurora"
 )
 
 func main() {
