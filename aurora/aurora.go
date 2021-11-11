@@ -3,7 +3,7 @@ package aurora
 import (
 	"context"
 	"fmt"
-	"github.com/awensir/Aurora/logs"
+	"github.com/awensir/go-aurora/logs"
 	"github.com/sirupsen/logrus"
 	"github.com/spf13/viper"
 	"html/template"

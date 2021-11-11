@@ -2,10 +2,8 @@ package aurora
 
 import (
 	"fmt"
-	"github.com/awensir/Aurora/aurora/option"
+	"github.com/awensir/go-aurora/aurora/option"
 )
-
-const ()
 
 func (a *Aurora) GrpcConfig(opt Opt) {
 	o := opt()

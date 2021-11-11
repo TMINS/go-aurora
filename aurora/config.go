@@ -15,6 +15,7 @@ const CNF_FILE = "application.yml"
 	默认读取配置文件的位置为根目录 application.yml
 */
 
+// Opt 配置选项参数
 type Opt func() map[string]interface{}
 
 // ViperConfig 配置并加载 application.yml 配置文件
