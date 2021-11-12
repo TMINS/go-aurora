@@ -18,6 +18,20 @@ const CNF_FILE = "application.yml"
 // Opt 配置选项参数
 type Opt func() map[string]interface{}
 
+// Configuration 第三方配置加载，传入指定配置项，返回被配置的对象
+type Configuration func(opt Opt) interface{}
+
+// Option 存储一个 配置实例，以便多次配置
+type Option struct {
+	Opt
+	Configuration
+}
+
+// store 加载并返回配置实例
+func (o *Option) store() interface{} {
+	return o.Configuration(o.Opt)
+}
+
 // ViperConfig 配置并加载 application.yml 配置文件
 func (a *Aurora) ViperConfig(p ...string) {
 	a.cnf = viper.New()

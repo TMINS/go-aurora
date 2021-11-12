@@ -5,6 +5,7 @@ import (
 	"sync"
 )
 
+// containers 保证了在对 prototypes map存储过程中的线程安全，但是不保证存储的实例在多线程并发时候的变量安全
 type containers struct {
 	rw         *sync.RWMutex
 	prototypes map[string]interface{} //容器存储的属性
