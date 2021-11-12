@@ -5,8 +5,6 @@ import (
 	"github.com/awensir/go-aurora/aurora/option"
 )
 
-const ()
-
 func (a *Aurora) GrpcConfig(opt Opt) {
 	o := opt()
 	s := o[option.GRPC_SERVER]
