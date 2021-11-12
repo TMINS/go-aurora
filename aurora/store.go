@@ -29,7 +29,7 @@ func (c *containers) store(name string, variable interface{}) {
 func (c *containers) Delete(name string) {
 	switch name {
 	// 内置整合 不允许删除
-	case frame.DB, frame.GORM, frame.GO_REDIS:
+	case frame.DB, frame.GORM, frame.GO_REDIS, frame.RABBITMQ:
 		return
 	}
 	c.rw.Lock()

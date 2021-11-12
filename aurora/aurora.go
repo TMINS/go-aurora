@@ -76,6 +76,8 @@ func New() *Aurora {
 			rw:         &sync.RWMutex{},
 			prototypes: make(map[string]interface{}),
 		},
+		pools:      make(map[string]*sync.Pool),
+		options:    make(map[string]*Option),
 		log:        logs.NewLog(),
 		serviceLog: logs.NewServiceLog(),
 	}

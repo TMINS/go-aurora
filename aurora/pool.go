@@ -12,8 +12,8 @@ import (
 /*
 	LoadConfiguration 加载自定义配置项，
 	Opt 必选配置项：
-	Config_key ="name"定义配置 名，
-	Config_fun ="func"定义配置 函数，
+	Config_key ="name"	定义配置 名，
+	Config_fun ="func"	定义配置 函数，
 	Config_opt ="opt"	定义配置 参数选项
 */
 func (a *Aurora) LoadConfiguration(options Opt) {
@@ -39,11 +39,15 @@ func (a *Aurora) Pool(options Opt) {
 	defer a.lock.Unlock()
 	opt := options()
 	name := opt[option.Config_key].(string)
-	o := a.options[name] //拿到对应的配置 实例
-	v := o.store()
+	o, b := a.options[name] //拿到对应的配置 实例
+	if o == nil && !b {
+		// 不存在对应配置
+		return
+	}
+	v := o.store() //加载并 得到配置实例本身
 	p := &sync.Pool{}
-	a.pools[name] = p
-	p.Put(v)
+	a.pools[name] = p //初始化改 name的池
+	p.Put(v)          //变量放入池中
 }
 
 // GetPool 获取容器池中的实例，前提是通过 Pool 向池中加载了。 GetPool 和 PutPool 必须成对出现
@@ -52,16 +56,18 @@ func (a *Aurora) GetPool(name string) interface{} {
 	defer a.lock.Unlock()
 	p := a.pools[name]
 	if p == nil {
+		// name 池不存在 或者未初始化
 		return nil
 	}
 	v := p.Get()
 	if v == nil {
+		// 如果池中的变量自行销毁 则使用配置重新 初始化
 		opt := a.options[name]
 		if opt == nil {
 			return nil
 		}
 		v = opt.store()
-		p.Put(v)
+		//p.Put(v)  初始化后不放入池中,后续在调用 PutPool(name,v) 中放回
 	}
 	return v
 }
