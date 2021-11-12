@@ -21,6 +21,7 @@ const (
 //GormConfig 整合gorm
 func (a *Aurora) GormConfig(opt map[string]interface{}) {
 	//读取配置项
+
 	dil, b := opt[DBT].(gorm.Dialector)
 	if !b {
 		panic(errors.New("gorm config option gorm.Dialector type error！"))
