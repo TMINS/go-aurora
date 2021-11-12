@@ -257,6 +257,7 @@ func (a *Aurora) baseContext(ln net.Listener) context.Context {
 	c, f := context.WithCancel(context.TODO())
 	a.ctx = c
 	a.cancel = f
+	a.message <- fmt.Sprintf("Initialize the top-level context and clear the function")
 	a.message <- l
 	return c
 }
