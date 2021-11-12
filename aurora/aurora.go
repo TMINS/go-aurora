@@ -3,7 +3,7 @@ package aurora
 import (
 	"context"
 	"fmt"
-	"github.com/awensir/Aurora/logs"
+	"github.com/awensir/go-aurora/logs"
 	"github.com/sirupsen/logrus"
 	"github.com/spf13/viper"
 	"html/template"
@@ -109,6 +109,14 @@ func (a *Aurora) Guide(port ...string) {
 	a.run(port...)
 }
 
+// GuideTLS 支持 TLS 连接,参数最多3个，依次对应传参
+// opt[0]  certFile
+// opt[1]  keyFile
+// opt[2]  port
+func (a *Aurora) GuideTLS(opt ...string) {
+	a.tls(opt...)
+}
+
 func (a *Aurora) run(port ...string) {
 	if port != nil && len(port) > 1 {
 		panic("too mach port")
@@ -125,6 +133,27 @@ func (a *Aurora) run(port ...string) {
 	}
 	a.Server.Handler = a
 	err := a.Server.ListenAndServe() //启动服务器
+	if err != nil {
+		a.initError <- err
+	}
+}
+
+func (a *Aurora) tls(opt ...string) {
+	if opt == nil && len(opt) > 3 {
+		panic("opt error，check the parameters")
+	}
+	if opt == nil {
+		a.Server.Addr = ":" + a.port
+	} else {
+		p := opt[2]
+		if p[0:1] != ":" {
+			p = ":" + p
+		}
+		a.Server.Addr = p
+		a.port = p
+	}
+	a.Server.Handler = a
+	err := a.Server.ListenAndServeTLS(opt[0], opt[1]) //启用 aurora 默认端口
 	if err != nil {
 		a.initError <- err
 	}
@@ -257,8 +286,16 @@ func (a *Aurora) baseContext(ln net.Listener) context.Context {
 	c, f := context.WithCancel(context.TODO())
 	a.ctx = c
 	a.cancel = f
+	a.message <- fmt.Sprintf("Initialize the top-level context and cancel function")
 	a.message <- l
 	return c
+}
+
+func (a *Aurora) Close() {
+	err := a.Server.Close()
+	if err != nil {
+		return
+	}
 }
 
 // Get 获取加载
@@ -300,6 +337,8 @@ func startLoading(a *Aurora) {
 			case err := <-a.initError: //启动初始化错误处理
 				a.log.Error(err.Error())
 				os.Exit(-1) //结束程序
+			case <-a.ctx.Done():
+				os.Exit(0)
 			}
 		}
 	}(a)

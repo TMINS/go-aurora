@@ -2,7 +2,7 @@ package aurora
 
 import (
 	"errors"
-	"github.com/awensir/Aurora/aurora/frame"
+	"github.com/awensir/go-aurora/aurora/frame"
 	"github.com/go-redis/redis/v8"
 )
 

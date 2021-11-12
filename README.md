@@ -26,7 +26,7 @@ import "github.com/awensir/Aurora/aurora"
 package main
 
 import (
-	"github.com/awensir/Aurora/aurora"
+	"github.com/awensir/go-aurora/aurora"
 )
 
 func main() {
@@ -56,12 +56,12 @@ hello web
 aurora路由设计规则如下：
 
 ```tex
-路由存储规则参考HttpRouter
+路由存储规则参考字典树实现
 基于查询树的路由器
 路由器规则:
    1.无法存储相同的路径
       1)形同路径的判定：校验参数相同，并且节点函数不为nil，节点函数为nil的节点说明，这个路径是未注册过，被提取为公共根
-      2)第一条规则进行修改，注册相同路径处理函数，默认覆盖前面相同的处理函数。
+      2)第一条规则进行修改，注册相同路径处理函数，默认覆盖前面相同的处理函数，rest ful风格除外，重复出现将不能运行服务器。
    2.路径查找按照逐层检索
    3.路由树上面存储者当前路径匹配的服务处理函数
    4.注册路径必须以 / 开头
@@ -120,7 +120,7 @@ type Routes interface {
 package main
 
 import (
-	"github.com/awensir/Aurora/aurora"
+	"github.com/awensir/go-aurora/aurora"
 )
 
 func main() {
@@ -150,7 +150,7 @@ hello web
 package main
 
 import (
-	"github.com/awensir/Aurora/aurora"
+	"github.com/awensir/go-aurora/aurora"
 )
 
 func main() {
@@ -183,7 +183,7 @@ package main
 
 import (
 	"errors"
-	"github.com/awensir/Aurora/aurora"
+	"github.com/awensir/go-aurora/aurora"
 )
 
 func main() {
@@ -211,7 +211,7 @@ package main
 
 import (
 	"errors"
-	"github.com/awensir/Aurora/aurora"
+	"github.com/awensir/go-aurora/aurora"
 )
 
 // 绑定 ErrorHandler(c *aurora.Context) interface{} 函数即可
@@ -256,7 +256,7 @@ error:is error
 package main
 
 import (
-	"github.com/awensir/Aurora/aurora"
+	"github.com/awensir/go-aurora/aurora"
 )
 
 func main() {
@@ -312,7 +312,7 @@ func (t TestErr) ErrorHandler(ctx *aurora.Ctx) interface{} {
 package main
 
 import (
-	"github.com/awensir/Aurora/aurora"
+	"github.com/awensir/go-aurora/aurora"
 )
 
 func main() {
@@ -344,7 +344,7 @@ func main() {
 package main
 
 import (
-	"github.com/awensir/Aurora/aurora"
+	"github.com/awensir/go-aurora/aurora"
 )
 
 func main() {
@@ -373,7 +373,7 @@ func main() {
 package main
 
 import (
-	"github.com/awensir/Aurora/aurora"
+	"github.com/awensir/go-aurora/aurora"
 )
 
 func main() {
@@ -539,7 +539,7 @@ package main
 
 import (
 	"fmt"
-	"github.com/awensir/Aurora/aurora"
+	"github.com/awensir/go-aurora/aurora"
 )
 
 
@@ -808,7 +808,7 @@ package main
 
 import (
 	"fmt"
-	"github.com/awensir/Aurora/aurora"
+	"github.com/awensir/go-aurora/aurora"
 )
 //真实业务处理
 func Test(ctx *aurora.Context) interface{} {
@@ -858,7 +858,7 @@ func (a *Aurora) GormConfig(opt map[string]interface{}) 方法 配置gorm 默认
 ```go
 import (
 	"errors"
-	"github.com/awensir/Aurora/aurora/frame"
+	"github.com/awensir/go-aurora/aurora/frame"
 	"gorm.io/gorm"
 )
 
@@ -905,7 +905,7 @@ package aurora
 
 import (
 	"errors"
-	"github.com/awensir/Aurora/aurora/frame"
+	"github.com/awensir/go-aurora/aurora/frame"
 	"github.com/go-redis/redis/v8"
 )
 
@@ -939,7 +939,7 @@ func (a *Aurora) RabbitMqConfig(address string) {
 package aurora
 
 import (
-	"github.com/awensir/Aurora/aurora/frame"
+	"github.com/awensir/go-aurora/aurora/frame"
 	"sync"
 )
 

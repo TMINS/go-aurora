@@ -39,12 +39,6 @@ func main() {
 		return nil
 	})
 
-	a.GET("/b/{names}/age", func(c *aurora.Ctx) interface{} {
-		c.INFO("/ab/s")
-
-		return nil
-	})
-
 	a.GET("/ab/s", func(c *aurora.Ctx) interface{} {
 		c.INFO("/ab/s")
 
