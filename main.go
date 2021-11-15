@@ -63,10 +63,5 @@ func main() {
 
 	// 启动服务器 默认端口8080，更改端口号 a.Guide(”8081“) 即可
 	a.Guide()
-	//server:= grpc.NewServer()
-	//err := server.Serve(a.Ln)
-	//if err != nil {
-	//	return
-	//}
 
 }

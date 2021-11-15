@@ -107,6 +107,14 @@ func (a *Aurora) Guide(port ...string) {
 	a.run(port...)
 }
 
+// GuideTLS 启动 Aurora TLS服务器，默认端口号8080
+// args[0]	证书路径参数，必选项
+// args[1]	私钥路径参数，必选项
+// args[2]	选择端口绑定参数，可选项
+func (a *Aurora) GuideTLS(args ...string) {
+	a.tls(args...)
+}
+
 func (a *Aurora) run(port ...string) {
 	if port != nil && len(port) > 1 {
 		panic("too mach port")
@@ -123,6 +131,27 @@ func (a *Aurora) run(port ...string) {
 	}
 	a.Server.Handler = a
 	err := a.Server.ListenAndServe() //启动服务器
+	if err != nil {
+		a.initError <- err
+	}
+}
+
+func (a *Aurora) tls(args ...string) {
+	if len(args) < 2 {
+		panic("Parameter error")
+	}
+	if len(args) <= 2 {
+		a.Server.Addr = ":" + a.port
+	} else {
+		p := args[2]
+		if p[0:1] != ":" {
+			p = ":" + p
+		}
+		a.Server.Addr = p
+		a.port = p
+	}
+	a.Server.Handler = a
+	err := a.Server.ListenAndServeTLS(args[0], args[1]) //启动服务器
 	if err != nil {
 		a.initError <- err
 	}
