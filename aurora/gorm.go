@@ -6,11 +6,6 @@ import (
 	"gorm.io/gorm"
 )
 
-const (
-	DBT    = "database" //gorm 数据库类型
-	CONFIG = "config"   //gorm 配置项
-)
-
 /*
 	整合gorm 框架
 	默认使用 v2版本

@@ -5,6 +5,7 @@ import (
 	"sync"
 )
 
+// containers 保证了在对 prototypes map存储过程中的线程安全，但是不保证存储的实例在多线程并发时候的变量安全
 type containers struct {
 	rw         *sync.RWMutex
 	prototypes map[string]interface{} //容器存储的属性
@@ -28,7 +29,7 @@ func (c *containers) store(name string, variable interface{}) {
 func (c *containers) Delete(name string) {
 	switch name {
 	// 内置整合 不允许删除
-	case frame.DB, frame.GORM, frame.GO_REDIS:
+	case frame.DB, frame.GORM, frame.GO_REDIS, frame.RABBITMQ:
 		return
 	}
 	c.rw.Lock()

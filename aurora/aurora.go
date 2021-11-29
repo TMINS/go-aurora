@@ -16,52 +16,47 @@ import (
 	"sync"
 )
 
-func init() {
-	s := "    /\\\n   /  \\  _   _ _ __ ___  _ __ __ _\n  / /\\ \\| | | | '__/ _ \\| '__/ _` |\n / ____ \\ |_| | | | (_) | | | (_| |\n/_/    \\_\\__,_|_|  \\___/|_|  \\__,_|\n:: aurora ::   (v0.1.2.RELEASE)"
-	/*
-	       /\
-	      /  \  _   _ _ __ ___  _ __ __ _
-	     / /\ \| | | | '__/ _ \| '__/ _` |
-	    / ____ \ |_| | | | (_) | | | (_| |
-	   /_/    \_\__,_|_|  \___/|_|  \__,_|
-	   :: aurora ::   (v0.0.1.RELEASE)
-
-	*/
-	fmt.Println(s)
-}
+/*
+	<***> 基于稳定模块，无需更改
+	<---> 非稳定模块，可能会随着使用的范围，出现问题
+	<+++> 进行中，还没投入使用
+*/
 
 type Aurora struct {
-	rw               *sync.RWMutex
-	ctx              context.Context     //服务器顶级上下文，通过此上下文可以跳过 go web 自带的子上下文去开启纯净的子go程，结束此上下文 web服务也将结束
-	cancel           func()              //取消上下文
-	port             string              //服务端口号
-	router           *route              //路由服务管理
-	projectRoot      string              //项目根路径
-	resource         string              //静态资源管理 默认为 root 目录
-	resourceMappings map[string][]string //静态资源映射路径标识
-	resourceMapType  map[string]string   //常用的静态资源头
+	lock             *sync.RWMutex
+	ctx              context.Context     //服务器顶级上下文，通过此上下文可以跳过 go web 自带的子上下文去开启纯净的子go程，结束此上下文 web服务也将结束 <***>
+	cancel           func()              //取消上下文 <***>
+	port             string              //服务端口号 <***>
+	router           *route              //路由服务管理 <***>
+	projectRoot      string              //项目根路径 <***>
+	resource         string              //静态资源管理 默认为 root 目录 <***>
+	resourceMappings map[string][]string //静态资源映射路径标识 <***>
+	resourceMapType  map[string]string   //常用的静态资源头 <--->
 	load             chan struct{}
-	message          chan string        //启动自带的日志信息
-	initError        chan error         //路由器级别错误通道 一旦初始化出错，则结束服务，检查配置
-	runtime          chan *localMonitor //单体服务运行时错误时候的链路调用日志
-	serviceInfo      chan string        //业务 info日志
-	serviceWarning   chan string        //业务 警告日志
-	serviceError     chan string        //业务 错误日志
-	servicePanic     chan string        //业务 panic日志
-	routeInterceptor []interceptorArgs  //拦截器初始华切片
-	interceptorList  []Interceptor      //全局拦截器
-	container        *containers        //第三方配置整合容器,原型模式
-	log              *logrus.Logger     // Aurora 实例日志变量
-	serviceLog       *logrus.Logger     // 业务实例日志
-	cnf              *viper.Viper       // 配置实例
-	Server           *http.Server       // web服务器
-	Ln               net.Listener       // web服务器监听
+	message          chan string           //启动自带的日志信息 <***>
+	initError        chan error            //路由器级别错误通道 一旦初始化出错，则结束服务，检查配置 <***>
+	runtime          chan *localMonitor    //单体服务运行时错误时候的链路调用日志 <***>
+	serviceInfo      chan string           //业务 info日志 <***>
+	serviceWarning   chan string           //业务 警告日志 <***>
+	serviceError     chan string           //业务 错误日志 <***>
+	servicePanic     chan string           //业务 panic日志 <***>
+	routeInterceptor []interceptorArgs     //拦截器初始华切片 <***>
+	interceptorList  []Interceptor         //全局拦截器 <***>
+	container        *containers           //第三方配置整合容器,原型模式
+	pools            map[string]*sync.Pool //容器池，用于存储配置实例，保证了在整个服务器运行期间 不会被多个线程同时占用唯一变量	     	<+++>
+	options          map[string]*Option    // 配置项，每个第三方库/框架的唯一  	<+++>
+	log              *logrus.Logger        // Aurora 实例日志变量 <***>
+	serviceLog       *logrus.Logger        // 业务实例日志 <***>
+	cnf              *viper.Viper          // 配置实例 <***>
+	Server           *http.Server          // web服务器 <***>
+	Ln               net.Listener          // web服务器监听
 }
 
 // New :最基础的 Aurora 实例
 func New() *Aurora {
+
 	a := &Aurora{
-		rw:   &sync.RWMutex{},
+		lock: &sync.RWMutex{},
 		port: "8080", //默认端口号
 		router: &route{
 			mx: &sync.Mutex{},
@@ -81,11 +76,14 @@ func New() *Aurora {
 			rw:         &sync.RWMutex{},
 			prototypes: make(map[string]interface{}),
 		},
+		pools:      make(map[string]*sync.Pool),
+		options:    make(map[string]*Option),
 		log:        logs.NewLog(),
 		serviceLog: logs.NewServiceLog(),
 	}
 	startLoading(a)
 	loadResourceHead(a)
+	fmt.Println(print_aurora())
 	projectRoot, _ := os.Getwd()
 	a.projectRoot = projectRoot
 	a.router.defaultView = a //初始化使用默认视图解析,aurora的视图解析是一个简单的实现，可以通过修改 a.Router.DefaultView 实现自定义的试图处理，框架最终调用此方法返回页面响应
@@ -109,12 +107,12 @@ func (a *Aurora) Guide(port ...string) {
 	a.run(port...)
 }
 
-// GuideTLS 支持 TLS 连接,参数最多3个，依次对应传参
-// opt[0]  certFile
-// opt[1]  keyFile
-// opt[2]  port
-func (a *Aurora) GuideTLS(opt ...string) {
-	a.tls(opt...)
+// GuideTLS 启动 Aurora TLS服务器，默认端口号8080
+// args[0]	证书路径参数，必选项
+// args[1]	私钥路径参数，必选项
+// args[2]	选择端口绑定参数，可选项
+func (a *Aurora) GuideTLS(args ...string) {
+	a.tls(args...)
 }
 
 func (a *Aurora) run(port ...string) {
@@ -138,14 +136,14 @@ func (a *Aurora) run(port ...string) {
 	}
 }
 
-func (a *Aurora) tls(opt ...string) {
-	if opt == nil && len(opt) > 3 {
-		panic("opt error，check the parameters")
+func (a *Aurora) tls(args ...string) {
+	if len(args) < 2 {
+		panic("Parameter error")
 	}
-	if opt == nil {
+	if len(args) <= 2 {
 		a.Server.Addr = ":" + a.port
 	} else {
-		p := opt[2]
+		p := args[2]
 		if p[0:1] != ":" {
 			p = ":" + p
 		}
@@ -153,7 +151,7 @@ func (a *Aurora) tls(opt ...string) {
 		a.port = p
 	}
 	a.Server.Handler = a
-	err := a.Server.ListenAndServeTLS(opt[0], opt[1]) //启用 aurora 默认端口
+	err := a.Server.ListenAndServeTLS(args[0], args[1]) //启动服务器
 	if err != nil {
 		a.initError <- err
 	}
@@ -208,49 +206,7 @@ func (a *Aurora) AddInterceptor(interceptor ...Interceptor) {
 	}
 }
 
-// GET 请求
-func (a *Aurora) GET(path string, servlet Servlet) {
-	a.register(http.MethodGet, path, servlet)
-}
-
-// POST 请求
-func (a *Aurora) POST(path string, servlet Servlet) {
-	a.register(http.MethodPost, path, servlet)
-}
-
-// PUT 请求
-func (a *Aurora) PUT(path string, servlet Servlet) {
-	a.register(http.MethodPut, path, servlet)
-}
-
-// DELETE 请求
-func (a *Aurora) DELETE(path string, servlet Servlet) {
-	a.register(http.MethodDelete, path, servlet)
-}
-
-// HEAD 请求
-func (a *Aurora) HEAD(path string, servlet Servlet) {
-	a.register(http.MethodHead, path, servlet)
-}
-
-// register 通用注册器
-func (a *Aurora) register(method string, mapping string, fun Servlet) {
-	list := &localMonitor{mx: &sync.Mutex{}}
-	list.En(executeInfo(nil))
-	a.router.addRoute(method, mapping, fun, list)
-}
-
-// Group 路由分组  必须以 “/” 开头分组
-func (a *Aurora) Group(path string) *group {
-	if strings.HasSuffix(path, "/") {
-		path = path[:len(path)-1]
-	}
-	return &group{
-		prefix: path,
-		a:      a,
-	}
-}
-
+// ViewHandle 修改默认视图解析接口
 func (a *Aurora) ViewHandle(views Views) {
 	a.router.defaultView = views
 }
@@ -269,6 +225,7 @@ func (a *Aurora) View(ctx *Ctx, html string) {
 	}
 }
 
+// loadingInterceptor 加载局部拦截器
 func (a *Aurora) loadingInterceptor() {
 	if a.routeInterceptor != nil {
 		for i := 0; i < len(a.routeInterceptor); i++ {
@@ -278,6 +235,7 @@ func (a *Aurora) loadingInterceptor() {
 	}
 }
 
+// baseContext 初始化 Aurora 顶级上下文
 func (a *Aurora) baseContext(ln net.Listener) context.Context {
 	//初始化 Aurora net.Listener 变量，用于整合grpc
 	a.Ln = ln
@@ -286,16 +244,9 @@ func (a *Aurora) baseContext(ln net.Listener) context.Context {
 	c, f := context.WithCancel(context.TODO())
 	a.ctx = c
 	a.cancel = f
-	a.message <- fmt.Sprintf("Initialize the top-level context and cancel function")
+	a.message <- fmt.Sprintf("Initialize the top-level context and clear the function")
 	a.message <- l
 	return c
-}
-
-func (a *Aurora) Close() {
-	err := a.Server.Close()
-	if err != nil {
-		return
-	}
 }
 
 // Get 获取加载
@@ -337,9 +288,20 @@ func startLoading(a *Aurora) {
 			case err := <-a.initError: //启动初始化错误处理
 				a.log.Error(err.Error())
 				os.Exit(-1) //结束程序
-			case <-a.ctx.Done():
-				os.Exit(0)
 			}
 		}
 	}(a)
+}
+func print_aurora() string {
+	s := "    /\\\n   /  \\  _   _ _ __ ___  _ __ __ _\n  / /\\ \\| | | | '__/ _ \\| '__/ _` |\n / ____ \\ |_| | | | (_) | | | (_| |\n/_/    \\_\\__,_|_|  \\___/|_|  \\__,_|\n:: aurora ::   (v0.1.2.RELEASE)"
+	/*
+	       /\
+	      /  \  _   _ _ __ ___  _ __ __ _
+	     / /\ \| | | | '__/ _ \| '__/ _` |
+	    / ____ \ |_| | | | (_) | | | (_| |
+	   /_/    \_\__,_|_|  \___/|_|  \__,_|
+	   :: aurora ::   (v0.0.1.RELEASE)
+
+	*/
+	return s
 }

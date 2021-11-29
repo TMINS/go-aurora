@@ -26,7 +26,7 @@ import "github.com/awensir/Aurora/aurora"
 package main
 
 import (
-	"github.com/awensir/go-aurora/aurora"
+	"github.com/awensir/Aurora/aurora"
 )
 
 func main() {
@@ -56,12 +56,12 @@ hello web
 aurora路由设计规则如下：
 
 ```tex
-路由存储规则参考字典树实现
+路由存储规则参考HttpRouter
 基于查询树的路由器
 路由器规则:
    1.无法存储相同的路径
       1)形同路径的判定：校验参数相同，并且节点函数不为nil，节点函数为nil的节点说明，这个路径是未注册过，被提取为公共根
-      2)第一条规则进行修改，注册相同路径处理函数，默认覆盖前面相同的处理函数，rest ful风格除外，重复出现将不能运行服务器。
+      2)第一条规则进行修改，注册相同路径处理函数，默认覆盖前面相同的处理函数。
    2.路径查找按照逐层检索
    3.路由树上面存储者当前路径匹配的服务处理函数
    4.注册路径必须以 / 开头
@@ -120,7 +120,7 @@ type Routes interface {
 package main
 
 import (
-	"github.com/awensir/go-aurora/aurora"
+	"github.com/awensir/Aurora/aurora"
 )
 
 func main() {
@@ -150,7 +150,7 @@ hello web
 package main
 
 import (
-	"github.com/awensir/go-aurora/aurora"
+	"github.com/awensir/Aurora/aurora"
 )
 
 func main() {
@@ -183,7 +183,7 @@ package main
 
 import (
 	"errors"
-	"github.com/awensir/go-aurora/aurora"
+	"github.com/awensir/Aurora/aurora"
 )
 
 func main() {
@@ -211,7 +211,7 @@ package main
 
 import (
 	"errors"
-	"github.com/awensir/go-aurora/aurora"
+	"github.com/awensir/Aurora/aurora"
 )
 
 // 绑定 ErrorHandler(c *aurora.Context) interface{} 函数即可
@@ -256,7 +256,7 @@ error:is error
 package main
 
 import (
-	"github.com/awensir/go-aurora/aurora"
+	"github.com/awensir/Aurora/aurora"
 )
 
 func main() {
@@ -312,7 +312,7 @@ func (t TestErr) ErrorHandler(ctx *aurora.Ctx) interface{} {
 package main
 
 import (
-	"github.com/awensir/go-aurora/aurora"
+	"github.com/awensir/Aurora/aurora"
 )
 
 func main() {
@@ -344,7 +344,7 @@ func main() {
 package main
 
 import (
-	"github.com/awensir/go-aurora/aurora"
+	"github.com/awensir/Aurora/aurora"
 )
 
 func main() {
@@ -373,7 +373,7 @@ func main() {
 package main
 
 import (
-	"github.com/awensir/go-aurora/aurora"
+	"github.com/awensir/Aurora/aurora"
 )
 
 func main() {
@@ -539,7 +539,7 @@ package main
 
 import (
 	"fmt"
-	"github.com/awensir/go-aurora/aurora"
+	"github.com/awensir/Aurora/aurora"
 )
 
 
@@ -808,7 +808,7 @@ package main
 
 import (
 	"fmt"
-	"github.com/awensir/go-aurora/aurora"
+	"github.com/awensir/Aurora/aurora"
 )
 //真实业务处理
 func Test(ctx *aurora.Context) interface{} {
@@ -851,22 +851,54 @@ const (
 
 第三方库相关 key 都在 frame包中定义
 
+### Opt 配置选项
+
+源码定义如下
+
+```go
+// Opt 配置选项参数
+type Opt func() map[string]interface{}
+```
+
+Opt 是一个无参函数，返回一个存储interface{}的map，Aurora的配置思想，是约定用户给定配置去初始化第三方库或这框架。
+
+### option包
+
+option 包定义了专有 框架默认读取的配置项，现目前定义的有一下：
+
+```go
+package option
+
+const (
+	GRPC_SERVER = "grpc-server"
+	GRPC_LISTEN = "grpc-listener"
+
+	//go-redis 配置项键 （*redis.Options）
+	GOREDIS_CONFIG = "go-redis"
+
+	//gorm 数据库类型配置项键 （gorm.Dialector）
+	GORM_TYPE = "database" //gorm 数据库类型
+
+	//gorm 配置项选项键 （gorm.Option）
+	GORM_CONFIG = "config" //gorm 配置项
+
+	RABBITMQ_URL = "rabbit-url"
+
+	//添加配置 配置项
+	Config_key = "name" //定义配置 名
+	Config_fun = "func" //定义配置 函数 (type Configuration func(Opt) interface{})
+	Config_opt = "opt"  //定义配置 参数选项 (type Opt func() map[string]interface{})
+
+)
+```
+
+
+
 ### gorm 连接配置
 
 func (a *Aurora) GormConfig(opt map[string]interface{}) 方法 配置gorm 默认使用 v2 版本，若要使用其他版本可以通过func (a *Aurora) Store(name string, variable interface{})自行定义k并存储
 
 ```go
-import (
-	"errors"
-	"github.com/awensir/go-aurora/aurora/frame"
-	"gorm.io/gorm"
-)
-
-const (
-	DBT    = "database" //gorm 数据库类型
-	CONFIG = "config"   //gorm 配置项
-)
-
 /*
 	整合gorm 框架
 	默认使用 v2版本
@@ -875,14 +907,15 @@ const (
 */
 
 //GormConfig 整合gorm
-func (a *Aurora) GormConfig(opt map[string]interface{}) {
+func (a *Aurora) GormConfig(opt Opt) {
+	o := opt()
 	//读取配置项
-	dil, b := opt[DBT].(gorm.Dialector)
+	dil, b := o[option.GORM_TYPE].(gorm.Dialector)
 	if !b {
 		panic(errors.New("gorm config option gorm.Dialector type error！"))
 	}
 
-	config, b := opt[CONFIG].(gorm.Option)
+	config, b := o[option.GORM_CONFIG].(gorm.Option)
 	if !b {
 		panic(errors.New("gorm config option gorm.Option type error！"))
 	}
@@ -906,15 +939,17 @@ package aurora
 import (
 	"errors"
 	"github.com/awensir/go-aurora/aurora/frame"
+	"github.com/awensir/go-aurora/aurora/option"
 	"github.com/go-redis/redis/v8"
 )
 
 // GoRedisConfig 根据配置项配置 go-redis
-func (a *Aurora) GoRedisConfig(opt *redis.Options) {
+func (a *Aurora) GoRedisConfig(opt Opt) {
 	if opt == nil {
 		panic(errors.New("go-redis config option not find"))
 	}
-	r := redis.NewClient(opt)
+	o := opt()
+	r := redis.NewClient(o[option.GOREDIS_CONFIG].(*redis.Options))
 	a.container.store(frame.GO_REDIS, r)
 }
 ```
@@ -922,11 +957,30 @@ func (a *Aurora) GoRedisConfig(opt *redis.Options) {
 ### RabbitMQ 连接配置
 
 ```go
-func (a *Aurora) RabbitMqConfig(address string) {
-	conn, err := amqp.Dial(address)
+package aurora
+
+import (
+	"github.com/awensir/go-aurora/aurora/frame"
+	"github.com/awensir/go-aurora/aurora/option"
+	"github.com/streadway/amqp"
+	"log"
+)
+
+// RabbitMqConfig 链接RabbitMQ address 链接地址
+//conn, err := amqp.Dial("amqp://guest:guest@localhost:5672/")
+func (a *Aurora) RabbitMqConfig(opt Opt) {
+	o:=opt()
+	conn, err := amqp.Dial(o[option.RABBITMQ_URL].(string))
 	failOnError(err, "Failed to connect to RabbitMQ")
 	a.container.store(frame.RABBITMQ, conn)
 }
+
+func failOnError(err error, msg string) {
+	if err != nil {
+		log.Fatalf("%s: %s", msg, err)
+	}
+}
+
 ```
 
 
@@ -939,7 +993,7 @@ func (a *Aurora) RabbitMqConfig(address string) {
 package aurora
 
 import (
-	"github.com/awensir/go-aurora/aurora/frame"
+	"github.com/awensir/Aurora/aurora/frame"
 	"sync"
 )
 
@@ -980,6 +1034,57 @@ func (c *containers) Delete(name string) {
 ```
 
 也可以通过容器管理托管自己的公有变量等....
+
+```go
+// Store 加载
+func (a *Aurora) Store(name string, variable interface{}) {
+	a.container.store(name, variable)
+}
+```
+
+## Pool
+
+基于sync.Pool 实现一个对全局实例，提供线程安全的使用操作，使用Pool 加载第三方配置实例 和 自定义的配置 是完全不同的方式，自定义加载的实例变量是可以多线程同时使用的，其变量实例自己做了对并发情况下的安全支持可以选择。
+
+当需要使用Pool方式实现多线程共享安全实例可以通过以下配置实现：
+
+```go
+/*
+	LoadConfiguration 加载自定义配置项，
+	Opt 必选配置项：
+	Config_key ="name"	定义配置 名，
+	Config_fun ="func"	定义配置 函数，
+	Config_opt ="opt"	定义配置 参数选项
+*/
+func (a *Aurora) LoadConfiguration(options Opt) {
+	a.lock.Lock()
+	defer a.lock.Unlock()
+	o := options()
+	key, b := o[option.Config_key].(string)
+	opt, b := o[option.Config_opt].(Opt)
+	fun, b := o[option.Config_fun].(Configuration)
+	if !b {
+		//配置选项出现问题
+		return
+	}
+	a.options[key] = &Option{
+		opt,
+		fun,
+	}
+}
+```
+
+
+
+```go
+// GetPool 获取容器池中的实例，前提是通过 Pool 向池中加载了。 GetPool 和 PutPool 必须成对出现
+func (a *Aurora) GetPool(name string) interface{}
+
+// PutPool 把取出来的 实例返回放入到池中，以便下次使用
+func (a *Aurora) PutPool(name string, v interface{})
+```
+
+
 
 ## 全局配置文件管理
 
