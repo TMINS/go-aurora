@@ -6,6 +6,7 @@ import (
 	"github.com/awensir/go-aurora/logs"
 	"github.com/sirupsen/logrus"
 	"github.com/spf13/viper"
+	"google.golang.org/grpc"
 	"html/template"
 	"log"
 	"net"
@@ -21,7 +22,6 @@ import (
 	<---> 非稳定模块，可能会随着使用的范围，出现问题
 	<+++> 进行中，还没投入使用
 */
-
 type Aurora struct {
 	lock             *sync.RWMutex
 	ctx              context.Context     //服务器顶级上下文，通过此上下文可以跳过 go web 自带的子上下文去开启纯净的子go程，结束此上下文 web服务也将结束 <***>
@@ -49,6 +49,7 @@ type Aurora struct {
 	serviceLog       *logrus.Logger        // 业务实例日志 <***>
 	cnf              *viper.Viper          // 配置实例 <***>
 	Server           *http.Server          // web服务器 <***>
+	GrpcServer       *grpc.Server          //
 	Ln               net.Listener          // web服务器监听
 }
 
@@ -150,7 +151,20 @@ func (a *Aurora) tls(args ...string) {
 		a.Server.Addr = p
 		a.port = p
 	}
-	a.Server.Handler = a
+	//a.Server.Handler = a
+	if a.GrpcServer != nil {
+		// 在 Aurora 和 GrpcServer 两个路由器中间 加一个原生路由器 用于 分别提供 http 和 https 服务（来自grpc 官方文档示例 url: https://pkg.go.dev/google.golang.org/grpc#NewServer ）
+		a.Server.Handler = http.HandlerFunc(func(writer http.ResponseWriter, request *http.Request) {
+			if request.ProtoMajor == 2 && strings.Contains(request.Header.Get("Content-Type"), "application/grpc") {
+				a.GrpcServer.ServeHTTP(writer, request)
+			} else {
+				a.ServeHTTP(writer, request)
+			}
+			return
+		})
+	} else {
+		a.Server.Handler = a
+	}
 	err := a.Server.ListenAndServeTLS(args[0], args[1]) //启动服务器
 	if err != nil {
 		a.initError <- err

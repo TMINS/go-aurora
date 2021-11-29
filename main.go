@@ -2,6 +2,7 @@ package main
 
 import (
 	"github.com/awensir/go-aurora/aurora"
+	"google.golang.org/grpc"
 )
 
 type Student struct {
@@ -15,7 +16,7 @@ func main() {
 
 	//获取 aurora 路由实例
 	a := aurora.New()
-
+	grpc.NewServer()
 	// GET 方法注册 web get请求
 	a.GET("/", func(c *aurora.Ctx) interface{} {
 
