@@ -3,6 +3,7 @@ package aurora
 import (
 	"errors"
 	"github.com/awensir/go-aurora/aurora/frame"
+	"github.com/awensir/go-aurora/aurora/option"
 	"gorm.io/gorm"
 )
 
@@ -14,15 +15,15 @@ import (
 */
 
 //GormConfig 整合gorm
-func (a *Aurora) GormConfig(opt map[string]interface{}) {
+func (a *Aurora) GormConfig(options Opt) {
 	//读取配置项
-
-	dil, b := opt[DBT].(gorm.Dialector)
+	opt := options()
+	dil, b := opt[option.GORM_TYPE].(gorm.Dialector)
 	if !b {
 		panic(errors.New("gorm config option gorm.Dialector type error！"))
 	}
 
-	config, b := opt[CONFIG].(gorm.Option)
+	config, b := opt[option.GORM_CONFIG].(gorm.Option)
 	if !b {
 		panic(errors.New("gorm config option gorm.Option type error！"))
 	}
