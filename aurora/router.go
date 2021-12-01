@@ -46,12 +46,14 @@ type Servlet func(c *Ctx) interface{}
 
 func (s Servlet) ServletHandler(ctx *Ctx) interface{} {
 	//ctx.monitor.En(ExecuteInfo(nil))
-	defer func() {
+	defer func(ctx *Ctx) {
 		v := recover()
 		if v != nil {
-
+			// 处理器发生 panic 等严重错误处理，给调用者返回 500 并返回错误描述
+			http.Error(ctx.Response, v.(string), 500)
+			fmt.Println(v)
 		}
-	}()
+	}(ctx)
 	return s(ctx)
 }
 
