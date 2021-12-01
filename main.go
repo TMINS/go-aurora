@@ -1,7 +1,6 @@
 package main
 
 import (
-	"fmt"
 	"github.com/awensir/go-aurora/aurora"
 )
 
@@ -12,8 +11,7 @@ func main() {
 
 	// GET 方法注册 web get请求
 	a.GET("/", func(c *aurora.Ctx) interface{} {
-		panic("aaaaaa")
-		fmt.Println("222")
+
 		return "nil"
 	})
 

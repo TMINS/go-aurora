@@ -138,21 +138,6 @@ func (a *Aurora) run(port ...string) {
 	}
 }
 
-//func getTLSConfig() *tls.Config {
-//	cert, _ := ioutil.ReadFile(crt)
-//	key, _ := ioutil.ReadFile("../keys/server.key")
-//	var demoKeyPair *tls.Certificate
-//	pair, err := tls.X509KeyPair(cert, key)
-//	if err != nil {
-//		grpclog.Fatalf("TLS KeyPair err: %v\n", err)
-//	}
-//	demoKeyPair = &pair
-//	return &tls.Config{
-//		Certificates: []tls.Certificate{*demoKeyPair},
-//		NextProtos:   []string{http2.NextProtoTLS}, // HTTP2 TLS支持
-//	}
-//}
-
 func (a *Aurora) tls(args ...string) {
 	if len(args) < 2 {
 		panic("Parameter error")
