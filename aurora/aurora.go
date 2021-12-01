@@ -6,6 +6,8 @@ import (
 	"github.com/awensir/go-aurora/logs"
 	"github.com/sirupsen/logrus"
 	"github.com/spf13/viper"
+	"google.golang.org/grpc"
+
 	"html/template"
 	"log"
 	"net"
@@ -21,7 +23,6 @@ import (
 	<---> 非稳定模块，可能会随着使用的范围，出现问题
 	<+++> 进行中，还没投入使用
 */
-
 type Aurora struct {
 	lock             *sync.RWMutex
 	ctx              context.Context     //服务器顶级上下文，通过此上下文可以跳过 go web 自带的子上下文去开启纯净的子go程，结束此上下文 web服务也将结束 <***>
@@ -33,13 +34,14 @@ type Aurora struct {
 	resourceMappings map[string][]string //静态资源映射路径标识 <***>
 	resourceMapType  map[string]string   //常用的静态资源头 <--->
 	load             chan struct{}
-	message          chan string           //启动自带的日志信息 <***>
-	initError        chan error            //路由器级别错误通道 一旦初始化出错，则结束服务，检查配置 <***>
-	runtime          chan *localMonitor    //单体服务运行时错误时候的链路调用日志 <***>
-	serviceInfo      chan string           //业务 info日志 <***>
-	serviceWarning   chan string           //业务 警告日志 <***>
-	serviceError     chan string           //业务 错误日志 <***>
-	servicePanic     chan string           //业务 panic日志 <***>
+	message          chan string //启动自带的日志信息 <***>
+	initError        chan error  //路由器级别错误通道 一旦初始化出错，则结束服务，检查配置 <***>
+
+	serviceInfo    chan string //业务 info日志 <***>
+	serviceWarning chan string //业务 警告日志 <***>
+	serviceError   chan string //业务 错误日志 <***>
+	servicePanic   chan string //业务 panic日志 <***>
+
 	routeInterceptor []interceptorArgs     //拦截器初始华切片 <***>
 	interceptorList  []Interceptor         //全局拦截器 <***>
 	container        *containers           //第三方配置整合容器,原型模式
@@ -49,6 +51,7 @@ type Aurora struct {
 	serviceLog       *logrus.Logger        // 业务实例日志 <***>
 	cnf              *viper.Viper          // 配置实例 <***>
 	Server           *http.Server          // web服务器 <***>
+	GrpcServer       *grpc.Server          //
 	Ln               net.Listener          // web服务器监听
 }
 
@@ -67,7 +70,6 @@ func New() *Aurora {
 		resourceMapType: make(map[string]string),
 		load:            make(chan struct{}),
 		message:         make(chan string),
-		runtime:         make(chan *localMonitor),
 		serviceInfo:     make(chan string),
 		serviceWarning:  make(chan string),
 		servicePanic:    make(chan string),
@@ -107,6 +109,14 @@ func (a *Aurora) Guide(port ...string) {
 	a.run(port...)
 }
 
+// GuideTLS 启动 Aurora TLS服务器，默认端口号8080
+// args[0]	证书路径参数，必选项
+// args[1]	私钥路径参数，必选项
+// args[2]	选择端口绑定参数，可选项
+func (a *Aurora) GuideTLS(args ...string) {
+	a.tls(args...)
+}
+
 func (a *Aurora) run(port ...string) {
 	if port != nil && len(port) > 1 {
 		panic("too mach port")
@@ -123,6 +133,40 @@ func (a *Aurora) run(port ...string) {
 	}
 	a.Server.Handler = a
 	err := a.Server.ListenAndServe() //启动服务器
+	if err != nil {
+		a.initError <- err
+	}
+}
+
+func (a *Aurora) tls(args ...string) {
+	if len(args) < 2 {
+		panic("Parameter error")
+	}
+	if len(args) <= 2 {
+		a.Server.Addr = ":" + a.port
+	} else {
+		p := args[2]
+		if p[0:1] != ":" {
+			p = ":" + p
+		}
+		a.Server.Addr = p
+		a.port = p
+	}
+	//a.Server.Handler = a
+	if a.GrpcServer != nil {
+		// 在 Aurora 和 GrpcServer 两个路由器中间 加一个原生路由器 用于 分别提供 http 和 https 服务（来自grpc 官方文档示例 url: https://pkg.go.dev/google.golang.org/grpc#NewServer ）
+		a.Server.Handler = http.HandlerFunc(func(writer http.ResponseWriter, request *http.Request) {
+			if request.ProtoMajor == 2 && strings.Contains(request.Header.Get("Content-Type"), "application/grpc") {
+				a.GrpcServer.ServeHTTP(writer, request)
+			} else {
+				a.ServeHTTP(writer, request)
+			}
+			return
+		})
+	} else {
+		a.Server.Handler = a
+	}
+	err := a.Server.ListenAndServeTLS(args[0], args[1]) //启动服务器
 	if err != nil {
 		a.initError <- err
 	}
@@ -201,7 +245,7 @@ func (a *Aurora) loadingInterceptor() {
 	if a.routeInterceptor != nil {
 		for i := 0; i < len(a.routeInterceptor); i++ {
 			e := a.routeInterceptor[i]
-			a.router.RegisterInterceptor(e.path, &localMonitor{mx: &sync.Mutex{}}, e.list...)
+			a.router.RegisterInterceptor(e.path, e.list...)
 		}
 	}
 }
@@ -211,6 +255,11 @@ func (a *Aurora) baseContext(ln net.Listener) context.Context {
 	//初始化 Aurora net.Listener 变量，用于整合grpc
 	a.Ln = ln
 	a.loadingInterceptor() //加载 拦截器
+	if a.GrpcServer != nil {
+		go func(ln net.Listener) {
+
+		}(ln)
+	}
 	l := fmt.Sprintf("The server successfully runs on port %s", a.port)
 	c, f := context.WithCancel(context.TODO())
 	a.ctx = c
@@ -237,12 +286,11 @@ func startLoading(a *Aurora) {
 		for true {
 			select {
 
+			//初始化实例日志信息
 			case info := <-a.message:
 				a.log.Info(info)
 
-			case msg := <-a.runtime:
-				a.log.Error(msg.Message())
-
+			//业务日志调用
 			case info := <-a.serviceInfo:
 				a.serviceLog.Info(info)
 

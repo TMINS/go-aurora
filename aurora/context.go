@@ -10,7 +10,6 @@ import (
 type Ctx struct {
 	rw        *sync.RWMutex
 	ar        *Aurora // Aurora 引用
-	monitor   *localMonitor
 	Response  http.ResponseWriter
 	Request   *http.Request
 	Args      map[string]interface{} //REST API 参数
@@ -48,27 +47,24 @@ func (c *Ctx) json(data interface{}) {
 	if b {
 		_, err := c.Response.Write([]byte(s))
 		if err != nil {
-			c.monitor.En(executeInfo(err))
-			c.ar.runtime <- c.monitor
+			fmt.Println(err.Error())
 		}
 		return
 	}
 	marshal, err := json.Marshal(data)
 	if err != nil {
-		c.monitor.En(executeInfo(err))
-		c.ar.runtime <- c.monitor
+		fmt.Println(err.Error())
 		return
 	}
 	_, err = c.Response.Write(marshal)
 	if err != nil {
-		c.monitor.En(executeInfo(err))
-		c.ar.runtime <- c.monitor
+		fmt.Println(err.Error())
 	}
 }
 
 // RequestForward 内部路由转发，会携带 Ctx 本身进行转发，转发之后继续持有该 Ctx
 func (c *Ctx) forward(path string) {
-	c.ar.router.SearchPath(c.Request.Method, path, c.Response, c.Request, c, c.monitor)
+	c.ar.router.SearchPath(c.Request.Method, path, c.Response, c.Request, c)
 }
 
 // Redirect 发送重定向

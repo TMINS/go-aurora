@@ -3,7 +3,6 @@ package aurora
 import (
 	"net/http"
 	"strings"
-	"sync"
 )
 
 // GET 请求
@@ -33,9 +32,8 @@ func (a *Aurora) HEAD(path string, servlet Servlet) {
 
 // register 通用注册器
 func (a *Aurora) register(method string, mapping string, fun Servlet) {
-	list := &localMonitor{mx: &sync.Mutex{}}
-	list.En(executeInfo(nil))
-	a.router.addRoute(method, mapping, fun, list)
+
+	a.router.addRoute(method, mapping, fun)
 }
 
 // Group 路由分组  必须以 “/” 开头分组

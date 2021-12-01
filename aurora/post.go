@@ -2,6 +2,7 @@ package aurora
 
 import (
 	"encoding/json"
+	"fmt"
 	"io"
 )
 
@@ -11,20 +12,17 @@ func (c *Ctx) JsonBody(body interface{}) error {
 	defer func(Body io.ReadCloser, ctx *Ctx) {
 		err := Body.Close()
 		if err != nil {
-			c.monitor.En(executeInfo(err))
-			c.ar.runtime <- c.monitor
+			fmt.Println(err.Error())
 		}
 	}(c.Request.Body, c)
+
 	if err == nil {
 		err := json.Unmarshal(data, &body)
 		if err != nil {
-			c.monitor.En(executeInfo(err))
-			c.ar.runtime <- c.monitor
+
 			return err
 		}
 		return nil
 	}
-	c.monitor.En(executeInfo(err))
-	c.ar.runtime <- c.monitor
 	return err
 }
