@@ -44,8 +44,8 @@ func (vf ViewFunc) View(c *Ctx, p string) {
 
 // ResourceFun w 响应体，path 资源真实路径，rt资源类型
 // 根据rt资源类型去找到对应的resourceMapType 存储的响应头，进行发送资源
-func (a *Aurora) resourceFun(w http.ResponseWriter, req *http.Request, path string, rt string, monitor *localMonitor) {
-	data := a.readResource(a.projectRoot+"/"+a.resource+path, monitor)
+func (a *Aurora) resourceFun(w http.ResponseWriter, req *http.Request, path string, rt string) {
+	data := a.readResource(a.projectRoot + "/" + a.resource + path)
 	if data != nil {
 		h := w.Header()
 		if h.Get(contentType) == "" {
@@ -69,13 +69,12 @@ func sendResource(w http.ResponseWriter, data []byte) {
 }
 
 // readResource 读取成功则返回结果，失败则返回nil
-func (a *Aurora) readResource(path string, monitor *localMonitor) []byte {
+func (a *Aurora) readResource(path string) []byte {
 	if f, err := ioutil.ReadFile(path); err == nil {
 		return f
 	} else {
 		if os.IsNotExist(err) {
-			monitor.En(executeInfo(err))
-			a.runtime <- monitor
+			fmt.Println(err.Error())
 		}
 	}
 	return nil

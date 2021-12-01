@@ -33,13 +33,14 @@ type Aurora struct {
 	resourceMappings map[string][]string //静态资源映射路径标识 <***>
 	resourceMapType  map[string]string   //常用的静态资源头 <--->
 	load             chan struct{}
-	message          chan string           //启动自带的日志信息 <***>
-	initError        chan error            //路由器级别错误通道 一旦初始化出错，则结束服务，检查配置 <***>
-	runtime          chan *localMonitor    //单体服务运行时错误时候的链路调用日志 <***>
-	serviceInfo      chan string           //业务 info日志 <***>
-	serviceWarning   chan string           //业务 警告日志 <***>
-	serviceError     chan string           //业务 错误日志 <***>
-	servicePanic     chan string           //业务 panic日志 <***>
+	message          chan string //启动自带的日志信息 <***>
+	initError        chan error  //路由器级别错误通道 一旦初始化出错，则结束服务，检查配置 <***>
+
+	serviceInfo    chan string //业务 info日志 <***>
+	serviceWarning chan string //业务 警告日志 <***>
+	serviceError   chan string //业务 错误日志 <***>
+	servicePanic   chan string //业务 panic日志 <***>
+
 	routeInterceptor []interceptorArgs     //拦截器初始华切片 <***>
 	interceptorList  []Interceptor         //全局拦截器 <***>
 	container        *containers           //第三方配置整合容器,原型模式
@@ -68,7 +69,6 @@ func New() *Aurora {
 		resourceMapType: make(map[string]string),
 		load:            make(chan struct{}),
 		message:         make(chan string),
-		runtime:         make(chan *localMonitor),
 		serviceInfo:     make(chan string),
 		serviceWarning:  make(chan string),
 		servicePanic:    make(chan string),
@@ -136,6 +136,21 @@ func (a *Aurora) run(port ...string) {
 		a.initError <- err
 	}
 }
+
+//func getTLSConfig() *tls.Config {
+//	cert, _ := ioutil.ReadFile(crt)
+//	key, _ := ioutil.ReadFile("../keys/server.key")
+//	var demoKeyPair *tls.Certificate
+//	pair, err := tls.X509KeyPair(cert, key)
+//	if err != nil {
+//		grpclog.Fatalf("TLS KeyPair err: %v\n", err)
+//	}
+//	demoKeyPair = &pair
+//	return &tls.Config{
+//		Certificates: []tls.Certificate{*demoKeyPair},
+//		NextProtos:   []string{http2.NextProtoTLS}, // HTTP2 TLS支持
+//	}
+//}
 
 func (a *Aurora) tls(args ...string) {
 	if len(args) < 2 {
@@ -244,7 +259,7 @@ func (a *Aurora) loadingInterceptor() {
 	if a.routeInterceptor != nil {
 		for i := 0; i < len(a.routeInterceptor); i++ {
 			e := a.routeInterceptor[i]
-			a.router.RegisterInterceptor(e.path, &localMonitor{mx: &sync.Mutex{}}, e.list...)
+			a.router.RegisterInterceptor(e.path, e.list...)
 		}
 	}
 }
@@ -254,6 +269,11 @@ func (a *Aurora) baseContext(ln net.Listener) context.Context {
 	//初始化 Aurora net.Listener 变量，用于整合grpc
 	a.Ln = ln
 	a.loadingInterceptor() //加载 拦截器
+	if a.GrpcServer != nil {
+		go func(ln net.Listener) {
+
+		}(ln)
+	}
 	l := fmt.Sprintf("The server successfully runs on port %s", a.port)
 	c, f := context.WithCancel(context.TODO())
 	a.ctx = c
@@ -280,12 +300,11 @@ func startLoading(a *Aurora) {
 		for true {
 			select {
 
+			//初始化实例日志信息
 			case info := <-a.message:
 				a.log.Info(info)
 
-			case msg := <-a.runtime:
-				a.log.Error(msg.Message())
-
+			//业务日志调用
 			case info := <-a.serviceInfo:
 				a.serviceLog.Info(info)
 

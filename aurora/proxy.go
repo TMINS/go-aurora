@@ -17,7 +17,6 @@ type proxy struct {
 	result         interface{}            //业务结果
 	view           Views                  //支持自定义视图渲染机制
 	ar             *Aurora
-	monitor        *localMonitor
 	Interceptor    bool //是否放行拦截器
 
 	ExecuteStack, AfterStack *interceptorStack // ExecuteStack,AfterStack 全局拦截器
@@ -173,7 +172,6 @@ func (sp *proxy) initCtx() {
 		sp.ctx.Response = sp.rew
 		sp.ctx.rw = &sync.RWMutex{}
 		sp.ctx.ar = sp.ar
-		sp.ctx.monitor = sp.monitor
 		if sp.args != nil {
 			sp.ctx.Args = sp.args
 		}
@@ -215,8 +213,6 @@ func (sp *proxy) resultHandler() {
 	case error:
 		//直接返回错误处理,让调用者根据错误进行处理
 		sp.ctx.SetStatus(500)
-		sp.monitor.En(executeInfo(sp.result.(error)))
-		sp.ar.runtime <- sp.monitor
 		sp.ctx.json("error:" + sp.result.(error).Error())
 		return
 	case nil:

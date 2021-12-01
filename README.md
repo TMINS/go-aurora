@@ -929,6 +929,37 @@ func (a *Aurora) GormConfig(opt Opt) {
 
 GormConfig 的opt 配置参数，注意按照 const  常量来指定配置项。
 
+#### gorm 配置示例
+
+```go
+func main() {
+
+	//获取 aurora 路由实例
+	a := aurora.New()
+
+	// 加载 gorm 配置
+	a.GormConfig(func() map[string]interface{}{
+		return map[string]interface{}{
+			option.GORM_TYPE: mysql.Open("root:duanzhiwen@tcp(82.157.160.117:3306)/test_db?charset=utf8mb4&parseTime=True&loc=Local"),
+			option.GORM_CONFIG: &gorm.Config{},
+		}
+	})
+
+	// GET 方法注册 web get请求
+	a.GET("/query", func(c *aurora.Ctx) interface{} {
+		db:= a.Get(frame.GORM).(*gorm.DB)
+		var s []Student
+		db.Raw("select * from student").Scan(&s)
+		return s
+	})
+
+	// 启动服务器 默认端口8080，更改端口号 a.Guide(”8081“) 即可
+	a.Guide()
+}
+```
+
+
+
 ### redis 连接配置
 
 redis 客户端，默认采用go-redis 框架进行配置。
@@ -953,6 +984,47 @@ func (a *Aurora) GoRedisConfig(opt Opt) {
 	a.container.store(frame.GO_REDIS, r)
 }
 ```
+
+#### redis 配置示例
+
+```go
+func main() {
+
+	//获取 aurora 路由实例
+	a := aurora.New()
+
+	//加载 redis 配置
+	a.GoRedisConfig(func() map[string]interface{} {
+		return map[string]interface{}{
+			option.GOREDIS_CONFIG: &redis.Options{
+				Addr:     "xx.xxx.xxx.xxx:6379",
+				Password: "xxxxxxx",
+				DB:       0,
+			},
+		}
+	})
+	// GET 方法注册 web get请求
+	a.GET("/set", func(c *aurora.Ctx) interface{} {
+		client := a.Get(frame.GO_REDIS).(*redis.Client)
+		if err := client.Set(context.TODO(), "name", "test", 0).Err(); err != nil {
+			return err
+		}
+		return "ok!"
+	})
+	a.GET("/get", func(c *aurora.Ctx) interface{} {
+		client := a.Get(frame.GO_REDIS).(*redis.Client)
+		result, err := client.Get(context.TODO(), "name").Result()
+		if err != nil {
+			c.ERROR(err.Error())
+		}
+		return result
+	})
+	// 启动服务器 默认端口8080，更改端口号 a.Guide(”8081“) 即可
+	a.Guide()
+}
+```
+
+
 
 ### RabbitMQ 连接配置
 
@@ -983,7 +1055,107 @@ func failOnError(err error, msg string) {
 
 ```
 
+### grpc配置整合
 
+#### 定义测试proto
+
+```protobuf
+syntax="proto3";
+
+option go_package="../pb";
+
+message DefaultRequest {
+  int32   a=1;
+  int64   b=2;
+  float   c=3;
+  double  g=7;
+  bool    d=4;
+  uint32  e=5;
+  uint64  f=6;
+  string  h=8;
+  bytes   i=9;
+  map<string,string> jmap=10;
+  repeated string  k=11;
+}
+
+
+message DefaultResponse {
+   string result =1;
+}
+
+service Default {
+  rpc TestDefault(DefaultRequest) returns (DefaultResponse);
+}
+```
+
+#### 实现服务定义
+
+```go
+package pb
+
+import "context"
+
+type Default struct {
+}
+
+func (d Default) TestDefault(ctx context.Context, request *DefaultRequest) (*DefaultResponse, error) {
+
+	return &DefaultResponse{Result: "success"},nil
+}
+
+func (d Default) mustEmbedUnimplementedDefaultServer() {
+	panic("implement me")
+}
+```
+
+#### 定义服务端
+
+```go
+func main() {
+	a := aurora.New()
+
+	//部署grpc
+	c, _ := credentials.NewServerTLSFromFile("ca/rootcert.pem", "ca/rootkey.pem")
+	server := grpc.NewServer(grpc.Creds(c))
+	pb.RegisterDefaultServer(server,&pb.Default{})
+	a.GrpcServer=server
+
+	a.GET("/server", func(c *aurora.Ctx) interface{} {
+
+		return "test"
+	})
+	a.GuideTLS("ca/rootcert.pem","ca/rootkey.pem","8089")
+}
+```
+
+#### 定义客户端
+
+```go
+func main() {
+	a := aurora.New()
+
+	a.GET("/client", func(c *aurora.Ctx) interface{} {
+		file, err := credentials.NewClientTLSFromFile("ca/rootcert.pem","localhost")
+		if err != nil {
+			return err
+		}
+		dial, err := grpc.Dial("127.0.0.1:8089", grpc.WithTransportCredentials(file))
+		if err != nil {
+			return err
+		}
+
+		client := pb.NewDefaultClient(dial)
+		testDefault, err := client.TestDefault(context.TODO(), &pb.DefaultRequest{})
+		if err != nil {
+			return err
+		}
+		return testDefault.Result
+	})
+	a.GuideTLS("ca/rootcert.pem","ca/rootkey.pem","8088")
+}
+```
+
+通过把grpc的 server 提交给aurora 进行 配置，达到服务端可以同时使用一个端口号进行https和grpc远程调用通讯。
 
 ## 自定义配置
 
