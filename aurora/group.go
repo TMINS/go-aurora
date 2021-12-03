@@ -15,27 +15,27 @@ type group struct {
 }
 
 // GET 请求
-func (g *group) GET(path string, servlet Servlet) {
+func (g *group) GET(path string, servlet Serve) {
 	g.a.register(http.MethodGet, g.prefix+path, servlet)
 }
 
 // POST 请求
-func (g *group) POST(path string, servlet Servlet) {
+func (g *group) POST(path string, servlet Serve) {
 	g.a.register(http.MethodPost, g.prefix+path, servlet)
 }
 
 // PUT 请求
-func (g *group) PUT(path string, servlet Servlet) {
+func (g *group) PUT(path string, servlet Serve) {
 	g.a.register(http.MethodPut, g.prefix+path, servlet)
 }
 
 // DELETE 请求
-func (g *group) DELETE(path string, servlet Servlet) {
+func (g *group) DELETE(path string, servlet Serve) {
 	g.a.register(http.MethodDelete, g.prefix+path, servlet)
 }
 
 // HEAD 请求
-func (g *group) HEAD(path string, servlet Servlet) {
+func (g *group) HEAD(path string, servlet Serve) {
 	g.a.register(http.MethodHead, g.prefix+path, servlet)
 }
 

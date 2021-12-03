@@ -8,8 +8,11 @@ func (c *Ctx) SetStatus(code int) {
 	c.Response.WriteHeader(code)
 }
 
-// SetHeader 设置响应头，响应头存在则追加，不存在则新添加
-func (c *Ctx) SetHeader(key, value string) {
+// Header 设置响应头，响应头存在则追加，不存在则新添加
+func (c *Ctx) Header(key, value string) {
+	if value == "" {
+		return
+	}
 	h := c.Response.Header()
 	s := h.Get(key)
 	if s == "" {

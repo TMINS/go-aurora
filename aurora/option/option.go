@@ -1,9 +1,6 @@
 package option
 
 const (
-	GRPC_SERVER = "grpc-server"
-	GRPC_LISTEN = "grpc-listener"
-
 	//go-redis 配置项键 （*redis.Options）
 	GOREDIS_CONFIG = "go-redis"
 

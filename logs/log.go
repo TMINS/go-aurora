@@ -36,7 +36,7 @@ func (wl *Log) Format(entry *logrus.Entry) ([]byte, error) {
 	//时间格式化
 	timestamp := entry.Time.Format("2006/01/02 15:04:05")
 	//日志格式化
-	newLog := fmt.Sprintf("%s [%-6s] ==> %s\n", timestamp, entry.Level, entry.Message)
+	newLog := fmt.Sprintf("%s [ %s ] ==> %s\n", timestamp, entry.Level, entry.Message)
 	buffer.WriteString(newLog)
 	return buffer.Bytes(), nil
 }

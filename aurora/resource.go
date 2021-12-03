@@ -44,7 +44,7 @@ func (vf ViewFunc) View(c *Ctx, p string) {
 
 // ResourceFun w 响应体，path 资源真实路径，rt资源类型
 // 根据rt资源类型去找到对应的resourceMapType 存储的响应头，进行发送资源
-func (a *Aurora) resourceFun(w http.ResponseWriter, req *http.Request, path string, rt string) {
+func (a *Aurora) resourceFun(w http.ResponseWriter, mapping string, path string, rt string) {
 	data := a.readResource(a.projectRoot + "/" + a.resource + path)
 	if data != nil {
 		h := w.Header()
@@ -54,6 +54,8 @@ func (a *Aurora) resourceFun(w http.ResponseWriter, req *http.Request, path stri
 		h.Add(contentType, a.resourceMapType[rt])
 		sendResource(w, data)
 	}
+	//http.NotFound(w,req)  //没有读取到对应静态资源，发送404
+	http.Error(w, newErrorResponse(mapping, "The server static resource does not exist", 500), 500)
 }
 
 // SendResource 发送静态资源

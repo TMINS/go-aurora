@@ -29,22 +29,20 @@ import (
 */
 
 type routes interface {
-	GET(string, Servlet) interface{}
-	POST(string, Servlet) interface{}
-	PUT(string, Servlet) interface{}
-	DELETE(string, Servlet) interface{}
-	HEAD(string, Servlet) interface{}
+	GET(string, Serve) interface{}
+	POST(string, Serve) interface{}
+	PUT(string, Serve) interface{}
+	DELETE(string, Serve) interface{}
+	HEAD(string, Serve) interface{}
 }
 
-type resourceHandler func(w http.ResponseWriter, r *http.Request)
-
-type ServletHandler interface {
-	ServletHandler(c *Ctx) interface{}
+type ServeHandler interface {
+	controller(c *Ctx) interface{}
 }
 
-type Servlet func(c *Ctx) interface{}
+type Serve func(c *Ctx) interface{}
 
-func (s Servlet) ServletHandler(ctx *Ctx) interface{} {
+func (s Serve) controller(ctx *Ctx) interface{} {
 	//ctx.monitor.En(ExecuteInfo(nil))
 	defer func(ctx *Ctx) {
 		v := recover()
@@ -68,7 +66,7 @@ type route struct {
 // Node 路由节点
 type node struct {
 	Path      string        //当前节点路径
-	handle    Servlet       //服务处理函数
+	handle    Serve         //服务处理函数
 	Child     []*node       //子节点
 	InterList []Interceptor //当前路径拦截链，默认为空
 	TreeInter []Interceptor //路径匹配拦截器，默认为空
@@ -77,7 +75,7 @@ type node struct {
 //——————————————————————————————————————————————————————————————————————————路由注册————————————————————————————————————————————————————————————————————————————————————————————
 
 // addRoute 预处理被添加路径
-func (r *route) addRoute(method, path string, fun Servlet) {
+func (r *route) addRoute(method, path string, fun Serve) {
 
 	if path[0:1] != "/" { //校验path开头
 		path += "/" + path //没有写 "/" 则添加斜杠开头
@@ -116,7 +114,7 @@ func (r *route) addRoute(method, path string, fun Servlet) {
 // method: 请求类型(日志相关参数)
 // path: 插入的路径(日志相关参数)
 // monitor: 链路日志(日志相关参数，如果需要撤掉，只要把参数和引用一起删除即可)
-func (r *route) add(method string, root *node, Path string, fun Servlet, path string) {
+func (r *route) add(method string, root *node, Path string, fun Serve, path string) {
 
 	//初始化根
 	if root.Path == "" && root.Child == nil {
@@ -249,7 +247,7 @@ func (r *route) add(method string, root *node, Path string, fun Servlet, path st
 // root: 根合并相关参数
 // Path: 根合并相关参数
 // fun: 根合并相关参数
-func (r *route) merge(method string, root *node, Path string, fun Servlet, path string, rpath string) bool {
+func (r *route) merge(method string, root *node, Path string, fun Serve, path string, rpath string) bool {
 	pub := r.findPublicRoot(method, root.Path, Path) //公共路径
 	if pub != "" {
 		pl := len(pub)
@@ -565,7 +563,7 @@ func (r *route) search(root *node, path string, Args map[string]interface{}, rw 
 			proxy := proxy{
 				rew:             rw,
 				req:             req,
-				ServletHandler:  root.handle,
+				ServeHandler:    root.handle,
 				args:            Args,
 				ctx:             ctx,
 				InterceptorList: root.InterList,
@@ -627,7 +625,7 @@ func (r *route) search(root *node, path string, Args map[string]interface{}, rw 
 			proxy := proxy{
 				rew:             rw,
 				req:             req,
-				ServletHandler:  root.handle,
+				ServeHandler:    root.handle,
 				args:            Args,
 				ctx:             ctx,
 				InterceptorList: root.InterList,
@@ -681,14 +679,15 @@ func (a *Aurora) ServeHTTP(rw http.ResponseWriter, req *http.Request) {
 
 	mapping := req.RequestURI
 	if err := checkUrl(mapping); err != nil {
-		http.NotFound(rw, req)
+		http.Error(rw, newErrorResponse(mapping, "The rest ful path format is incorrect and cannot contain the symbol '{' or '}'", 500), 500)
 		return
 	}
+
 	if index := strings.LastIndex(mapping, "."); index != -1 { //静态资源处理
 		t := mapping[index+1:]             //截取资源类型,（图片类型存在不同，待解决）
 		paths, ok := a.resourceMappings[t] //资源对应的路径映射
 		if !ok {
-			http.NotFound(rw, req)
+			http.Error(rw, newErrorResponse(mapping, "The server static resource related configuration does not exist or the accessed resource is not on the server", 500), 500)
 			return
 		}
 		mp := ""
@@ -697,14 +696,14 @@ func (a *Aurora) ServeHTTP(rw http.ResponseWriter, req *http.Request) {
 				mp = mapping[i:] //找到匹配的一条映射,截取到真实资源路径
 			}
 		}
-		a.resourceFun(rw, req, mp, t)
+		a.resourceFun(rw, mapping, mp, t)
 		return
 	}
 
 	a.router.SearchPath(req.Method, req.URL.Path, rw, req, nil) //初始一个nil ctx
 }
 
-func getFunName(fun Servlet) string {
+func getFunName(fun Serve) string {
 	return runtime.FuncForPC(reflect.ValueOf(fun).Pointer()).Name()
 }
 

@@ -8,16 +8,16 @@ import (
 
 // ServletProxy 代理 路由处理，负责生成上下文变量和调用具体处理函数
 type proxy struct {
-	rw             sync.RWMutex
-	rew            http.ResponseWriter
-	req            *http.Request
-	ServletHandler                        //处理函数
-	args           map[string]interface{} //REST API 参数解析
-	ctx            *Ctx                   //上下文
-	result         interface{}            //业务结果
-	view           Views                  //支持自定义视图渲染机制
-	ar             *Aurora
-	Interceptor    bool //是否放行拦截器
+	rw           sync.RWMutex
+	rew          http.ResponseWriter
+	req          *http.Request
+	ServeHandler                        //处理函数
+	args         map[string]interface{} //REST API 参数解析
+	ctx          *Ctx                   //上下文
+	result       interface{}            //业务结果
+	view         Views                  //支持自定义视图渲染机制
+	ar           *Aurora
+	Interceptor  bool //是否放行拦截器
 
 	ExecuteStack, AfterStack *interceptorStack // ExecuteStack,AfterStack 全局拦截器
 
@@ -124,7 +124,7 @@ func (sp *proxy) execute() {
 		}
 
 	}(sp.ctx, sp)
-	sp.result = sp.ServletHandler.ServletHandler(sp.ctx)
+	sp.result = sp.ServeHandler.controller(sp.ctx)
 }
 
 // After 服务处理之后，主要处理业务结果

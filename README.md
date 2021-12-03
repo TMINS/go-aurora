@@ -9,15 +9,7 @@
 ### 拉取依赖
 
 ```
-require github.com/awensir/Aurora v0.0.9
-
-require (
-	github.com/sirupsen/logrus v1.8.1 // indirect
-	golang.org/x/sys v0.0.0-20210423082822-04245dca01da // indirect
-)
-////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
-
-import "github.com/awensir/Aurora/aurora"
+import "github.com/awensir/go-aurora/aurora"
 ```
 
 ### 入门示例
@@ -26,7 +18,7 @@ import "github.com/awensir/Aurora/aurora"
 package main
 
 import (
-	"github.com/awensir/Aurora/aurora"
+	"github.com/awensir/go-aurora/aurora"
 )
 
 func main() {
@@ -120,7 +112,7 @@ type Routes interface {
 package main
 
 import (
-	"github.com/awensir/Aurora/aurora"
+	"github.com/awensir/go-aurora/aurora"
 )
 
 func main() {
@@ -150,7 +142,7 @@ hello web
 package main
 
 import (
-	"github.com/awensir/Aurora/aurora"
+	"github.com/awensir/go-aurora/aurora"
 )
 
 func main() {
@@ -183,7 +175,7 @@ package main
 
 import (
 	"errors"
-	"github.com/awensir/Aurora/aurora"
+	"github.com/awensir/go-aurora/aurora"
 )
 
 func main() {
@@ -211,7 +203,7 @@ package main
 
 import (
 	"errors"
-	"github.com/awensir/Aurora/aurora"
+	"github.com/awensir/go-aurora/aurora"
 )
 
 // 绑定 ErrorHandler(c *aurora.Context) interface{} 函数即可
@@ -256,7 +248,7 @@ error:is error
 package main
 
 import (
-	"github.com/awensir/Aurora/aurora"
+	"github.com/awensir/go-aurora/aurora"
 )
 
 func main() {
@@ -312,7 +304,7 @@ func (t TestErr) ErrorHandler(ctx *aurora.Ctx) interface{} {
 package main
 
 import (
-	"github.com/awensir/Aurora/aurora"
+	"github.com/awensir/go-aurora/aurora"
 )
 
 func main() {
@@ -344,7 +336,7 @@ func main() {
 package main
 
 import (
-	"github.com/awensir/Aurora/aurora"
+	"github.com/awensir/go-aurora/aurora"
 )
 
 func main() {
@@ -373,7 +365,7 @@ func main() {
 package main
 
 import (
-	"github.com/awensir/Aurora/aurora"
+	"github.com/awensir/go-aurora/aurora"
 )
 
 func main() {
@@ -397,6 +389,8 @@ func main() {
 
 上下文对象对原始的web api封装不是很，但是提供了暴露了请求体和响应体。给开发者使用，后续会逐渐完善。web的请求处理可以完全按照go web的方式进行，把页面响应交给框架即可，同时对浏览器响应信息可能导致冲突，但是响应头的设置不会有所影响。
 
+### Get请求参数获取
+
 ```go
 // Get 获取一个字符串参数
 func (c *Context) Get(Args string) (string, error)
@@ -415,7 +409,23 @@ func (c *Context) GetIntSlice(Args string) ([]int, error)
 
 // GetFloat64Slice 浮点切片
 func (c *Context) GetFloat64Slice(Args string) ([]float64, error) 
+
 ```
+
+### Post 请求体绑定
+
+```go
+// JsonBody 读取Post请求体Json或表单数据数据解析到body中,
+func (c *Ctx) JsonBody(body interface{}) error 
+```
+
+
+
+### 文件上传
+
+参考gin api
+
+
 
 ### 日志调用
 
@@ -808,7 +818,7 @@ package main
 
 import (
 	"fmt"
-	"github.com/awensir/Aurora/aurora"
+	"github.com/awensir/go-aurora/aurora"
 )
 //真实业务处理
 func Test(ctx *aurora.Context) interface{} {
@@ -843,8 +853,9 @@ package frame
 	整合第三方框架标准 key
 */
 const (
-	GORM     = "gorm"     // gorm
-	GO_REDIS = "go-redis" // go-redis
+	GORM     = "gorm"     // gorm    容器数据库连接实例key
+	GO_REDIS = "go-redis" // go-redis 容器客户端连接实例key
+	RABBITMQ = "RabbitMQ" // rabbit mq 容器客户端连接实例key
 	DB       = "db"       // db作为原生 db
 )
 ```
@@ -870,10 +881,7 @@ option 包定义了专有 框架默认读取的配置项，现目前定义的有
 package option
 
 const (
-	GRPC_SERVER = "grpc-server"
-	GRPC_LISTEN = "grpc-listener"
-
-	//go-redis 配置项键 （*redis.Options）
+		//go-redis 配置项键 （*redis.Options）
 	GOREDIS_CONFIG = "go-redis"
 
 	//gorm 数据库类型配置项键 （gorm.Dialector）

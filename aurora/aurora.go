@@ -33,9 +33,12 @@ type Aurora struct {
 	resource         string              //静态资源管理 默认为 root 目录 <***>
 	resourceMappings map[string][]string //静态资源映射路径标识 <***>
 	resourceMapType  map[string]string   //常用的静态资源头 <--->
-	load             chan struct{}
-	message          chan string //启动自带的日志信息 <***>
-	initError        chan error  //路由器级别错误通道 一旦初始化出错，则结束服务，检查配置 <***>
+
+	MaxMultipartMemory int64 //文件上传大小配置
+
+	load      chan struct{}
+	message   chan string //启动自带的日志信息 <***>
+	initError chan error  //路由器级别错误通道 一旦初始化出错，则结束服务，检查配置 <***>
 
 	serviceInfo    chan string //业务 info日志 <***>
 	serviceWarning chan string //业务 警告日志 <***>
@@ -312,7 +315,7 @@ func startLoading(a *Aurora) {
 	}(a)
 }
 func print_aurora() string {
-	s := "    /\\\n   /  \\  _   _ _ __ ___  _ __ __ _\n  / /\\ \\| | | | '__/ _ \\| '__/ _` |\n / ____ \\ |_| | | | (_) | | | (_| |\n/_/    \\_\\__,_|_|  \\___/|_|  \\__,_|\n:: aurora ::   (v0.1.2.RELEASE)"
+	s := "    /\\\n   /  \\  _   _ _ __ ___  _ __ __ _\n  / /\\ \\| | | | '__/ _ \\| '__/ _` |\n / ____ \\ |_| | | | (_) | | | (_| |\n/_/    \\_\\__,_|_|  \\___/|_|  \\__,_|\n:: aurora ::   (v0.1.4.RELEASE)"
 	/*
 	       /\
 	      /  \  _   _ _ __ ___  _ __ __ _

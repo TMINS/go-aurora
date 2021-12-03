@@ -8,6 +8,4 @@ const (
 	GO_REDIS = "go-redis" // go-redis 容器客户端连接实例key
 	RABBITMQ = "RabbitMQ" // rabbit mq 容器客户端连接实例key
 	DB       = "db"       // db作为原生 db
-
-	GRPC = "grpc" // grpc
 )

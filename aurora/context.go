@@ -3,6 +3,7 @@ package aurora
 import (
 	"encoding/json"
 	"fmt"
+	"github.com/spf13/viper"
 	"net/http"
 	"sync"
 )
@@ -14,6 +15,10 @@ type Ctx struct {
 	Request   *http.Request
 	Args      map[string]interface{} //REST API 参数
 	Attribute map[string]interface{} //Context属性
+}
+
+func (c *Ctx) Viper() *viper.Viper {
+	return c.ar.Viper()
 }
 
 // INFO 打印 info 日志信息
