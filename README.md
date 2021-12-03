@@ -9,15 +9,7 @@
 ### 拉取依赖
 
 ```
-require github.com/awensir/Aurora v0.0.9
-
-require (
-	github.com/sirupsen/logrus v1.8.1 // indirect
-	golang.org/x/sys v0.0.0-20210423082822-04245dca01da // indirect
-)
-////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
-
-import "github.com/awensir/Aurora/aurora"
+import "github.com/awensir/go-aurora/aurora"
 ```
 
 ### 入门示例
@@ -26,7 +18,7 @@ import "github.com/awensir/Aurora/aurora"
 package main
 
 import (
-	"github.com/awensir/Aurora/aurora"
+	"github.com/awensir/go-aurora/aurora"
 )
 
 func main() {
@@ -61,6 +53,7 @@ aurora路由设计规则如下：
 路由器规则:
    1.无法存储相同的路径
       1)形同路径的判定：校验参数相同，并且节点函数不为nil，节点函数为nil的节点说明，这个路径是未注册过，被提取为公共根
+      2)第一条规则进行修改，注册相同路径处理函数，默认覆盖前面相同的处理函数。
    2.路径查找按照逐层检索
    3.路由树上面存储者当前路径匹配的服务处理函数
    4.注册路径必须以 / 开头
@@ -119,7 +112,7 @@ type Routes interface {
 package main
 
 import (
-	"github.com/awensir/Aurora/aurora"
+	"github.com/awensir/go-aurora/aurora"
 )
 
 func main() {
@@ -149,7 +142,7 @@ hello web
 package main
 
 import (
-	"github.com/awensir/Aurora/aurora"
+	"github.com/awensir/go-aurora/aurora"
 )
 
 func main() {
@@ -182,7 +175,7 @@ package main
 
 import (
 	"errors"
-	"github.com/awensir/Aurora/aurora"
+	"github.com/awensir/go-aurora/aurora"
 )
 
 func main() {
@@ -210,7 +203,7 @@ package main
 
 import (
 	"errors"
-	"github.com/awensir/Aurora/aurora"
+	"github.com/awensir/go-aurora/aurora"
 )
 
 // 绑定 ErrorHandler(c *aurora.Context) interface{} 函数即可
@@ -255,7 +248,7 @@ error:is error
 package main
 
 import (
-	"github.com/awensir/Aurora/aurora"
+	"github.com/awensir/go-aurora/aurora"
 )
 
 func main() {
@@ -311,7 +304,7 @@ func (t TestErr) ErrorHandler(ctx *aurora.Ctx) interface{} {
 package main
 
 import (
-	"github.com/awensir/Aurora/aurora"
+	"github.com/awensir/go-aurora/aurora"
 )
 
 func main() {
@@ -343,7 +336,7 @@ func main() {
 package main
 
 import (
-	"github.com/awensir/Aurora/aurora"
+	"github.com/awensir/go-aurora/aurora"
 )
 
 func main() {
@@ -372,7 +365,7 @@ func main() {
 package main
 
 import (
-	"github.com/awensir/Aurora/aurora"
+	"github.com/awensir/go-aurora/aurora"
 )
 
 func main() {
@@ -396,6 +389,8 @@ func main() {
 
 上下文对象对原始的web api封装不是很，但是提供了暴露了请求体和响应体。给开发者使用，后续会逐渐完善。web的请求处理可以完全按照go web的方式进行，把页面响应交给框架即可，同时对浏览器响应信息可能导致冲突，但是响应头的设置不会有所影响。
 
+### Get请求参数获取
+
 ```go
 // Get 获取一个字符串参数
 func (c *Context) Get(Args string) (string, error)
@@ -414,6 +409,40 @@ func (c *Context) GetIntSlice(Args string) ([]int, error)
 
 // GetFloat64Slice 浮点切片
 func (c *Context) GetFloat64Slice(Args string) ([]float64, error) 
+
+```
+
+### Post 请求体绑定
+
+```go
+// JsonBody 读取Post请求体Json或表单数据数据解析到body中,
+func (c *Ctx) JsonBody(body interface{}) error 
+```
+
+
+
+### 文件上传
+
+参考gin api
+
+
+
+### 日志调用
+
+日志相关api，Aurora 默认使用的是logrus 日志框架作为封装提供上下文变量进行替代fmt.Print 输出消息信息，一下是相关的api
+
+```go
+// INFO 打印 info 日志信息
+func (c *Ctx) INFO(info ...interface{})
+
+// WARN 打印 警告信息
+func (c *Ctx) WARN(warning ...interface{}) 
+
+// ERROR 打印错误信息
+func (c *Ctx) ERROR(error ...interface{}) 
+
+// PANIC 打印信息并且结束程序
+func (c *Ctx) PANIC(panic ...interface{}) 
 ```
 
 
@@ -789,7 +818,7 @@ package main
 
 import (
 	"fmt"
-	"github.com/awensir/Aurora/aurora"
+	"github.com/awensir/go-aurora/aurora"
 )
 //真实业务处理
 func Test(ctx *aurora.Context) interface{} {
@@ -812,3 +841,449 @@ func main() {
 	a.Guide()
 }
 ```
+
+## 第三方框架整合
+
+Aurora约定设置了第三方框架或库的相关实例 的key
+
+```go
+package frame
+
+/*
+	整合第三方框架标准 key
+*/
+const (
+	GORM     = "gorm"     // gorm    容器数据库连接实例key
+	GO_REDIS = "go-redis" // go-redis 容器客户端连接实例key
+	RABBITMQ = "RabbitMQ" // rabbit mq 容器客户端连接实例key
+	DB       = "db"       // db作为原生 db
+)
+```
+
+第三方库相关 key 都在 frame包中定义
+
+### Opt 配置选项
+
+源码定义如下
+
+```go
+// Opt 配置选项参数
+type Opt func() map[string]interface{}
+```
+
+Opt 是一个无参函数，返回一个存储interface{}的map，Aurora的配置思想，是约定用户给定配置去初始化第三方库或这框架。
+
+### option包
+
+option 包定义了专有 框架默认读取的配置项，现目前定义的有一下：
+
+```go
+package option
+
+const (
+		//go-redis 配置项键 （*redis.Options）
+	GOREDIS_CONFIG = "go-redis"
+
+	//gorm 数据库类型配置项键 （gorm.Dialector）
+	GORM_TYPE = "database" //gorm 数据库类型
+
+	//gorm 配置项选项键 （gorm.Option）
+	GORM_CONFIG = "config" //gorm 配置项
+
+	RABBITMQ_URL = "rabbit-url"
+
+	//添加配置 配置项
+	Config_key = "name" //定义配置 名
+	Config_fun = "func" //定义配置 函数 (type Configuration func(Opt) interface{})
+	Config_opt = "opt"  //定义配置 参数选项 (type Opt func() map[string]interface{})
+
+)
+```
+
+
+
+### gorm 连接配置
+
+func (a *Aurora) GormConfig(opt map[string]interface{}) 方法 配置gorm 默认使用 v2 版本，若要使用其他版本可以通过func (a *Aurora) Store(name string, variable interface{})自行定义k并存储
+
+```go
+/*
+	整合gorm 框架
+	默认使用 v2版本
+	提供配置项 初始化默认gorm变量
+	需要连接多个库，存放在容器中，实现 manage.Variable 接口 Clone() Variable 方法即可存入容器
+*/
+
+//GormConfig 整合gorm
+func (a *Aurora) GormConfig(opt Opt) {
+	o := opt()
+	//读取配置项
+	dil, b := o[option.GORM_TYPE].(gorm.Dialector)
+	if !b {
+		panic(errors.New("gorm config option gorm.Dialector type error！"))
+	}
+
+	config, b := o[option.GORM_CONFIG].(gorm.Option)
+	if !b {
+		panic(errors.New("gorm config option gorm.Option type error！"))
+	}
+	db, err := gorm.Open(dil, config)
+	if err != nil {
+		panic(err.Error())
+	}
+	a.container.store(frame.GORM, db)
+}
+```
+
+GormConfig 的opt 配置参数，注意按照 const  常量来指定配置项。
+
+#### gorm 配置示例
+
+```go
+func main() {
+
+	//获取 aurora 路由实例
+	a := aurora.New()
+
+	// 加载 gorm 配置
+	a.GormConfig(func() map[string]interface{}{
+		return map[string]interface{}{
+			option.GORM_TYPE: mysql.Open("root:duanzhiwen@tcp(82.157.160.117:3306)/test_db?charset=utf8mb4&parseTime=True&loc=Local"),
+			option.GORM_CONFIG: &gorm.Config{},
+		}
+	})
+
+	// GET 方法注册 web get请求
+	a.GET("/query", func(c *aurora.Ctx) interface{} {
+		db:= a.Get(frame.GORM).(*gorm.DB)
+		var s []Student
+		db.Raw("select * from student").Scan(&s)
+		return s
+	})
+
+	// 启动服务器 默认端口8080，更改端口号 a.Guide(”8081“) 即可
+	a.Guide()
+}
+```
+
+
+
+### redis 连接配置
+
+redis 客户端，默认采用go-redis 框架进行配置。
+
+```go
+package aurora
+
+import (
+	"errors"
+	"github.com/awensir/go-aurora/aurora/frame"
+	"github.com/awensir/go-aurora/aurora/option"
+	"github.com/go-redis/redis/v8"
+)
+
+// GoRedisConfig 根据配置项配置 go-redis
+func (a *Aurora) GoRedisConfig(opt Opt) {
+	if opt == nil {
+		panic(errors.New("go-redis config option not find"))
+	}
+	o := opt()
+	r := redis.NewClient(o[option.GOREDIS_CONFIG].(*redis.Options))
+	a.container.store(frame.GO_REDIS, r)
+}
+```
+
+#### redis 配置示例
+
+```go
+func main() {
+
+	//获取 aurora 路由实例
+	a := aurora.New()
+
+	//加载 redis 配置
+	a.GoRedisConfig(func() map[string]interface{} {
+		return map[string]interface{}{
+			option.GOREDIS_CONFIG: &redis.Options{
+				Addr:     "xx.xxx.xxx.xxx:6379",
+				Password: "xxxxxxx",
+				DB:       0,
+			},
+		}
+	})
+	// GET 方法注册 web get请求
+	a.GET("/set", func(c *aurora.Ctx) interface{} {
+		client := a.Get(frame.GO_REDIS).(*redis.Client)
+		if err := client.Set(context.TODO(), "name", "test", 0).Err(); err != nil {
+			return err
+		}
+		return "ok!"
+	})
+	a.GET("/get", func(c *aurora.Ctx) interface{} {
+		client := a.Get(frame.GO_REDIS).(*redis.Client)
+		result, err := client.Get(context.TODO(), "name").Result()
+		if err != nil {
+			c.ERROR(err.Error())
+		}
+		return result
+	})
+	// 启动服务器 默认端口8080，更改端口号 a.Guide(”8081“) 即可
+	a.Guide()
+}
+```
+
+
+
+### RabbitMQ 连接配置
+
+```go
+package aurora
+
+import (
+	"github.com/awensir/go-aurora/aurora/frame"
+	"github.com/awensir/go-aurora/aurora/option"
+	"github.com/streadway/amqp"
+	"log"
+)
+
+// RabbitMqConfig 链接RabbitMQ address 链接地址
+//conn, err := amqp.Dial("amqp://guest:guest@localhost:5672/")
+func (a *Aurora) RabbitMqConfig(opt Opt) {
+	o:=opt()
+	conn, err := amqp.Dial(o[option.RABBITMQ_URL].(string))
+	failOnError(err, "Failed to connect to RabbitMQ")
+	a.container.store(frame.RABBITMQ, conn)
+}
+
+func failOnError(err error, msg string) {
+	if err != nil {
+		log.Fatalf("%s: %s", msg, err)
+	}
+}
+
+```
+
+### grpc配置整合
+
+#### 定义测试proto
+
+```protobuf
+syntax="proto3";
+
+option go_package="../pb";
+
+message DefaultRequest {
+  int32   a=1;
+  int64   b=2;
+  float   c=3;
+  double  g=7;
+  bool    d=4;
+  uint32  e=5;
+  uint64  f=6;
+  string  h=8;
+  bytes   i=9;
+  map<string,string> jmap=10;
+  repeated string  k=11;
+}
+
+
+message DefaultResponse {
+   string result =1;
+}
+
+service Default {
+  rpc TestDefault(DefaultRequest) returns (DefaultResponse);
+}
+```
+
+#### 实现服务定义
+
+```go
+package pb
+
+import "context"
+
+type Default struct {
+}
+
+func (d Default) TestDefault(ctx context.Context, request *DefaultRequest) (*DefaultResponse, error) {
+
+	return &DefaultResponse{Result: "success"},nil
+}
+
+func (d Default) mustEmbedUnimplementedDefaultServer() {
+	panic("implement me")
+}
+```
+
+#### 定义服务端
+
+```go
+func main() {
+	a := aurora.New()
+
+	//部署grpc
+	c, _ := credentials.NewServerTLSFromFile("ca/rootcert.pem", "ca/rootkey.pem")
+	server := grpc.NewServer(grpc.Creds(c))
+	pb.RegisterDefaultServer(server,&pb.Default{})
+	a.GrpcServer=server
+
+	a.GET("/server", func(c *aurora.Ctx) interface{} {
+
+		return "test"
+	})
+	a.GuideTLS("ca/rootcert.pem","ca/rootkey.pem","8089")
+}
+```
+
+#### 定义客户端
+
+```go
+func main() {
+	a := aurora.New()
+
+	a.GET("/client", func(c *aurora.Ctx) interface{} {
+		file, err := credentials.NewClientTLSFromFile("ca/rootcert.pem","localhost")
+		if err != nil {
+			return err
+		}
+		dial, err := grpc.Dial("127.0.0.1:8089", grpc.WithTransportCredentials(file))
+		if err != nil {
+			return err
+		}
+
+		client := pb.NewDefaultClient(dial)
+		testDefault, err := client.TestDefault(context.TODO(), &pb.DefaultRequest{})
+		if err != nil {
+			return err
+		}
+		return testDefault.Result
+	})
+	a.GuideTLS("ca/rootcert.pem","ca/rootkey.pem","8088")
+}
+```
+
+通过把grpc的 server 提交给aurora 进行 配置，达到服务端可以同时使用一个端口号进行https和grpc远程调用通讯。
+
+## 自定义配置
+
+第三方框架的整合，就是 做一个管理，支持简单的配置。管理实现基于map
+
+```go
+package aurora
+
+import (
+	"github.com/awensir/Aurora/aurora/frame"
+	"sync"
+)
+
+type containers struct {
+	rw         *sync.RWMutex
+	prototypes map[string]interface{} //容器存储的属性
+}
+
+// Get 获取容器内指定变量，不存在的key 返回默认零值
+func (c *containers) get(name string) interface{} {
+	c.rw.RLock()
+	defer c.rw.RUnlock()
+	return c.prototypes[name]
+}
+
+// Store 加载 指定变量
+func (c *containers) store(name string, variable interface{}) {
+	c.rw.Lock()
+	defer c.rw.Unlock()
+	c.prototypes[name] = variable
+}
+
+// Delete 提供删除自定义整合数据
+func (c *containers) Delete(name string) {
+	switch name {
+		// 内置整合 不允许删除
+		case frame.DB, frame.GORM, frame.GO_REDIS:
+			return
+	}
+	c.rw.Lock()
+	defer c.rw.Unlock()
+	if _, b := c.prototypes[name]; !b {
+		return
+	} else {
+		delete(c.prototypes, name)
+	}
+}
+```
+
+也可以通过容器管理托管自己的公有变量等....
+
+```go
+// Store 加载
+func (a *Aurora) Store(name string, variable interface{}) {
+	a.container.store(name, variable)
+}
+```
+
+## Pool
+
+基于sync.Pool 实现一个对全局实例，提供线程安全的使用操作，使用Pool 加载第三方配置实例 和 自定义的配置 是完全不同的方式，自定义加载的实例变量是可以多线程同时使用的，其变量实例自己做了对并发情况下的安全支持可以选择。
+
+当需要使用Pool方式实现多线程共享安全实例可以通过以下配置实现：
+
+```go
+/*
+	LoadConfiguration 加载自定义配置项，
+	Opt 必选配置项：
+	Config_key ="name"	定义配置 名，
+	Config_fun ="func"	定义配置 函数，
+	Config_opt ="opt"	定义配置 参数选项
+*/
+func (a *Aurora) LoadConfiguration(options Opt) {
+	a.lock.Lock()
+	defer a.lock.Unlock()
+	o := options()
+	key, b := o[option.Config_key].(string)
+	opt, b := o[option.Config_opt].(Opt)
+	fun, b := o[option.Config_fun].(Configuration)
+	if !b {
+		//配置选项出现问题
+		return
+	}
+	a.options[key] = &Option{
+		opt,
+		fun,
+	}
+}
+```
+
+
+
+```go
+// GetPool 获取容器池中的实例，前提是通过 Pool 向池中加载了。 GetPool 和 PutPool 必须成对出现
+func (a *Aurora) GetPool(name string) interface{}
+
+// PutPool 把取出来的 实例返回放入到池中，以便下次使用
+func (a *Aurora) PutPool(name string, v interface{})
+```
+
+
+
+## 全局配置文件管理
+
+Aurora 会默认加载项目根目录下的 application.yml 配置文件。文件不存在则不做任何处理，文件存在就读取并初始化 viper 配置变量。
+
+示例（读取默认位置）：
+
+```go
+//读取项目根目录位置
+a.ViperConfig()
+```
+
+application.yml不在默认位置，可以通过传递文件夹参数进行指定。application.yml 配置文件及其类型和名称是严格读取，不能更改的。
+
+示例：
+
+```go
+//（基于项目根目录）读取指定位置  static/config/application.yml  
+a.ViperConfig("static","config")
+```
+
+指定位置不存在仅提示错误信息
