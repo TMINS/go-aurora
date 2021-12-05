@@ -9,7 +9,6 @@ import (
 	"google.golang.org/grpc"
 
 	"html/template"
-	"log"
 	"net"
 	"net/http"
 	"os"
@@ -36,9 +35,10 @@ type Aurora struct {
 
 	MaxMultipartMemory int64 //文件上传大小配置
 
-	load      chan struct{}
-	message   chan string //启动自带的日志信息 <***>
-	initError chan error  //路由器级别错误通道 一旦初始化出错，则结束服务，检查配置 <***>
+	load       chan struct{}
+	message    chan string //启动自带的日志信息 <***>
+	errMessage chan string
+	initError  chan error //路由器级别错误通道 一旦初始化出错，则结束服务，检查配置 <***>
 
 	serviceInfo    chan string //业务 info日志 <***>
 	serviceWarning chan string //业务 警告日志 <***>
@@ -204,7 +204,7 @@ func (a *Aurora) RouteIntercept(path string, interceptor ...Interceptor) {
 	}
 	r := interceptorArgs{path: path, list: interceptor}
 	a.routeInterceptor = append(a.routeInterceptor, r)
-	//a.router.RegisterInterceptor(path, &LocalMonitor{mx: &sync.Mutex{}}, interceptor...)
+	a.router.RegisterInterceptor(path, interceptor...)
 }
 
 // DefaultInterceptor 配置默认顶级拦截器
@@ -233,12 +233,12 @@ func (a *Aurora) ViewHandle(views Views) {
 func (a *Aurora) View(ctx *Ctx, html string) {
 	parseFiles, err := template.ParseFiles(a.projectRoot + "/" + a.resource + html)
 	if err != nil {
-		log.Fatal("ParseFiles" + err.Error())
+		a.errMessage <- err.Error()
 		return
 	}
 	err = parseFiles.Execute(ctx.Response, ctx.Attribute)
 	if err != nil {
-		log.Fatal("Execute" + err.Error())
+		a.errMessage <- err.Error()
 		return
 	}
 }
@@ -293,6 +293,14 @@ func startLoading(a *Aurora) {
 			case info := <-a.message:
 				a.log.Info(info)
 
+			//服务器内部错误信息
+			case e := <-a.errMessage:
+				a.log.Error(e)
+
+			case err := <-a.initError: //启动初始化错误处理
+				a.log.Error(err.Error())
+				os.Exit(-1) //结束程序
+
 			//业务日志调用
 			case info := <-a.serviceInfo:
 				a.serviceLog.Info(info)
@@ -307,15 +315,12 @@ func startLoading(a *Aurora) {
 				a.serviceLog.Error(info)
 				os.Exit(-2) //结束程序
 
-			case err := <-a.initError: //启动初始化错误处理
-				a.log.Error(err.Error())
-				os.Exit(-1) //结束程序
 			}
 		}
 	}(a)
 }
 func print_aurora() string {
-	s := "    /\\\n   /  \\  _   _ _ __ ___  _ __ __ _\n  / /\\ \\| | | | '__/ _ \\| '__/ _` |\n / ____ \\ |_| | | | (_) | | | (_| |\n/_/    \\_\\__,_|_|  \\___/|_|  \\__,_|\n:: aurora ::   (v0.1.4.RELEASE)"
+	s := "    /\\\n   /  \\  _   _ _ __ ___  _ __ __ _\n  / /\\ \\| | | | '__/ _ \\| '__/ _` |\n / ____ \\ |_| | | | (_) | | | (_| |\n/_/    \\_\\__,_|_|  \\___/|_|  \\__,_|\n:: aurora ::   (v0.1.5.RELEASE)"
 	/*
 	       /\
 	      /  \  _   _ _ __ ___  _ __ __ _
