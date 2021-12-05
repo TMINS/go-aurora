@@ -563,6 +563,7 @@ func (r *route) search(root *node, path string, Args map[string]interface{}, rw 
 			proxy := proxy{
 				rew:             rw,
 				req:             req,
+				Interceptor:     true,
 				ServeHandler:    root.handle,
 				args:            Args,
 				ctx:             ctx,
@@ -625,6 +626,7 @@ func (r *route) search(root *node, path string, Args map[string]interface{}, rw 
 			proxy := proxy{
 				rew:             rw,
 				req:             req,
+				Interceptor:     true,
 				ServeHandler:    root.handle,
 				args:            Args,
 				ctx:             ctx,

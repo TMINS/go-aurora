@@ -50,20 +50,22 @@ func (c *Ctx) Get(name string) interface{} {
 func (c *Ctx) json(data interface{}) {
 	s, b := data.(string) //返回值如果是json字符串或者直接是字符串，将不再转码,json 二次转码对原有的json格式会进行二次转义
 	if b {
+		c.Response.WriteHeader(http.StatusOK)
 		_, err := c.Response.Write([]byte(s))
 		if err != nil {
-			fmt.Println(err.Error())
+			c.ar.errMessage <- err.Error()
 		}
 		return
 	}
 	marshal, err := json.Marshal(data)
 	if err != nil {
-		fmt.Println(err.Error())
+		c.ar.errMessage <- err.Error()
 		return
 	}
+	c.Response.WriteHeader(http.StatusOK)
 	_, err = c.Response.Write(marshal)
 	if err != nil {
-		fmt.Println(err.Error())
+		c.ar.errMessage <- err.Error()
 	}
 }
 
