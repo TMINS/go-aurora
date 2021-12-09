@@ -16,8 +16,14 @@ type Ctx struct {
 	Attribute map[string]interface{} //Context属性
 }
 
+// Viper 获取项目配置实例,未启动配置则返回nil
 func (c *Ctx) Viper() *viper.Viper {
 	return c.ar.Viper()
+}
+
+// GetRoot 获取项目根路径
+func (c *Ctx) GetRoot() string {
+	return c.ar.projectRoot
 }
 
 // Get 获取加载 ,需要转换类型后使用

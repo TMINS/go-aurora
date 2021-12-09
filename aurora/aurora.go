@@ -64,7 +64,7 @@ func New() *Aurora {
 			mx: &sync.Mutex{},
 		},
 		Server:          &http.Server{},
-		resource:        "static", //设定资源默认存储路径
+		resource:        "", //设定资源默认存储路径
 		initError:       make(chan error),
 		resourceMapType: make(map[string]string),
 		load:            make(chan struct{}),
@@ -194,7 +194,7 @@ func (a *Aurora) RouteIntercept(path string, interceptor ...Interceptor) {
 	}
 	r := interceptorArgs{path: path, list: interceptor}
 	a.routeInterceptor = append(a.routeInterceptor, r)
-	a.router.RegisterInterceptor(path, interceptor...)
+	//a.router.RegisterInterceptor(path, interceptor...)
 }
 
 // DefaultInterceptor 配置默认顶级拦截器

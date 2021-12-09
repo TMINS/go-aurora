@@ -32,7 +32,7 @@ type proxy struct {
 func (sp *proxy) start() {
 	sp.initCtx()
 	sp.before()
-	if sp.Interceptor {
+	if sp.Interceptor { //bug标记 在阻断拦截器后处于全局的拦截器得不到执行.
 		sp.execute()
 		sp.after()
 	}
@@ -124,7 +124,7 @@ func (sp *proxy) execute() {
 		}
 
 	}(sp.ctx, sp)
-	sp.result = sp.ServeHandler.controller(sp.ctx)
+	sp.result = sp.ServeHandler.Controller(sp.ctx)
 }
 
 // After 服务处理之后，主要处理业务结果
@@ -172,9 +172,7 @@ func (sp *proxy) initCtx() {
 		sp.ctx.Response = sp.rew
 		sp.ctx.rw = &sync.RWMutex{}
 		sp.ctx.ar = sp.ar
-		if sp.args != nil {
-			sp.ctx.Args = sp.args
-		}
+		sp.ctx.Args = sp.args
 	}
 }
 
@@ -198,15 +196,6 @@ func (sp *proxy) resultHandler() {
 	case WebError:
 		//处理自定义错误处理器
 		a := sp.result.(WebError)
-		//v := reflect.ValueOf(sp.result)
-		//method := v.MethodByName("ErrorHandler")
-		//value := method.Call([]reflect.Value{
-		//	reflect.ValueOf(sp.ctx),
-		//})
-		//if len(value) != 1 {
-		//	panic("Call return failed")
-		//}
-		//r := value[0].Interface()
 		sp.result = a.ErrorHandler(sp.ctx) //更新递归变量
 		sp.resultHandler()                 //递归处理错误输出
 		return

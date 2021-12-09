@@ -37,19 +37,18 @@ type routes interface {
 }
 
 type ServeHandler interface {
-	controller(c *Ctx) interface{}
+	Controller(c *Ctx) interface{}
 }
 
 type Serve func(c *Ctx) interface{}
 
-func (s Serve) controller(ctx *Ctx) interface{} {
-	//ctx.monitor.En(ExecuteInfo(nil))
+func (s Serve) Controller(ctx *Ctx) interface{} {
 	defer func(ctx *Ctx) {
 		v := recover()
 		if v != nil {
 			// 处理器发生 panic 等严重错误处理，给调用者返回 500 并返回错误描述
 			http.Error(ctx.Response, v.(string), 500)
-			fmt.Println(v)
+			return
 		}
 	}(ctx)
 	return s(ctx)
