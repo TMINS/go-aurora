@@ -2,7 +2,6 @@ package aurora
 
 import (
 	"encoding/json"
-	"fmt"
 	"github.com/spf13/viper"
 	"net/http"
 	"sync"
@@ -19,26 +18,6 @@ type Ctx struct {
 
 func (c *Ctx) Viper() *viper.Viper {
 	return c.ar.Viper()
-}
-
-// INFO 打印 info 日志信息
-func (c *Ctx) INFO(info ...interface{}) {
-	c.ar.serviceInfo <- fmt.Sprint(info...)
-}
-
-// WARN 打印 警告信息
-func (c *Ctx) WARN(warning ...interface{}) {
-	c.ar.serviceWarning <- fmt.Sprint(warning...)
-}
-
-// ERROR 打印错误信息
-func (c *Ctx) ERROR(error ...interface{}) {
-	c.ar.serviceError <- fmt.Sprint(error...)
-}
-
-// PANIC 打印信息并且结束程序
-func (c *Ctx) PANIC(panic ...interface{}) {
-	c.ar.servicePanic <- fmt.Sprint(panic...)
 }
 
 // Get 获取加载 ,需要转换类型后使用
