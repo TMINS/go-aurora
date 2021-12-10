@@ -821,7 +821,7 @@ import (
 	"github.com/awensir/go-aurora/aurora"
 )
 //真实业务处理
-func Test(ctx *aurora.Context) interface{} {
+func Test(ctx *aurora.Cxt) interface{} {
 	return "test"
 }
 func main() {
@@ -829,8 +829,8 @@ func main() {
 	a := aurora.Default()
 
 	// GET 方法注册 web get请求
-	a.GET("/", func(next aurora.Servlet) aurora.Servlet {
-		return func(ctx *aurora.Context) interface{} {
+	a.GET("/", func(next aurora.Serve) aurora.Serve {
+		return func(ctx *aurora.Cxt) interface{} {
 			fmt.Println("before")
 			v := next(ctx)
 			fmt.Println("after")
