@@ -6,7 +6,7 @@ import (
 	"sync"
 )
 
-// ServletProxy 代理 路由处理，负责生成上下文变量和调用具体处理函数
+// HandlerProxy 代理 路由处理，负责生成上下文变量和调用具体处理函数
 type proxy struct {
 	rw           sync.RWMutex
 	rew          http.ResponseWriter
@@ -196,6 +196,8 @@ func (sp *proxy) after() {
 			}
 		}
 	}(sp.ctx, sp)
+
+	// 调用结果处理
 	sp.resultHandler()
 }
 
@@ -220,7 +222,7 @@ func (sp *proxy) resultHandler() {
 			sp.view.View(sp.ctx, path) //视图解析 响应 html 页面
 			return
 		}
-		//处理重定向
+		//处理重定向，重定向本质重新走一边路由，找到对应处理的方法
 		if strings.HasPrefix(path, "forward:") {
 			path = path[8:]
 			sp.ctx.forward(path)

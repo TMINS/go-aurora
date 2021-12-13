@@ -5,10 +5,8 @@ import (
 	"fmt"
 	"github.com/spf13/viper"
 	"google.golang.org/grpc"
-	"log"
-	"time"
-
 	"html/template"
+	"log"
 	"net"
 	"net/http"
 	"os"
@@ -36,12 +34,10 @@ type Aurora struct {
 	resourceMappings map[string][]string //静态资源映射路径标识 <***>
 	resourceMapType  map[string]string   //常用的静态资源头 <--->
 
-	MaxMultipartMemory int64 //文件上传大小配置
-
-	load       chan struct{}
-	message    chan string //启动自带的日志信息 <***>
-	errMessage chan string
-	initError  chan error //路由器级别错误通道 一旦初始化出错，则结束服务，检查配置 <***>
+	MaxMultipartMemory int64       //文件上传大小配置
+	message            chan string //启动自带的日志信息 <***>
+	errMessage         chan string //服务内部api处理错误消息日志<***>
+	initError          chan error  //路由器级别错误通道 一旦初始化出错，则结束服务，检查配置 <***>
 
 	routeInterceptor []interceptorArgs     //拦截器初始华切片 <***>
 	interceptorList  []Interceptor         //全局拦截器 <***>
@@ -50,7 +46,7 @@ type Aurora struct {
 	options          map[string]*Option    // 配置项，每个第三方库/框架的唯一  	<+++>
 	cnf              *viper.Viper          // 配置实例 <***>
 	Server           *http.Server          // web服务器 <***>
-	GrpcServer       *grpc.Server          //
+	GrpcServer       *grpc.Server          // 用于接入grpc支持https服务 <***>,整合 grpc 需要 http 2
 	Ln               net.Listener          // web服务器监听
 }
 
@@ -67,7 +63,6 @@ func New() *Aurora {
 		resource:        "", //设定资源默认存储路径
 		initError:       make(chan error),
 		resourceMapType: make(map[string]string),
-		load:            make(chan struct{}),
 		message:         make(chan string),
 		container: &containers{
 			rw:         &sync.RWMutex{},
@@ -305,8 +300,4 @@ func print_aurora() string {
 
 	*/
 	return s
-}
-
-func GetTime() string {
-	return time.Now().Format("2006/01/02 15:04:05")
 }
