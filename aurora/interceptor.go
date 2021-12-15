@@ -33,6 +33,7 @@ func (de *defaultInterceptor) PostHandle(ctx *Ctx) {
 }
 
 func (de *defaultInterceptor) AfterCompletion(ctx *Ctx) {
+
 	times := time.Now().Sub(de.t)
 	re := ctx.Request
 	radd := re.RemoteAddr

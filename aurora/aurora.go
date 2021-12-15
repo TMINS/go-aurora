@@ -39,6 +39,7 @@ type Aurora struct {
 	errMessage         chan string //服务内部api处理错误消息日志<***>
 	initError          chan error  //路由器级别错误通道 一旦初始化出错，则结束服务，检查配置 <***>
 
+	plugins          []PluginFunc          //全局插件处理链，每个请求都会走一次,待完善只实现了对插件统一调用，还未做出对插件中途取消，等操作。plugin 发生panic会阻断待执行的业务处理器，可借助panic进行中断，配合ctx进行消息返回<--->
 	routeInterceptor []interceptorArgs     //拦截器初始华切片 <***>
 	interceptorList  []Interceptor         //全局拦截器 <***>
 	container        *containers           //第三方配置整合容器,原型模式

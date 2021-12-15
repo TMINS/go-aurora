@@ -10,6 +10,7 @@ import (
 type Ctx struct {
 	rw        *sync.RWMutex
 	ar        *Aurora // Aurora 引用
+	p         *proxy
 	Response  http.ResponseWriter
 	Request   *http.Request
 	Args      map[string]interface{} //REST API 参数

@@ -571,6 +571,7 @@ func (r *route) search(root *node, path string, Args map[string]interface{}, rw 
 				TreeInter:       Interceptor,
 				view:            r.defaultView, //使用路由器ServerRouter 的默认处理函数
 				ar:              r.AR,
+				plugins:         r.AR.plugins, //初始化需要执行的插件列表
 			}
 			proxy.start() //开始执行
 			return        //执行结束
@@ -634,6 +635,7 @@ func (r *route) search(root *node, path string, Args map[string]interface{}, rw 
 				view:            r.defaultView,
 				ar:              r.AR,
 				TreeInter:       Interceptor,
+				plugins:         r.AR.plugins, //初始化需要执行的插件列表
 			}
 			proxy.start()
 			return
