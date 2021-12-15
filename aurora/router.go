@@ -36,20 +36,21 @@ type routes interface {
 	HEAD(string, Serve) interface{}
 }
 
+// ServeHandler 处理函数统一实现接口
 type ServeHandler interface {
-	controller(c *Ctx) interface{}
+	Controller(c *Ctx) interface{}
 }
 
+// Serve 注册处理函数的参数类型，它实现了 ServeHandler，处理函数调用 ServeHandler 接口时候 实际内部是调用 Serve 定义的本身
 type Serve func(c *Ctx) interface{}
 
-func (s Serve) controller(ctx *Ctx) interface{} {
-	//ctx.monitor.En(ExecuteInfo(nil))
+func (s Serve) Controller(ctx *Ctx) interface{} {
 	defer func(ctx *Ctx) {
 		v := recover()
 		if v != nil {
-			// 处理器发生 panic 等严重错误处理，给调用者返回 500 并返回错误描述
+			// Serve 处理器发生 panic 等严重错误处理，给调用者返回 500 并返回错误描述
 			http.Error(ctx.Response, v.(string), 500)
-			fmt.Println(v)
+			return
 		}
 	}(ctx)
 	return s(ctx)
@@ -58,9 +59,9 @@ func (s Serve) controller(ctx *Ctx) interface{} {
 // ServerRouter Aurora核心路由器
 type route struct {
 	mx          *sync.Mutex
-	tree        map[string]*node
-	defaultView Views
-	AR          *Aurora // Aurora 引用
+	tree        map[string]*node // 路由树根节点
+	defaultView Views            // 默认视图处理器，初始化采用 Aurora 实现的函数进行渲染
+	AR          *Aurora          // Aurora 引用
 }
 
 // Node 路由节点
@@ -113,7 +114,6 @@ func (r *route) addRoute(method, path string, fun Serve) {
 // method 指定请求类型，root 根路径，Path和fun 被添加的路径和处理函数，path携带路径副本添加过程中不会有任何操作仅用于日志处理
 // method: 请求类型(日志相关参数)
 // path: 插入的路径(日志相关参数)
-// monitor: 链路日志(日志相关参数，如果需要撤掉，只要把参数和引用一起删除即可)
 func (r *route) add(method string, root *node, Path string, fun Serve, path string) {
 
 	//初始化根
@@ -571,6 +571,7 @@ func (r *route) search(root *node, path string, Args map[string]interface{}, rw 
 				TreeInter:       Interceptor,
 				view:            r.defaultView, //使用路由器ServerRouter 的默认处理函数
 				ar:              r.AR,
+				plugins:         r.AR.plugins, //初始化需要执行的插件列表
 			}
 			proxy.start() //开始执行
 			return        //执行结束
@@ -634,6 +635,7 @@ func (r *route) search(root *node, path string, Args map[string]interface{}, rw 
 				view:            r.defaultView,
 				ar:              r.AR,
 				TreeInter:       Interceptor,
+				plugins:         r.AR.plugins, //初始化需要执行的插件列表
 			}
 			proxy.start()
 			return

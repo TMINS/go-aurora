@@ -3,12 +3,10 @@ package aurora
 import (
 	"context"
 	"fmt"
-	"github.com/awensir/go-aurora/logs"
-	"github.com/sirupsen/logrus"
 	"github.com/spf13/viper"
 	"google.golang.org/grpc"
-
 	"html/template"
+	"log"
 	"net"
 	"net/http"
 	"os"
@@ -22,6 +20,9 @@ import (
 	<---> 非稳定模块，可能会随着使用的范围，出现问题
 	<+++> 进行中，还没投入使用
 */
+
+const format = "start message : %s \n"
+
 type Aurora struct {
 	lock             *sync.RWMutex
 	ctx              context.Context     //服务器顶级上下文，通过此上下文可以跳过 go web 自带的子上下文去开启纯净的子go程，结束此上下文 web服务也将结束 <***>
@@ -33,28 +34,20 @@ type Aurora struct {
 	resourceMappings map[string][]string //静态资源映射路径标识 <***>
 	resourceMapType  map[string]string   //常用的静态资源头 <--->
 
-	MaxMultipartMemory int64 //文件上传大小配置
+	MaxMultipartMemory int64       //文件上传大小配置
+	message            chan string //启动自带的日志信息 <***>
+	errMessage         chan string //服务内部api处理错误消息日志<***>
+	initError          chan error  //路由器级别错误通道 一旦初始化出错，则结束服务，检查配置 <***>
 
-	load       chan struct{}
-	message    chan string //启动自带的日志信息 <***>
-	errMessage chan string
-	initError  chan error //路由器级别错误通道 一旦初始化出错，则结束服务，检查配置 <***>
-
-	serviceInfo    chan string //业务 info日志 <***>
-	serviceWarning chan string //业务 警告日志 <***>
-	serviceError   chan string //业务 错误日志 <***>
-	servicePanic   chan string //业务 panic日志 <***>
-
+	plugins          []PluginFunc          //全局插件处理链，每个请求都会走一次,待完善只实现了对插件统一调用，还未做出对插件中途取消，等操作。plugin 发生panic会阻断待执行的业务处理器，可借助panic进行中断，配合ctx进行消息返回<--->
 	routeInterceptor []interceptorArgs     //拦截器初始华切片 <***>
 	interceptorList  []Interceptor         //全局拦截器 <***>
 	container        *containers           //第三方配置整合容器,原型模式
-	pools            map[string]*sync.Pool //容器池，用于存储配置实例，保证了在整个服务器运行期间 不会被多个线程同时占用唯一变量	     	<+++>
+	pools            map[string]*sync.Pool // 容器池，用于存储配置实例，保证了在整个服务器运行期间 不会被多个线程同时占用唯一变量	     	<+++>
 	options          map[string]*Option    // 配置项，每个第三方库/框架的唯一  	<+++>
-	log              *logrus.Logger        // Aurora 实例日志变量 <***>
-	serviceLog       *logrus.Logger        // 业务实例日志 <***>
 	cnf              *viper.Viper          // 配置实例 <***>
 	Server           *http.Server          // web服务器 <***>
-	GrpcServer       *grpc.Server          //
+	GrpcServer       *grpc.Server          // 用于接入grpc支持https服务 <***>,整合 grpc 需要 http 2
 	Ln               net.Listener          // web服务器监听
 }
 
@@ -68,27 +61,21 @@ func New() *Aurora {
 			mx: &sync.Mutex{},
 		},
 		Server:          &http.Server{},
-		resource:        "static", //设定资源默认存储路径
+		resource:        "", //设定资源默认存储路径
 		initError:       make(chan error),
 		resourceMapType: make(map[string]string),
-		load:            make(chan struct{}),
 		message:         make(chan string),
-		serviceInfo:     make(chan string),
-		serviceWarning:  make(chan string),
-		servicePanic:    make(chan string),
-		serviceError:    make(chan string),
+		errMessage:      make(chan string),
 		container: &containers{
 			rw:         &sync.RWMutex{},
 			prototypes: make(map[string]interface{}),
 		},
-		pools:      make(map[string]*sync.Pool),
-		options:    make(map[string]*Option),
-		log:        logs.NewLog(),
-		serviceLog: logs.NewServiceLog(),
+		pools:   make(map[string]*sync.Pool),
+		options: make(map[string]*Option),
 	}
 	startLoading(a)
 	loadResourceHead(a)
-	fmt.Println(print_aurora())
+	//fmt.Println(print_aurora())
 	projectRoot, _ := os.Getwd()
 	a.projectRoot = projectRoot
 	a.router.defaultView = a //初始化使用默认视图解析,aurora的视图解析是一个简单的实现，可以通过修改 a.Router.DefaultView 实现自定义的试图处理，框架最终调用此方法返回页面响应
@@ -204,7 +191,7 @@ func (a *Aurora) RouteIntercept(path string, interceptor ...Interceptor) {
 	}
 	r := interceptorArgs{path: path, list: interceptor}
 	a.routeInterceptor = append(a.routeInterceptor, r)
-	a.router.RegisterInterceptor(path, interceptor...)
+	//a.router.RegisterInterceptor(path, interceptor...)
 }
 
 // DefaultInterceptor 配置默认顶级拦截器
@@ -291,30 +278,14 @@ func startLoading(a *Aurora) {
 
 			//初始化实例日志信息
 			case info := <-a.message:
-				a.log.Info(info)
+				log.Printf(format, info)
 
 			//服务器内部错误信息
 			case e := <-a.errMessage:
-				a.log.Error(e)
+				log.Println(e)
 
 			case err := <-a.initError: //启动初始化错误处理
-				a.log.Error(err.Error())
-				os.Exit(-1) //结束程序
-
-			//业务日志调用
-			case info := <-a.serviceInfo:
-				a.serviceLog.Info(info)
-
-			case info := <-a.serviceWarning:
-				a.serviceLog.Warning(info)
-
-			case info := <-a.serviceError:
-				a.serviceLog.Error(info)
-
-			case info := <-a.servicePanic:
-				a.serviceLog.Error(info)
-				os.Exit(-2) //结束程序
-
+				log.Fatal(err)
 			}
 		}
 	}(a)

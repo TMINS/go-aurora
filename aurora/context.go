@@ -2,7 +2,6 @@ package aurora
 
 import (
 	"encoding/json"
-	"fmt"
 	"github.com/spf13/viper"
 	"net/http"
 	"sync"
@@ -11,34 +10,21 @@ import (
 type Ctx struct {
 	rw        *sync.RWMutex
 	ar        *Aurora // Aurora 引用
+	p         *proxy
 	Response  http.ResponseWriter
 	Request   *http.Request
 	Args      map[string]interface{} //REST API 参数
 	Attribute map[string]interface{} //Context属性
 }
 
+// Viper 获取项目配置实例,未启动配置则返回nil
 func (c *Ctx) Viper() *viper.Viper {
 	return c.ar.Viper()
 }
 
-// INFO 打印 info 日志信息
-func (c *Ctx) INFO(info ...interface{}) {
-	c.ar.serviceInfo <- fmt.Sprint(info...)
-}
-
-// WARN 打印 警告信息
-func (c *Ctx) WARN(warning ...interface{}) {
-	c.ar.serviceWarning <- fmt.Sprint(warning...)
-}
-
-// ERROR 打印错误信息
-func (c *Ctx) ERROR(error ...interface{}) {
-	c.ar.serviceError <- fmt.Sprint(error...)
-}
-
-// PANIC 打印信息并且结束程序
-func (c *Ctx) PANIC(panic ...interface{}) {
-	c.ar.servicePanic <- fmt.Sprint(panic...)
+// GetRoot 获取项目根路径
+func (c *Ctx) GetRoot() string {
+	return c.ar.projectRoot
 }
 
 // Get 获取加载 ,需要转换类型后使用
@@ -50,8 +36,8 @@ func (c *Ctx) Get(name string) interface{} {
 func (c *Ctx) json(data interface{}) {
 	s, b := data.(string) //返回值如果是json字符串或者直接是字符串，将不再转码,json 二次转码对原有的json格式会进行二次转义
 	if b {
-		c.Response.WriteHeader(http.StatusOK)
-		_, err := c.Response.Write([]byte(s))
+		c.Response.WriteHeader(http.StatusOK) // 写入200
+		_, err := c.Response.Write([]byte(s)) // 直接写入响应
 		if err != nil {
 			c.ar.errMessage <- err.Error()
 		}
@@ -59,6 +45,8 @@ func (c *Ctx) json(data interface{}) {
 	}
 	marshal, err := json.Marshal(data)
 	if err != nil {
+		c.Response.WriteHeader(http.StatusBadGateway)
+		_, err = c.Response.Write([]byte(err.Error()))
 		c.ar.errMessage <- err.Error()
 		return
 	}

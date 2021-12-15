@@ -32,6 +32,7 @@ import (
 const contentType = "Content-Type"
 const favicon = "favicon.ico"
 
+// Views 是整个服务器对视图渲染的核心接口,开发者实现改接口对需要展示的页面进行自定义处理
 type Views interface {
 	View(*Ctx, string)
 }
