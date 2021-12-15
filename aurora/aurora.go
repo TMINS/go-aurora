@@ -65,6 +65,7 @@ func New() *Aurora {
 		initError:       make(chan error),
 		resourceMapType: make(map[string]string),
 		message:         make(chan string),
+		errMessage:      make(chan string),
 		container: &containers{
 			rw:         &sync.RWMutex{},
 			prototypes: make(map[string]interface{}),

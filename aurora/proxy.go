@@ -2,7 +2,6 @@ package aurora
 
 import (
 	"fmt"
-	"log"
 	"net/http"
 	"strings"
 	"sync"
@@ -103,7 +102,7 @@ func (sp *proxy) start() {
 
 	if sp.AInterceptor { //判断全局 拦截器是否放行 ，如果plugin处发生了，panic 后续业务将无法执行下去
 		sp.before()
-		if sp.Interceptor {
+		if sp.Interceptor { //拦截器不放行的情况下是不走业务
 			sp.execute()
 			sp.after()
 		}
@@ -114,20 +113,26 @@ func (sp *proxy) start() {
 // Before 服务处理之前
 func (sp *proxy) before() {
 	sp.Interceptor = true //初始化放行所有拦截器
-	defer func(ctx *Ctx, sp *proxy) {
+	defer func(sp *proxy) {
 
-		//用于捕捉 拦截器发生 的panic
-		defer func() {
+		//用于捕捉 拦截器发生 的panic，此处的拦截器 发生panic后 before 阶段会结束，panic点之后的 拦截器栈不会初始化，可能导致 后续空指针，这里需要改变放行机制
+		defer func(sp *proxy) {
 			if i := recover(); i != nil {
-				log.Println(i)
+				sp.Interceptor = false
+				switch i.(type) {
+				case string:
+					sp.ar.errMessage <- fmt.Sprintf("panic: %s", i.(string))
+				case error:
+					sp.ar.errMessage <- fmt.Sprintf("panic: %s", i.(error).Error())
+				}
 				return
 			}
-		}()
+		}(sp)
 
 		//通配拦截器链
 		if sp.TreeInter != nil && len(sp.TreeInter) > 0 && sp.Interceptor { //通配拦截器
 			for _, v := range sp.TreeInter {
-				if sp.Interceptor = v.PreHandle(ctx); !sp.Interceptor {
+				if sp.Interceptor = v.PreHandle(sp.ctx); !sp.Interceptor {
 					break
 				}
 				if sp.TreeExecuteInterStack == nil && sp.TreeAfterInterStack == nil {
@@ -142,7 +147,7 @@ func (sp *proxy) before() {
 		//路径拦截器
 		if sp.InterceptorList != nil && len(sp.InterceptorList) > 0 && sp.Interceptor { //局部拦截器
 			for _, v := range sp.InterceptorList {
-				if sp.Interceptor = v.PreHandle(ctx); !sp.Interceptor {
+				if sp.Interceptor = v.PreHandle(sp.ctx); !sp.Interceptor {
 					break
 				}
 				if sp.ExecutePart == nil && sp.AfterPart == nil {
@@ -153,61 +158,31 @@ func (sp *proxy) before() {
 				sp.AfterPart.Push(v)
 			}
 		}
-	}(sp.ctx, sp)
+	}(sp)
+
 }
 
 // Execute 执行业务
 func (sp *proxy) execute() {
-	defer func(sp *proxy) {
-		//用于捕捉 拦截器发生 的panic
-		defer func() {
-			if i := recover(); i != nil {
-				switch i.(type) {
-				case string:
-					sp.ar.errMessage <- fmt.Sprintf("panic: %s", i.(string))
-				case error:
-					sp.ar.errMessage <- fmt.Sprintf("panic: %s", i.(error).Error())
-				}
-				return
-			}
-		}()
-
-		if len(sp.ar.interceptorList) > 0 { //全局拦截器,此处需要经过业务,可以不用更改调用位置
-			for {
-				if f := sp.ExecuteStack.Pull(); f != nil {
-					f.PostHandle(sp.ctx)
-				} else {
-					break
-				}
-			}
-		}
-		if sp.TreeInter != nil { //通配
-			for {
-				if f := sp.TreeExecuteInterStack.Pull(); f != nil {
-					f.PostHandle(sp.ctx)
-				} else {
-					break
-				}
-			}
-		}
-		if sp.InterceptorList != nil { //局部
-			for {
-				if f := sp.ExecutePart.Pull(); f != nil {
-					f.PostHandle(sp.ctx)
-				} else {
-					break
-				}
-			}
-		}
-	}(sp)
 	sp.result = sp.ServeHandler.Controller(sp.ctx) // 此处的panic 已在执行阶段处理，如果发生panic 被捕捉，处理函数一般直接返回为 nil，后续结果处理的部分也是 按照nil进行处理
 }
 
 // After 服务处理之后，主要处理业务结果
 func (sp *proxy) after() {
 
-	defer func(ctx *Ctx, sp *proxy) {
-		//用于捕捉 拦截器发生 的panic
+	defer func(sp *proxy) {
+		//用于捕捉 外部拦截器发生 的panic
+		if i := recover(); i != nil {
+			switch i.(type) {
+			case string:
+				sp.ar.errMessage <- fmt.Sprintf("panic: %s", i.(string))
+			case error:
+				sp.ar.errMessage <- fmt.Sprintf("panic: %s", i.(error).Error())
+			}
+			return
+		}
+
+		//用于捕捉 内部 拦截器发生 的panic
 		defer func() {
 			if i := recover(); i != nil {
 				switch i.(type) {
@@ -221,7 +196,7 @@ func (sp *proxy) after() {
 		}()
 
 		//通配
-		if sp.TreeInter != nil {
+		if sp.TreeInter != nil && sp.TreeAfterInterStack != nil {
 			for {
 				if f := sp.TreeAfterInterStack.Pull(); f != nil {
 					f.AfterCompletion(sp.ctx)
@@ -231,7 +206,7 @@ func (sp *proxy) after() {
 			}
 		}
 		//局部
-		if sp.InterceptorList != nil {
+		if sp.InterceptorList != nil && sp.AfterPart != nil {
 			for {
 				if f := sp.AfterPart.Pull(); f != nil {
 					f.AfterCompletion(sp.ctx)
@@ -240,8 +215,37 @@ func (sp *proxy) after() {
 				}
 			}
 		}
-	}(sp.ctx, sp)
+	}(sp)
 
+	if len(sp.ar.interceptorList) > 0 { //全局拦截器,此处需要经过业务,可以不用更改调用位置
+		for {
+			if f := sp.ExecuteStack.Pull(); f != nil {
+				f.PostHandle(sp.ctx)
+			} else {
+				break
+			}
+		}
+	}
+
+	if sp.TreeInter != nil && sp.TreeExecuteInterStack != nil { //通配
+		for {
+			if f := sp.TreeExecuteInterStack.Pull(); f != nil {
+				f.PostHandle(sp.ctx)
+			} else {
+				break
+			}
+		}
+	}
+
+	if sp.InterceptorList != nil && sp.ExecutePart != nil { //局部
+		for {
+			if f := sp.ExecutePart.Pull(); f != nil {
+				f.PostHandle(sp.ctx)
+			} else {
+				break
+			}
+		}
+	}
 	// 调用结果处理
 	sp.resultHandler()
 }

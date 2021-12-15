@@ -32,11 +32,13 @@ type Mm2 struct {
 
 func (m *Mm2) PreHandle(c *aurora.Ctx) bool {
 	log.Println("PreHandle Mm2")
+
 	return true
 }
 
 func (m *Mm2) PostHandle(c *aurora.Ctx) {
 	log.Println("PostHandle Mm2")
+
 }
 
 func (m *Mm2) AfterCompletion(c *aurora.Ctx) {
