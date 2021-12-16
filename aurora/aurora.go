@@ -21,7 +21,7 @@ import (
 	<+++> 进行中，还没投入使用
 */
 
-const format = "start message : %s \n"
+const format = "running message : %s \n"
 
 type Aurora struct {
 	lock             *sync.RWMutex
@@ -289,6 +289,10 @@ func startLoading(a *Aurora) {
 			}
 		}
 	}(a)
+}
+
+func (a *Aurora) ProjectPath() string {
+	return a.projectRoot
 }
 func print_aurora() string {
 	s := "    /\\\n   /  \\  _   _ _ __ ___  _ __ __ _\n  / /\\ \\| | | | '__/ _ \\| '__/ _` |\n / ____ \\ |_| | | | (_) | | | (_| |\n/_/    \\_\\__,_|_|  \\___/|_|  \\__,_|\n:: aurora ::   (v0.1.5.RELEASE)"
