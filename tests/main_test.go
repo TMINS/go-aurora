@@ -153,3 +153,35 @@ func TestPprof(t *testing.T) {
 	// 启动服务器 默认端口8080，更改端口号 a.Guide(”8081“) 即可
 	a.Guide()
 }
+
+// TestPlugins 插件中断测试
+func TestPlugins(t *testing.T) {
+	//获取 aurora 路由实例
+	a := aurora.New()
+	a.Plugin(func(ctx *aurora.Ctx) bool {
+		fmt.Println("1")
+		return true
+	}, func(ctx *aurora.Ctx) bool {
+		fmt.Println("2")
+		return true
+	}, func(ctx *aurora.Ctx) bool {
+		fmt.Println("3")
+		return true
+	}, func(ctx *aurora.Ctx) bool {
+		fmt.Println("4")
+		return true
+	}, func(ctx *aurora.Ctx) bool {
+		fmt.Println("5")
+		ctx.Message("plugin error test!")
+		return false
+	})
+	// GET 方法注册 web get请求
+	a.GET("/", func(c *aurora.Ctx) interface{} {
+
+		return nil
+	})
+
+	// 启动服务器 默认端口8080，更改端口号 a.Guide(”8081“) 即可
+	a.Guide()
+
+}
