@@ -14,7 +14,7 @@ type Ctx struct {
 	Response  http.ResponseWriter
 	Request   *http.Request
 	Args      map[string]interface{} //REST API 参数
-	Attribute map[string]interface{} //Context属性
+	Attribute *sync.Map              //Context属性域
 }
 
 // Viper 获取项目配置实例,未启动配置则返回nil
@@ -65,4 +65,17 @@ func (c *Ctx) forward(path string) {
 // Redirect 发送重定向
 func (c *Ctx) Redirect(url string, code int) {
 	http.Redirect(c.Response, c.Request, url, code)
+}
+
+// Message 主要用于在插件调用过程中出现 中断使用此方法对 用户进行响应消息
+func (c *Ctx) Message(msg string) {
+	c.Attribute.Store(plugin, msg)
+}
+
+func (c *Ctx) GetMessage(key interface{}) interface{} {
+	load, ok := c.Attribute.Load(plugin)
+	if !ok {
+		return nil
+	}
+	return load
 }

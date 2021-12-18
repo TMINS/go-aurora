@@ -1,7 +1,9 @@
 package aurora
 
 import (
+	"errors"
 	"fmt"
+	"github.com/awensir/go-aurora/aurora/is"
 	"net/http"
 	"strings"
 	"sync"
@@ -38,7 +40,8 @@ type proxy struct {
 func (sp *proxy) start() {
 	//初始化 ctx
 	sp.initCtx()
-
+	sp.AInterceptor = is.Yes //初始化放行所有全局拦截器
+	sp.Interceptor = is.Yes  //初始化放行所有路径拦截器
 	defer func(sp *proxy) {
 		//用于捕捉 plugin或上一级拦截器 执行期间的 panic
 		if i := recover(); i != nil {
@@ -77,12 +80,6 @@ func (sp *proxy) start() {
 		}
 	}(sp)
 
-	//执行插件，把插件的优先级提升到最高
-	for _, p := range sp.plugins {
-		p(sp.ctx)
-	}
-
-	sp.AInterceptor = true //初始化放行所有全局拦截器
 	//全局拦截器 运行
 	if len(sp.ar.interceptorList) > 0 {
 		for _, v := range sp.ar.interceptorList { //依次执行注册过的 拦截器
@@ -100,6 +97,24 @@ func (sp *proxy) start() {
 		}
 	}
 
+	//执行插件，插件优先级 高于路径拦截器，低于全局拦截器
+	for _, p := range sp.plugins {
+		if b := p(sp.ctx); !b {
+			//插件执行 返回false 则中断 该请求的后续执行 退出 本次请求处理，在退出服务处理之前 应该在插件层面 对 应用用户做出一个发送消息的动作 以表示在插件处理过程中出现问题
+
+			//对中断插件进行消息处理
+			message := sp.ctx.GetMessage(plugin)
+			if message == nil {
+				//如果没有拿到 Error，需要给出一个错误提示，这个消息提取不到会影响到整个框架运行逻辑因此会 painc 或者结束服务器程序
+				sp.ctx.ar.initError <- errors.New("Plugin Error Message not find")
+			}
+			//正确拿到消息后，对客户端进行响应并且发出 500 错误
+			http.Error(sp.rew, message.(string), 500)
+			//通过goto跳转掉下面的执行
+			goto PluginsEnd
+		}
+	}
+
 	if sp.AInterceptor { //判断全局 拦截器是否放行 ，如果plugin处发生了，panic 后续业务将无法执行下去
 		sp.before()
 		if sp.Interceptor { //拦截器不放行的情况下是不走业务
@@ -107,12 +122,12 @@ func (sp *proxy) start() {
 			sp.after()
 		}
 	}
-
+PluginsEnd: //结束 插调用链的执行，此处不走结果处理器
 }
 
 // Before 服务处理之前
 func (sp *proxy) before() {
-	sp.Interceptor = true //初始化放行所有拦截器
+
 	defer func(sp *proxy) {
 
 		//用于捕捉 拦截器发生 的panic，此处的拦截器 发生panic后 before 阶段会结束，panic点之后的 拦截器栈不会初始化，可能导致 后续空指针，这里需要改变放行机制
@@ -247,6 +262,7 @@ func (sp *proxy) after() {
 		}
 	}
 	// 调用结果处理
+
 	sp.resultHandler()
 }
 
@@ -281,6 +297,14 @@ func (sp *proxy) resultHandler() {
 	case nil:
 		//对结果不做出处理
 		return
+	case bool:
+		b := sp.result.(bool)
+		if b {
+
+		} else {
+
+		}
+		return
 	default:
 		//其它类型直接编码json发送
 		sp.ctx.json(sp.result)
@@ -291,10 +315,19 @@ func (sp *proxy) resultHandler() {
 func (sp *proxy) initCtx() {
 	if sp.ctx == nil {
 		sp.ctx = &Ctx{}
+		sp.ctx.Attribute = &sync.Map{}
 		sp.ctx.Request = sp.req
 		sp.ctx.Response = sp.rew
 		sp.ctx.rw = &sync.RWMutex{}
 		sp.ctx.ar = sp.ar
 		sp.ctx.Args = sp.args
 	}
+}
+
+func (sp *proxy) bad() {
+
+}
+
+func (sp *proxy) ok() {
+
 }

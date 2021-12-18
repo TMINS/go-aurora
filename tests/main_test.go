@@ -4,6 +4,7 @@ import (
 	"context"
 	"fmt"
 	"github.com/awensir/go-aurora/aurora"
+	"github.com/awensir/go-aurora/aurora/pprofs"
 	"log"
 	"nhooyr.io/websocket"
 	"nhooyr.io/websocket/wsjson"
@@ -61,6 +62,7 @@ func (m *Mm3) AfterCompletion(c *aurora.Ctx) {
 	log.Println("AfterCompletion Mm3")
 }
 
+// 拦截器测试
 func TestIntercept(t *testing.T) {
 	//获取 aurora 路由实例
 	a := aurora.New()
@@ -77,6 +79,7 @@ func TestIntercept(t *testing.T) {
 	a.Guide()
 }
 
+// TestWebSocketClient 发起socket 测试客户端
 func TestWebSocketClient(t *testing.T) {
 	ctx, cancel := context.WithTimeout(context.Background(), time.Minute)
 	defer cancel()
@@ -102,6 +105,7 @@ func TestWebSocketClient(t *testing.T) {
 	c.Close(websocket.StatusNormalClosure, "")
 }
 
+// TestWebSocketServer websocket 服务端测试
 func TestWebSocketServer(t *testing.T) {
 	//获取 aurora 路由实例
 	a := aurora.New()
@@ -130,4 +134,54 @@ func TestWebSocketServer(t *testing.T) {
 
 	// 启动服务器 默认端口8080，更改端口号 a.Guide(”8081“) 即可
 	a.Guide()
+}
+
+// TestPprof 接口执行性能测试
+func TestPprof(t *testing.T) {
+	//获取 aurora 路由实例
+	a := aurora.New()
+
+	// GET 方法注册 web get请求
+	a.GET("/", func(c *aurora.Ctx) interface{} {
+		return nil
+	})
+	a.GET("/debug/pprof/heap", pprofs.Index)
+	a.GET("/debug/pprof/cmdline", pprofs.Cmdline)
+	a.GET("/debug/pprof/profile", pprofs.Profile)
+	a.GET("/debug/pprof/symbol", pprofs.Symbol)
+	a.GET("/debug/pprof/trace", pprofs.Trace)
+	// 启动服务器 默认端口8080，更改端口号 a.Guide(”8081“) 即可
+	a.Guide()
+}
+
+// TestPlugins 插件中断测试
+func TestPlugins(t *testing.T) {
+	//获取 aurora 路由实例
+	a := aurora.New()
+	a.Plugin(func(ctx *aurora.Ctx) bool {
+		fmt.Println("1")
+		return true
+	}, func(ctx *aurora.Ctx) bool {
+		fmt.Println("2")
+		return true
+	}, func(ctx *aurora.Ctx) bool {
+		fmt.Println("3")
+		return true
+	}, func(ctx *aurora.Ctx) bool {
+		fmt.Println("4")
+		return true
+	}, func(ctx *aurora.Ctx) bool {
+		fmt.Println("5")
+		ctx.Message("plugin error test!")
+		return false
+	})
+	// GET 方法注册 web get请求
+	a.GET("/", func(c *aurora.Ctx) interface{} {
+
+		return nil
+	})
+
+	// 启动服务器 默认端口8080，更改端口号 a.Guide(”8081“) 即可
+	a.Guide()
+
 }
