@@ -21,14 +21,14 @@ type Opt func() map[string]interface{}
 // Configuration 第三方配置加载，传入指定配置项，返回被配置的对象
 type Configuration func(opt Opt) interface{}
 
-// Option 存储一个 配置实例，以便多次配置
-type Option struct {
-	Opt
+// Config 存储一个 配置实例，以便多次配置
+type Config struct {
+	Opt //配置参数
 	Configuration
 }
 
 // store 加载并返回配置实例
-func (o *Option) store() interface{} {
+func (o *Config) store() interface{} {
 	return o.Configuration(o.Opt)
 }
 

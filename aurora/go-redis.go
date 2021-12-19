@@ -18,5 +18,5 @@ func (a *Aurora) GoRedisConfig(opt Opt) {
 	if r == nil {
 		a.message <- fmt.Sprint("go-redis connection failed")
 	}
-	a.container.store(frame.GO_REDIS, r)
+	a.container.store(frame.REDIS, r)
 }

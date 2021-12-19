@@ -2,7 +2,9 @@ package aurora
 
 import (
 	"context"
+	"errors"
 	"fmt"
+	"github.com/awensir/go-aurora/aurora/frame"
 	"github.com/spf13/viper"
 	"google.golang.org/grpc"
 	"html/template"
@@ -39,16 +41,19 @@ type Aurora struct {
 	errMessage         chan string //服务内部api处理错误消息日志<***>
 	initError          chan error  //路由器级别错误通道 一旦初始化出错，则结束服务，检查配置 <***>
 
-	plugins          []PluginFunc          //全局插件处理链，每个请求都会走一次,待完善只实现了对插件统一调用，还未做出对插件中途取消，等操作。plugin 发生panic会阻断待执行的业务处理器，可借助panic进行中断，配合ctx进行消息返回<--->
-	routeInterceptor []interceptorArgs     //拦截器初始华切片 <***>
-	interceptorList  []Interceptor         //全局拦截器 <***>
-	container        *containers           //第三方配置整合容器,原型模式
-	pools            map[string]*sync.Pool // 容器池，用于存储配置实例，保证了在整个服务器运行期间 不会被多个线程同时占用唯一变量	     	<+++>
-	options          map[string]*Option    // 配置项，每个第三方库/框架的唯一  	<+++>
-	cnf              *viper.Viper          // 配置实例 <***>
-	Server           *http.Server          // web服务器 <***>
-	GrpcServer       *grpc.Server          // 用于接入grpc支持https服务 <***>,整合 grpc 需要 http 2
-	Ln               net.Listener          // web服务器监听
+	plugins          []PluginFunc      //全局插件处理链，每个请求都会走一次,待完善只实现了对插件统一调用，还未做出对插件中途取消，等操作。plugin 发生panic会阻断待执行的业务处理器，可借助panic进行中断，配合ctx进行消息返回<--->
+	routeInterceptor []interceptorArgs //拦截器初始华切片 <***>
+	interceptorList  []Interceptor     //全局拦截器 <***>
+
+	configuration map[string]interface{} //修改中
+	container     *containers            //第三方配置整合容器,原型模式，修改中
+	pools         map[string]*sync.Pool  // 容器池，用于存储配置实例，保证了在整个服务器运行期间 不会被多个线程同时占用唯一变量	     	修改中
+	config        map[string]*Config     // 配置项，每个第三方库/框架的唯一配置  	<+++>
+
+	cnf    *viper.Viper // 配置实例，读取配置文件 <***>
+	Server *http.Server // web服务器 <***>
+	grpc   *grpc.Server // 用于接入grpc支持https服务 <***>,整合 grpc 需要 http 2
+	Ln     net.Listener // web服务器监听,启动服务器时候初始化
 }
 
 // New :最基础的 Aurora 实例
@@ -62,6 +67,7 @@ func New() *Aurora {
 		},
 		Server:          &http.Server{},
 		resource:        "", //设定资源默认存储路径
+		configuration:   make(map[string]interface{}),
 		initError:       make(chan error),
 		resourceMapType: make(map[string]string),
 		message:         make(chan string),
@@ -70,8 +76,8 @@ func New() *Aurora {
 			rw:         &sync.RWMutex{},
 			prototypes: make(map[string]interface{}),
 		},
-		pools:   make(map[string]*sync.Pool),
-		options: make(map[string]*Option),
+		pools:  make(map[string]*sync.Pool),
+		config: make(map[string]*Config),
 	}
 	startLoading(a)
 	loadResourceHead(a)
@@ -95,21 +101,21 @@ func New() *Aurora {
 }
 
 // Guide 启动 Aurora 服务器，默认端口号8080
-func (a *Aurora) Guide(port ...string) {
-	a.run(port...)
+func (a *Aurora) Guide(port ...string) error {
+	return a.run(port...)
 }
 
 // GuideTLS 启动 Aurora TLS服务器，默认端口号8080
 // args[0]	证书路径参数，必选项
 // args[1]	私钥路径参数，必选项
 // args[2]	选择端口绑定参数，可选项
-func (a *Aurora) GuideTLS(args ...string) {
-	a.tls(args...)
+func (a *Aurora) GuideTLS(args ...string) error {
+	return a.tls(args...)
 }
 
-func (a *Aurora) run(port ...string) {
+func (a *Aurora) run(port ...string) error {
 	if port != nil && len(port) > 1 {
-		panic("too mach port")
+		return errors.New("too mach port")
 	}
 	if port == nil {
 		a.Server.Addr = ":" + a.port
@@ -122,15 +128,13 @@ func (a *Aurora) run(port ...string) {
 		a.port = p
 	}
 	a.Server.Handler = a
-	err := a.Server.ListenAndServe() //启动服务器
-	if err != nil {
-		a.initError <- err
-	}
+	return a.Server.ListenAndServe() //启动服务器
+
 }
 
-func (a *Aurora) tls(args ...string) {
+func (a *Aurora) tls(args ...string) error {
 	if len(args) < 2 {
-		panic("Parameter error")
+		return errors.New("parameter error")
 	}
 	if len(args) <= 2 {
 		a.Server.Addr = ":" + a.port
@@ -143,11 +147,11 @@ func (a *Aurora) tls(args ...string) {
 		a.port = p
 	}
 	//a.Server.Handler = a
-	if a.GrpcServer != nil {
+	if a.grpc != nil {
 		// 在 Aurora 和 GrpcServer 两个路由器中间 加一个原生路由器 用于 分别提供 http 和 https 服务（来自grpc 官方文档示例 url: https://pkg.go.dev/google.golang.org/grpc#NewServer ）
 		a.Server.Handler = http.HandlerFunc(func(writer http.ResponseWriter, request *http.Request) {
 			if request.ProtoMajor == 2 && strings.Contains(request.Header.Get("Content-Type"), "application/grpc") {
-				a.GrpcServer.ServeHTTP(writer, request)
+				a.grpc.ServeHTTP(writer, request)
 			} else {
 				a.ServeHTTP(writer, request)
 			}
@@ -156,10 +160,7 @@ func (a *Aurora) tls(args ...string) {
 	} else {
 		a.Server.Handler = a
 	}
-	err := a.Server.ListenAndServeTLS(args[0], args[1]) //启动服务器
-	if err != nil {
-		a.initError <- err
-	}
+	return a.Server.ListenAndServeTLS(args[0], args[1]) //启动服务器
 }
 
 // ResourceMapping 资源映射
@@ -230,6 +231,36 @@ func (a *Aurora) View(ctx *Ctx, html string) {
 	}
 }
 
+/*
+	LoadConfiguration 加载自定义配置项，
+	Opt 必选配置项：
+	frame.Name ="name"	定义配置 名，
+	frame.Func ="func"	定义配置 函数，
+	frame.Args ="opt"	定义配置 参数选项
+*/
+func (a *Aurora) LoadConfiguration(options Opt) {
+	a.lock.Lock()
+	defer a.lock.Unlock()
+	o := options()
+	name, b := o[frame.Name].(string)
+	if !b {
+		panic("Failed to read the frame.Name parameter, please check")
+	}
+	opt, b := o[frame.Args].(Opt)
+	if !b {
+		panic("Failed to read the frame.Args parameter, please check")
+	}
+	fun, b := o[frame.Func].(Configuration)
+	if !b {
+		panic("Failed to read the frame.Func parameter, please check")
+	}
+	// 生成对应配置实例保存起来
+	a.config[name] = &Config{
+		opt,
+		fun,
+	}
+}
+
 // loadingInterceptor 加载局部拦截器
 func (a *Aurora) loadingInterceptor() {
 	if a.routeInterceptor != nil {
@@ -245,10 +276,12 @@ func (a *Aurora) baseContext(ln net.Listener) context.Context {
 	//初始化 Aurora net.Listener 变量，用于整合grpc
 	a.Ln = ln
 	a.loadingInterceptor() //加载 拦截器
-	if a.GrpcServer != nil {
-		go func(ln net.Listener) {
-
-		}(ln)
+	//加载 配置项
+	if a.config != nil {
+		for k, v := range a.config {
+			//加载 名为k 的框架配置
+			a.configuration[k] = v.Configuration(v.Opt)
+		}
 	}
 	l := fmt.Sprintf("The server successfully runs on port %s", a.port)
 	c, f := context.WithCancel(context.TODO())
@@ -293,17 +326,4 @@ func startLoading(a *Aurora) {
 
 func (a *Aurora) ProjectPath() string {
 	return a.projectRoot
-}
-func print_aurora() string {
-	s := "    /\\\n   /  \\  _   _ _ __ ___  _ __ __ _\n  / /\\ \\| | | | '__/ _ \\| '__/ _` |\n / ____ \\ |_| | | | (_) | | | (_| |\n/_/    \\_\\__,_|_|  \\___/|_|  \\__,_|\n:: aurora ::   (v0.1.5.RELEASE)"
-	/*
-	       /\
-	      /  \  _   _ _ __ ___  _ __ __ _
-	     / /\ \| | | | '__/ _ \| '__/ _` |
-	    / ____ \ |_| | | | (_) | | | (_| |
-	   /_/    \_\__,_|_|  \___/|_|  \__,_|
-	   :: aurora ::   (v0.0.1.RELEASE)
-
-	*/
-	return s
 }

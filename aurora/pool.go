@@ -9,37 +9,13 @@ import (
 	通过pool的方式添加 配置，能够保证在每个线程中获取到唯一实例
 */
 
-/*
-	LoadConfiguration 加载自定义配置项，
-	Opt 必选配置项：
-	Config_key ="name"	定义配置 名，
-	Config_fun ="func"	定义配置 函数，
-	Config_opt ="opt"	定义配置 参数选项
-*/
-func (a *Aurora) LoadConfiguration(options Opt) {
-	a.lock.Lock()
-	defer a.lock.Unlock()
-	o := options()
-	key, b := o[option.Config_key].(string)
-	opt, b := o[option.Config_opt].(Opt)
-	fun, b := o[option.Config_fun].(Configuration)
-	if !b {
-		//配置选项出现问题
-		return
-	}
-	a.options[key] = &Option{
-		opt,
-		fun,
-	}
-}
-
 // Pool 读取指定配置存入 pools中，Pool用于添加配置到池中，该方法用于初始化添加，不用于 放回池
 func (a *Aurora) Pool(options Opt) {
 	a.lock.Lock()
 	defer a.lock.Unlock()
 	opt := options()
 	name := opt[option.Config_key].(string)
-	o, b := a.options[name] //拿到对应的配置 实例
+	o, b := a.config[name] //拿到对应的配置 实例
 	if o == nil && !b {
 		// 不存在对应配置
 		return
@@ -62,7 +38,7 @@ func (a *Aurora) GetPool(name string) interface{} {
 	v := p.Get()
 	if v == nil {
 		// 如果池中的变量自行销毁 则使用配置重新 初始化
-		opt := a.options[name]
+		opt := a.config[name]
 		if opt == nil {
 			return nil
 		}
