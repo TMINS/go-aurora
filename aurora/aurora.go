@@ -22,7 +22,7 @@ import (
 	<+++> 进行中，还没投入使用
 */
 
-const format = "running message : %s \n"
+const format = "0x1B[1;43;37m[INFO]0x1B[1m : %s \n"
 
 type Aurora struct {
 	lock             *sync.RWMutex
