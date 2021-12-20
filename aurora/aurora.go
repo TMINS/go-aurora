@@ -4,7 +4,6 @@ import (
 	"context"
 	"errors"
 	"fmt"
-	"github.com/awensir/go-aurora/aurora/frame"
 	"github.com/spf13/viper"
 	"google.golang.org/grpc"
 	"html/template"
@@ -45,11 +44,6 @@ type Aurora struct {
 	routeInterceptor []interceptorArgs //拦截器初始华切片 <***>
 	interceptorList  []Interceptor     //全局拦截器 <***>
 
-	configuration map[string]interface{} //修改中
-	container     *containers            //第三方配置整合容器,原型模式，修改中
-	pools         map[string]*sync.Pool  // 容器池，用于存储配置实例，保证了在整个服务器运行期间 不会被多个线程同时占用唯一变量	     	修改中
-	config        map[string]*Config     // 配置项，每个第三方库/框架的唯一配置  	<+++>
-
 	cnf    *viper.Viper // 配置实例，读取配置文件 <***>
 	Server *http.Server // web服务器 <***>
 	grpc   *grpc.Server // 用于接入grpc支持https服务 <***>,整合 grpc 需要 http 2
@@ -67,17 +61,10 @@ func New() *Aurora {
 		},
 		Server:          &http.Server{},
 		resource:        "", //设定资源默认存储路径
-		configuration:   make(map[string]interface{}),
 		initError:       make(chan error),
 		resourceMapType: make(map[string]string),
 		message:         make(chan string),
 		errMessage:      make(chan string),
-		container: &containers{
-			rw:         &sync.RWMutex{},
-			prototypes: make(map[string]interface{}),
-		},
-		pools:  make(map[string]*sync.Pool),
-		config: make(map[string]*Config),
 	}
 	startLoading(a)
 	loadResourceHead(a)
@@ -231,36 +218,6 @@ func (a *Aurora) View(ctx *Ctx, html string) {
 	}
 }
 
-/*
-	LoadConfiguration 加载自定义配置项，
-	Opt 必选配置项：
-	frame.Name ="name"	定义配置 名，
-	frame.Func ="func"	定义配置 函数，
-	frame.Args ="opt"	定义配置 参数选项
-*/
-func (a *Aurora) LoadConfiguration(options Opt) {
-	a.lock.Lock()
-	defer a.lock.Unlock()
-	o := options()
-	name, b := o[frame.Name].(string)
-	if !b {
-		panic("Failed to read the frame.Name parameter, please check")
-	}
-	opt, b := o[frame.Args].(Opt)
-	if !b {
-		panic("Failed to read the frame.Args parameter, please check")
-	}
-	fun, b := o[frame.Func].(Configuration)
-	if !b {
-		panic("Failed to read the frame.Func parameter, please check")
-	}
-	// 生成对应配置实例保存起来
-	a.config[name] = &Config{
-		opt,
-		fun,
-	}
-}
-
 // loadingInterceptor 加载局部拦截器
 func (a *Aurora) loadingInterceptor() {
 	if a.routeInterceptor != nil {
@@ -276,13 +233,7 @@ func (a *Aurora) baseContext(ln net.Listener) context.Context {
 	//初始化 Aurora net.Listener 变量，用于整合grpc
 	a.Ln = ln
 	a.loadingInterceptor() //加载 拦截器
-	//加载 配置项
-	if a.config != nil {
-		for k, v := range a.config {
-			//加载 名为k 的框架配置
-			a.configuration[k] = v.Configuration(v.Opt)
-		}
-	}
+
 	l := fmt.Sprintf("The server successfully runs on port %s", a.port)
 	c, f := context.WithCancel(context.TODO())
 	a.ctx = c
@@ -290,16 +241,6 @@ func (a *Aurora) baseContext(ln net.Listener) context.Context {
 	a.message <- fmt.Sprintf("Initialize the top-level context and clear the function")
 	a.message <- l
 	return c
-}
-
-// Get 获取加载
-func (a *Aurora) Get(name string) interface{} {
-	return a.container.get(name)
-}
-
-// Store 加载
-func (a *Aurora) Store(name string, variable interface{}) {
-	a.container.store(name, variable)
 }
 
 // startLoading 启动加载
