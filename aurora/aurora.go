@@ -32,7 +32,7 @@ type Aurora struct {
 	port             string              //服务端口号 <***>
 	router           *route              //路由服务管理 <***>
 	projectRoot      string              //项目根路径 <***>
-	resource         string              //静态资源管理 默认为 root 目录 <***>
+	resource         string              //静态资源管理 默认为 root 目录 <--->
 	resourceMappings map[string][]string //静态资源映射路径标识 <***>
 	resourceMapType  map[string]string   //常用的静态资源头 <--->
 
@@ -53,7 +53,8 @@ type Aurora struct {
 }
 
 // New :最基础的 Aurora 实例
-func New() *Aurora {
+// config:指定加载配置文件
+func New(config ...string) *Aurora {
 
 	a := &Aurora{
 		lock: &sync.RWMutex{},
@@ -62,13 +63,14 @@ func New() *Aurora {
 			mx: &sync.Mutex{},
 		},
 		Server:          &http.Server{},
-		resource:        "static", //设定资源默认存储路径
+		resource:        "/static/", //设定资源默认存储路径，需要连接项目更目录 和解析出来资源的路径，资源路径解析出来是没有前缀 “/” 的作为 resource属性，在其两边加上 斜杠
 		initError:       make(chan error),
 		resourceMapType: make(map[string]string),
 		gorms:           make(map[int][]*gorm.DB),
 		message:         make(chan string),
 		errMessage:      make(chan string),
 	}
+	a.viperConfig(config...) //加载默认位置的 application.yml
 	startLoading(a)
 	loadResourceHead(a)
 	//fmt.Println(print_aurora())
@@ -76,6 +78,23 @@ func New() *Aurora {
 	a.projectRoot = projectRoot
 	a.router.defaultView = a //初始化使用默认视图解析,aurora的视图解析是一个简单的实现，可以通过修改 a.Router.DefaultView 实现自定义的试图处理，框架最终调用此方法返回页面响应
 	a.router.AR = a
+	//加载配置文件中定义的 端口号
+	port := a.cnf.GetString("server.port")
+	if port != "" {
+		a.port = port
+	}
+	//读取配置路径
+	p := a.cnf.GetString("aurora.static")
+	if p != "" {
+		if p[:1] != "/" {
+			p = "/" + p
+		}
+		if p[len(p)-1:] != "/" {
+			p = p + "/"
+		}
+		a.resource = p
+	}
+
 	a.interceptorList = []Interceptor{
 		0: &defaultInterceptor{},
 	}
@@ -83,8 +102,6 @@ func New() *Aurora {
 	a.message <- fmt.Sprintf("Project Path:%1s", a.projectRoot)
 	a.message <- fmt.Sprintf("Default Server Port :%1s", a.port)
 
-	//加载 cnf 配置实例
-	//a.ViperConfig()
 	a.message <- fmt.Sprintf("Default Static Resource Path:%1s", a.resource)
 	a.Server.BaseContext = a.baseContext //配置 上下文对象属性
 	return a
@@ -166,11 +183,11 @@ func (a *Aurora) StaticRoot(root string) {
 	if root == "" {
 		panic(" static resource paths cannot be empty! ")
 	}
-	if strings.HasPrefix(root, "/") {
-		root = root[1:]
+	if !strings.HasPrefix(root, "/") {
+		root = "/" + root
 	}
-	if strings.HasSuffix(root, "/") {
-		root = root[:len(root)-1]
+	if !strings.HasSuffix(root, "/") {
+		root = root + "/"
 	}
 	a.resource = root
 }
@@ -237,7 +254,6 @@ func (a *Aurora) baseContext(ln net.Listener) context.Context {
 	//初始化 Aurora net.Listener 变量，用于整合grpc
 	a.Ln = ln
 	a.loadingInterceptor() //加载 拦截器
-	a.ViperConfig()        //加载默认位置的 application.yml
 	a.loadGormConfig()     //加载配置文件中的gorm配置项
 	l := fmt.Sprintf("The server successfully runs on port %s", a.port)
 	c, f := context.WithCancel(context.TODO())

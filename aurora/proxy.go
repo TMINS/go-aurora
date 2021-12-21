@@ -272,7 +272,11 @@ func (sp *proxy) resultHandler() {
 		path := sp.result.(string)
 		//处理普通页面响应
 		if strings.HasSuffix(path, ".html") {
-			sp.view.View(sp.ctx, path) //视图解析 响应 html 页面
+			if path[:1] == "/" {
+				path = path[1:]
+			}
+			path = sp.ar.projectRoot + sp.ar.resource + path //拼接文件服务器本地位置目录
+			sp.view.View(sp.ctx, path)                       //视图解析 响应 html 页面
 			return
 		}
 		//处理重定向，重定向本质重新走一边路由，找到对应处理的方法

@@ -701,28 +701,8 @@ func (a *Aurora) ServeHTTP(rw http.ResponseWriter, req *http.Request) {
 	}
 
 	if index := strings.LastIndex(mapping, "."); index != -1 { //此处判断这个请求可能为静态资源处理
-		t := mapping[index+1:] //截取可能的资源类型,（图片类型存在不同，待解决）
-
-		resourceUrl := req.Header.Get("Referer")
-		if i := strings.LastIndex(resourceUrl, "/"); i != -1 {
-			resourceUrl = resourceUrl[:i+1]
-		}
-		resourceLen := len(resourceUrl)
-		fmt.Println(resourceLen)
-		h := len(req.Host)
-		sub := ""
-		if i := strings.LastIndex(resourceUrl, req.Host); i != -1 {
-			sub = resourceUrl[i+h:]
-		}
-
-		fmt.Println(sub)
-		slen := len(sub)
-
-		m := mapping[slen:]
-
-		fmt.Println(m)
-
-		a.resourceFun(rw, mapping, m, t)
+		t := mapping[index:] //截取可能的资源类型,（图片类型存在不同，待解决）
+		a.resourceHandler(rw, req, mapping, t)
 		return
 	}
 

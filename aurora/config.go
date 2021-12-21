@@ -15,7 +15,10 @@ const FILE = "application.yml"
 	默认读取配置文件的位置为根目录l application.ym
 */
 // ViperConfig 配置并加载 application.yml 配置文件
-func (a *Aurora) ViperConfig(p ...string) {
+func (a *Aurora) viperConfig(p ...string) {
+	if a.cnf != nil {
+		return
+	}
 	a.cnf = viper.New() //创建配置文件实例
 	cnf := make([]string, 0)
 	cnf = append(cnf, a.projectRoot) //添加项目根路径
