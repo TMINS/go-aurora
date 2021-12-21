@@ -1,6 +1,7 @@
 package aurora
 
 import (
+	"encoding/json"
 	"errors"
 	"fmt"
 	"net/http"
@@ -49,7 +50,19 @@ func (s Serve) Controller(ctx *Ctx) interface{} {
 		v := recover()
 		if v != nil {
 			// Serve 处理器发生 panic 等严重错误处理，给调用者返回 500 并返回错误描述
-			http.Error(ctx.Response, v.(string), 500)
+			switch v.(type) {
+			case string:
+				http.Error(ctx.Response, v.(string), 500)
+			case error:
+				http.Error(ctx.Response, v.(error).Error(), 500)
+			default:
+				marshal, err := json.Marshal(v)
+				if err != nil {
+					fmt.Println(err.Error())
+					return
+				}
+				http.Error(ctx.Response, string(marshal), 500)
+			}
 			return
 		}
 	}(ctx)
@@ -687,20 +700,29 @@ func (a *Aurora) ServeHTTP(rw http.ResponseWriter, req *http.Request) {
 		return
 	}
 
-	if index := strings.LastIndex(mapping, "."); index != -1 { //静态资源处理
-		t := mapping[index+1:]             //截取资源类型,（图片类型存在不同，待解决）
-		paths, ok := a.resourceMappings[t] //资源对应的路径映射
-		if !ok {
-			http.Error(rw, newErrorResponse(mapping, "The server static resource related configuration does not exist or the accessed resource is not on the server", 500), 500)
-			return
+	if index := strings.LastIndex(mapping, "."); index != -1 { //此处判断这个请求可能为静态资源处理
+		t := mapping[index+1:] //截取可能的资源类型,（图片类型存在不同，待解决）
+
+		resourceUrl := req.Header.Get("Referer")
+		if i := strings.LastIndex(resourceUrl, "/"); i != -1 {
+			resourceUrl = resourceUrl[:i+1]
 		}
-		mp := ""
-		for _, v := range paths {
-			if i := strings.LastIndex(mapping, v); i != -1 { //查看路径是否匹配
-				mp = mapping[i:] //找到匹配的一条映射,截取到真实资源路径
-			}
+		resourceLen := len(resourceUrl)
+		fmt.Println(resourceLen)
+		h := len(req.Host)
+		sub := ""
+		if i := strings.LastIndex(resourceUrl, req.Host); i != -1 {
+			sub = resourceUrl[i+h:]
 		}
-		a.resourceFun(rw, mapping, mp, t)
+
+		fmt.Println(sub)
+		slen := len(sub)
+
+		m := mapping[slen:]
+
+		fmt.Println(m)
+
+		a.resourceFun(rw, mapping, m, t)
 		return
 	}
 

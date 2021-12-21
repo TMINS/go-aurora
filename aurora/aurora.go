@@ -4,9 +4,9 @@ import (
 	"context"
 	"errors"
 	"fmt"
-	"github.com/awensir/go-aurora/aurora/frame"
 	"github.com/spf13/viper"
 	"google.golang.org/grpc"
+	"gorm.io/gorm"
 	"html/template"
 	"log"
 	"net"
@@ -23,7 +23,7 @@ import (
 	<+++> 进行中，还没投入使用
 */
 
-const format = "running message : %s \n"
+const format = "[INFO]: %s \n"
 
 type Aurora struct {
 	lock             *sync.RWMutex
@@ -41,14 +41,10 @@ type Aurora struct {
 	errMessage         chan string //服务内部api处理错误消息日志<***>
 	initError          chan error  //路由器级别错误通道 一旦初始化出错，则结束服务，检查配置 <***>
 
-	plugins          []PluginFunc      //全局插件处理链，每个请求都会走一次,待完善只实现了对插件统一调用，还未做出对插件中途取消，等操作。plugin 发生panic会阻断待执行的业务处理器，可借助panic进行中断，配合ctx进行消息返回<--->
-	routeInterceptor []interceptorArgs //拦截器初始华切片 <***>
-	interceptorList  []Interceptor     //全局拦截器 <***>
-
-	configuration map[string]interface{} //修改中
-	container     *containers            //第三方配置整合容器,原型模式，修改中
-	pools         map[string]*sync.Pool  // 容器池，用于存储配置实例，保证了在整个服务器运行期间 不会被多个线程同时占用唯一变量	     	修改中
-	config        map[string]*Config     // 配置项，每个第三方库/框架的唯一配置  	<+++>
+	plugins          []PluginFunc       //全局插件处理链，每个请求都会走一次,待完善只实现了对插件统一调用，还未做出对插件中途取消，等操作。plugin 发生panic会阻断待执行的业务处理器，可借助panic进行中断，配合ctx进行消息返回<--->
+	routeInterceptor []interceptorArgs  //拦截器初始华切片 <***>
+	interceptorList  []Interceptor      //全局拦截器 <***>
+	gorms            map[int][]*gorm.DB //存储gorm各种类型的连接实例，默认初始化从配置文件中读取
 
 	cnf    *viper.Viper // 配置实例，读取配置文件 <***>
 	Server *http.Server // web服务器 <***>
@@ -66,18 +62,12 @@ func New() *Aurora {
 			mx: &sync.Mutex{},
 		},
 		Server:          &http.Server{},
-		resource:        "", //设定资源默认存储路径
-		configuration:   make(map[string]interface{}),
+		resource:        "static", //设定资源默认存储路径
 		initError:       make(chan error),
 		resourceMapType: make(map[string]string),
+		gorms:           make(map[int][]*gorm.DB),
 		message:         make(chan string),
 		errMessage:      make(chan string),
-		container: &containers{
-			rw:         &sync.RWMutex{},
-			prototypes: make(map[string]interface{}),
-		},
-		pools:  make(map[string]*sync.Pool),
-		config: make(map[string]*Config),
 	}
 	startLoading(a)
 	loadResourceHead(a)
@@ -219,6 +209,7 @@ func (a *Aurora) ViewHandle(views Views) {
 
 // View 默认视图解析
 func (a *Aurora) View(ctx *Ctx, html string) {
+
 	parseFiles, err := template.ParseFiles(a.projectRoot + "/" + a.resource + html)
 	if err != nil {
 		a.errMessage <- err.Error()
@@ -228,36 +219,6 @@ func (a *Aurora) View(ctx *Ctx, html string) {
 	if err != nil {
 		a.errMessage <- err.Error()
 		return
-	}
-}
-
-/*
-	LoadConfiguration 加载自定义配置项，
-	Opt 必选配置项：
-	frame.Name ="name"	定义配置 名，
-	frame.Func ="func"	定义配置 函数，
-	frame.Args ="opt"	定义配置 参数选项
-*/
-func (a *Aurora) LoadConfiguration(options Opt) {
-	a.lock.Lock()
-	defer a.lock.Unlock()
-	o := options()
-	name, b := o[frame.Name].(string)
-	if !b {
-		panic("Failed to read the frame.Name parameter, please check")
-	}
-	opt, b := o[frame.Args].(Opt)
-	if !b {
-		panic("Failed to read the frame.Args parameter, please check")
-	}
-	fun, b := o[frame.Func].(Configuration)
-	if !b {
-		panic("Failed to read the frame.Func parameter, please check")
-	}
-	// 生成对应配置实例保存起来
-	a.config[name] = &Config{
-		opt,
-		fun,
 	}
 }
 
@@ -276,13 +237,8 @@ func (a *Aurora) baseContext(ln net.Listener) context.Context {
 	//初始化 Aurora net.Listener 变量，用于整合grpc
 	a.Ln = ln
 	a.loadingInterceptor() //加载 拦截器
-	//加载 配置项
-	if a.config != nil {
-		for k, v := range a.config {
-			//加载 名为k 的框架配置
-			a.configuration[k] = v.Configuration(v.Opt)
-		}
-	}
+	a.ViperConfig()        //加载默认位置的 application.yml
+	a.loadGormConfig()     //加载配置文件中的gorm配置项
 	l := fmt.Sprintf("The server successfully runs on port %s", a.port)
 	c, f := context.WithCancel(context.TODO())
 	a.ctx = c
@@ -290,16 +246,6 @@ func (a *Aurora) baseContext(ln net.Listener) context.Context {
 	a.message <- fmt.Sprintf("Initialize the top-level context and clear the function")
 	a.message <- l
 	return c
-}
-
-// Get 获取加载
-func (a *Aurora) Get(name string) interface{} {
-	return a.container.get(name)
-}
-
-// Store 加载
-func (a *Aurora) Store(name string, variable interface{}) {
-	a.container.store(name, variable)
 }
 
 // startLoading 启动加载

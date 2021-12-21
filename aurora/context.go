@@ -3,6 +3,7 @@ package aurora
 import (
 	"encoding/json"
 	"github.com/spf13/viper"
+	"gorm.io/gorm"
 	"net/http"
 	"sync"
 )
@@ -27,9 +28,44 @@ func (c *Ctx) GetRoot() string {
 	return c.ar.projectRoot
 }
 
-// Get 获取加载 ,需要转换类型后使用
-func (c *Ctx) Get(name string) interface{} {
-	return c.ar.Get(name)
+// Mysql 获取注册的 默认 mysql
+func (c *Ctx) Mysql() *gorm.DB {
+	return get(c.ar.gorms, Mysql, 0)
+}
+
+// SQLite 获取注册的 默认 SQLite
+func (c *Ctx) SQLite() *gorm.DB {
+	return get(c.ar.gorms, SQLite, 0)
+}
+
+// PostgreSql 获取注册的 默认 PostgreSql
+func (c *Ctx) PostgreSql() *gorm.DB {
+	return get(c.ar.gorms, Postgresql, 0)
+}
+
+// SqlServer 获取注册的 默认 SqlServer
+func (c *Ctx) SqlServer() *gorm.DB {
+	return get(c.ar.gorms, SqlServer, 0)
+}
+
+// MysqlList 获取注册的 默认 mysql
+func (c *Ctx) MysqlList(index int) *gorm.DB {
+	return get(c.ar.gorms, Mysql, index)
+}
+
+// SQLiteList 获取注册的 默认 SQLite
+func (c *Ctx) SQLiteList(index int) *gorm.DB {
+	return get(c.ar.gorms, SQLite, index)
+}
+
+// PostgreSqlList 获取注册的 默认 PostgreSql
+func (c *Ctx) PostgreSqlList(index int) *gorm.DB {
+	return get(c.ar.gorms, Postgresql, index)
+}
+
+// SqlServerList 获取注册的 默认 SqlServer
+func (c *Ctx) SqlServerList(index int) *gorm.DB {
+	return get(c.ar.gorms, SqlServer, index)
 }
 
 // JSON 向浏览器输出json数据
