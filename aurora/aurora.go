@@ -6,6 +6,7 @@ import (
 	"fmt"
 	"github.com/spf13/viper"
 	"google.golang.org/grpc"
+	"gorm.io/gorm"
 	"html/template"
 	"log"
 	"net"
@@ -22,7 +23,7 @@ import (
 	<+++> 进行中，还没投入使用
 */
 
-const format = "0x1B[1;43;37m[INFO]0x1B[1m : %s \n"
+const format = "[INFO]: %s \n"
 
 type Aurora struct {
 	lock             *sync.RWMutex
@@ -40,9 +41,10 @@ type Aurora struct {
 	errMessage         chan string //服务内部api处理错误消息日志<***>
 	initError          chan error  //路由器级别错误通道 一旦初始化出错，则结束服务，检查配置 <***>
 
-	plugins          []PluginFunc      //全局插件处理链，每个请求都会走一次,待完善只实现了对插件统一调用，还未做出对插件中途取消，等操作。plugin 发生panic会阻断待执行的业务处理器，可借助panic进行中断，配合ctx进行消息返回<--->
-	routeInterceptor []interceptorArgs //拦截器初始华切片 <***>
-	interceptorList  []Interceptor     //全局拦截器 <***>
+	plugins          []PluginFunc       //全局插件处理链，每个请求都会走一次,待完善只实现了对插件统一调用，还未做出对插件中途取消，等操作。plugin 发生panic会阻断待执行的业务处理器，可借助panic进行中断，配合ctx进行消息返回<--->
+	routeInterceptor []interceptorArgs  //拦截器初始华切片 <***>
+	interceptorList  []Interceptor      //全局拦截器 <***>
+	gorms            map[int][]*gorm.DB //存储gorm各种类型的连接实例，默认初始化从配置文件中读取
 
 	cnf    *viper.Viper // 配置实例，读取配置文件 <***>
 	Server *http.Server // web服务器 <***>
@@ -60,9 +62,10 @@ func New() *Aurora {
 			mx: &sync.Mutex{},
 		},
 		Server:          &http.Server{},
-		resource:        "", //设定资源默认存储路径
+		resource:        "static", //设定资源默认存储路径
 		initError:       make(chan error),
 		resourceMapType: make(map[string]string),
+		gorms:           make(map[int][]*gorm.DB),
 		message:         make(chan string),
 		errMessage:      make(chan string),
 	}
@@ -206,6 +209,7 @@ func (a *Aurora) ViewHandle(views Views) {
 
 // View 默认视图解析
 func (a *Aurora) View(ctx *Ctx, html string) {
+
 	parseFiles, err := template.ParseFiles(a.projectRoot + "/" + a.resource + html)
 	if err != nil {
 		a.errMessage <- err.Error()
@@ -233,7 +237,8 @@ func (a *Aurora) baseContext(ln net.Listener) context.Context {
 	//初始化 Aurora net.Listener 变量，用于整合grpc
 	a.Ln = ln
 	a.loadingInterceptor() //加载 拦截器
-
+	a.ViperConfig()        //加载默认位置的 application.yml
+	a.loadGormConfig()     //加载配置文件中的gorm配置项
 	l := fmt.Sprintf("The server successfully runs on port %s", a.port)
 	c, f := context.WithCancel(context.TODO())
 	a.ctx = c
