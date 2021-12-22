@@ -31,21 +31,20 @@ func (a *Aurora) viperConfig(p ...string) {
 		_, err := os.Lstat(pat)
 		if err != nil {
 			if os.IsNotExist(err) {
-				a.message <- fmt.Sprintf("No configuration file loaded")
+				a.message <- fmt.Sprintf("配置文件不存在，加载失败")
 			}
 			return
 		}
 	}
 	cnf = append(cnf, FILE)
 	conf := path.Join(cnf...)
-	a.cnf.SetConfigType("yml")
 	a.cnf.SetConfigFile(conf)
 	err := a.cnf.ReadInConfig()
 	if err != nil {
 		a.message <- err.Error()
 		return
 	}
-	a.message <- fmt.Sprint("Aurora Configuration file loaded successfully")
+	a.message <- fmt.Sprint("配置文件加载成功.")
 }
 
 // Viper 获取 Aurora viper实例

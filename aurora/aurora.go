@@ -15,6 +15,7 @@ import (
 	"runtime"
 	"strings"
 	"sync"
+	"time"
 )
 
 /*
@@ -23,7 +24,7 @@ import (
 	<+++> 进行中，还没投入使用
 */
 
-const format = "[INFO]: %s \n"
+const format = "[信息]:%s \n"
 
 type Aurora struct {
 	lock             *sync.RWMutex
@@ -63,17 +64,18 @@ func New(config ...string) *Aurora {
 			mx: &sync.Mutex{},
 		},
 		Server:          &http.Server{},
-		resource:        "/static/", //设定资源默认存储路径，需要连接项目更目录 和解析出来资源的路径，资源路径解析出来是没有前缀 “/” 的作为 resource属性，在其两边加上 斜杠
+		resource:        "", //设定资源默认存储路径，需要连接项目更目录 和解析出来资源的路径，资源路径解析出来是没有前缀 “/” 的作为 resource属性，在其两边加上 斜杠
 		initError:       make(chan error),
 		resourceMapType: make(map[string]string),
 		gorms:           make(map[int][]*gorm.DB),
 		message:         make(chan string),
 		errMessage:      make(chan string),
 	}
-	a.viperConfig(config...) //加载默认位置的 application.yml
 	startLoading(a)
-	loadResourceHead(a)
-	//fmt.Println(print_aurora())
+	time.Sleep(1 * time.Second)
+	a.message <- fmt.Sprintf("Golang 版本信息:%1s", runtime.Version())
+	a.message <- fmt.Sprintf("开始加载application.yml配置文件.")
+	a.viperConfig(config...) //加载默认位置的 application.yml
 	projectRoot, _ := os.Getwd()
 	a.projectRoot = projectRoot
 	a.router.defaultView = a //初始化使用默认视图解析,aurora的视图解析是一个简单的实现，可以通过修改 a.Router.DefaultView 实现自定义的试图处理，框架最终调用此方法返回页面响应
@@ -98,11 +100,11 @@ func New(config ...string) *Aurora {
 	a.interceptorList = []Interceptor{
 		0: &defaultInterceptor{},
 	}
-	a.message <- fmt.Sprintf("Golang Version :%1s", runtime.Version())
-	a.message <- fmt.Sprintf("Project Path:%1s", a.projectRoot)
-	a.message <- fmt.Sprintf("Default Server Port :%1s", a.port)
-
-	a.message <- fmt.Sprintf("Default Static Resource Path:%1s", a.resource)
+	a.message <- fmt.Sprintf("项目根路径信息:%1s", a.projectRoot)
+	a.message <- fmt.Sprintf("服务器端口号:%1s", a.port)
+	a.message <- fmt.Sprintf("服务器静态资源根目录:%1s", a.resource)
+	loadResourceHead(a)                  //加载静态资源头
+	a.loadGormConfig()                   //加载配置文件中的gorm配置项
 	a.Server.BaseContext = a.baseContext //配置 上下文对象属性
 	return a
 }
@@ -170,18 +172,18 @@ func (a *Aurora) tls(args ...string) error {
 	return a.Server.ListenAndServeTLS(args[0], args[1]) //启动服务器
 }
 
-// ResourceMapping 资源映射
+// ResourceMapping 资源映射(暂时弃用)
 //添加静态资源配置，t资源类型必须以置源后缀命名，
 //paths为t类型资源的子路径，可以一次性设置多个。
 //每个资源类型最调用一次设置方法否则覆盖原有设置
-func (a *Aurora) ResourceMapping(Type string, Paths ...string) {
+func (a *Aurora) resourceMapping(Type string, Paths ...string) {
 	a.registerResourceType(Type, Paths...)
 }
 
-// StaticRoot 设置静态资源根路径
+// StaticRoot 设置静态资源根路径，会覆盖配置文件选项
 func (a *Aurora) StaticRoot(root string) {
 	if root == "" {
-		panic(" static resource paths cannot be empty! ")
+		a.resource = "/"
 	}
 	if !strings.HasPrefix(root, "/") {
 		root = "/" + root
@@ -227,7 +229,7 @@ func (a *Aurora) ViewHandle(views Views) {
 // View 默认视图解析
 func (a *Aurora) View(ctx *Ctx, html string) {
 
-	parseFiles, err := template.ParseFiles(a.projectRoot + "/" + a.resource + html)
+	parseFiles, err := template.ParseFiles(html)
 	if err != nil {
 		a.errMessage <- err.Error()
 		return
@@ -254,12 +256,11 @@ func (a *Aurora) baseContext(ln net.Listener) context.Context {
 	//初始化 Aurora net.Listener 变量，用于整合grpc
 	a.Ln = ln
 	a.loadingInterceptor() //加载 拦截器
-	a.loadGormConfig()     //加载配置文件中的gorm配置项
-	l := fmt.Sprintf("The server successfully runs on port %s", a.port)
+	l := fmt.Sprintf("服务器成功绑定到端口:%s", a.port)
 	c, f := context.WithCancel(context.TODO())
 	a.ctx = c
 	a.cancel = f
-	a.message <- fmt.Sprintf("Initialize the top-level context and clear the function")
+	a.message <- fmt.Sprintf("初始化上下文实例和清除函数.")
 	a.message <- l
 	return c
 }

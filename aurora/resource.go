@@ -5,7 +5,6 @@ import (
 	"fmt"
 	"github.com/spf13/viper"
 	"io/ioutil"
-	"log"
 	"net/http"
 	"os"
 	"strings"
@@ -24,17 +23,16 @@ import (
 	在html文件中 正确的映入方式应是   ../js/xxx.js 或者  ../css/xxx.css
 
 	浏览器如何对服务器资源进行请求
-		1.当一个请求返回的是一个服务器html页面，浏览器接到响应解析请求头，会根据之前发送请求的url对返回的页面进行构建一个和服务器内部静态资源存储相同目录结构
-		2.根据浏览器生成的目录结构，浏览器解析到html上面有导入资源，会自动携带url这个信息去查找服务器上的资源
+		1.当一个请求返回的是一个服务器html页面，浏览器接到响应解析请求头，会根据之前发送请求的url对返回的页面进行构建一个（接口站点信息），这个站点信息就是访问服务器的接口全路径
+		2.根据浏览器生成的站点信息，浏览器解析到html上面有导入资源，会自动携带url这个信息去查找服务器上的资源
 		3.服务器需要解析结构得到正确存储路径，才能够响应给请求者
 		4.得到静态资源，会把该资源放到构建好的目录中，以便html能够正确引入资源
 
-	如此我们需要配置一个专门处理这一类请求的服务
 	Golang Web 默认处理静态资源 是通过写入的方式
 */
 
 const contentType = "Content-Type"
-const favicon = "favicon.ico"
+const favicon = "/favicon.ico"
 
 // Views 是整个服务器对视图渲染的核心接口,开发者实现改接口对需要展示的页面进行自定义处理
 type Views interface {
@@ -61,8 +59,8 @@ func (a *Aurora) resourceFun(w http.ResponseWriter, mapping string, path string,
 		sendResource(w, data)
 		return
 	}
-	//http.NotFound(w,req)  //没有读取到对应静态资源，发送404
-	http.Error(w, newErrorResponse(mapping, "The server static resource does not exist", 500), 500)
+	w.Header().Set(contentType, a.resourceMapType[".json"])
+	http.Error(w, newErrorResponse(mapping, "服务器静态资源不存在", 500), 500)
 }
 
 // SendResource 发送静态资源
@@ -108,7 +106,7 @@ func (a *Aurora) registerResourceType(t string, paths ...string) {
 }
 
 func (a *Aurora) resourceHandler(w http.ResponseWriter, req *http.Request, mapping, t string) {
-	if mapping == "/favicon.ico" {
+	if mapping == favicon {
 		http.NotFound(w, req)
 		return
 	}
@@ -130,13 +128,14 @@ func (a *Aurora) resourceHandler(w http.ResponseWriter, req *http.Request, mappi
 }
 
 func loadResourceHead(a *Aurora) {
+	a.message <- fmt.Sprintf("开始导入服务器请求静态资源头信息")
 	v := viper.New()
 	//设置viper读取json格式的配置
 	v.SetConfigType("json")
 	//读取 static 的配置串 见方法下面的全局变量
 	err := v.ReadConfig(bytes.NewBuffer(static))
 	if err != nil {
-		log.Fatalln(err.Error())
+		a.errMessage <- fmt.Sprintf("服务器请求静态资源头信息导入失败")
 		return
 	}
 	s := v.GetStringMapString("type")

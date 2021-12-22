@@ -296,6 +296,7 @@ func (sp *proxy) resultHandler() {
 	case error:
 		//直接返回错误处理,让调用者根据错误进行处理
 		sp.ctx.SetStatus(500)
+		sp.ctx.Response.Header().Set(contentType, sp.ctx.ar.resourceMapType[".json"])
 		sp.ctx.json("error:" + sp.result.(error).Error())
 		return
 	case nil:
