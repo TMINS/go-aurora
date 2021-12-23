@@ -10,6 +10,7 @@ import (
 	"log"
 	"nhooyr.io/websocket"
 	"nhooyr.io/websocket/wsjson"
+	"regexp"
 	"testing"
 	"time"
 )
@@ -265,12 +266,12 @@ func TestLog(t *testing.T) {
 	time.Sleep(5 * time.Second)
 }
 
-type Config struct {
-}
-
-func (c *Config) Read(p []byte) (n int, err error) {
-	fmt.Println(p)
-	return 0, nil
+func TestJ(t *testing.T) {
+	//s := "{\n    \"name\":\"test\",\n    \"age\":15,\n    \"gender\":\"nv\"\n}"
+	s := "23 a56"
+	compile := regexp.MustCompile("\\d*")
+	find := compile.FindAllString(s, -1)
+	fmt.Println(find)
 }
 
 func TestConfigFile(t *testing.T) {

@@ -695,7 +695,7 @@ func (r *route) search(root *node, path string, Args map[string]interface{}, rw 
 // ServeHTTP 一切的开始
 func (a *Aurora) ServeHTTP(rw http.ResponseWriter, req *http.Request) {
 
-	mapping := req.RequestURI
+	mapping := req.URL.Path
 	if err := checkUrl(mapping); err != nil {
 		rw.Header().Set(contentType, a.resourceMapType[".json"])
 		http.Error(rw, newErrorResponse(mapping, "rest ful 路径格式不正确，不能包含符号'{'或'}',"+err.Error(), 500), 500)
@@ -703,7 +703,7 @@ func (a *Aurora) ServeHTTP(rw http.ResponseWriter, req *http.Request) {
 	}
 
 	if index := strings.LastIndex(mapping, "."); index != -1 { //此处判断这个请求可能为静态资源处理
-		t := mapping[index:] //截取可能的资源类型,（图片类型存在不同，待解决）
+		t := mapping[index:] //截取可能的资源类型
 		a.resourceHandler(rw, req, mapping, t)
 		return
 	}

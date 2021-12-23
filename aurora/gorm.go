@@ -186,14 +186,17 @@ func (a Aurora) SqlServer() *gorm.DB {
 	return get(a.gorms, SqlServer, 0)
 }
 
-func (a *Aurora) RegisterGorm(dbtype int, db *gorm.DB) {
+func (a *Aurora) RegisterGorm(dbtype int, db *gorm.DB) int {
 	if _, b := a.gorms[dbtype]; !b {
 		a.gorms[dbtype] = make([]*gorm.DB, 0)
 	}
 	dbs := a.gorms[dbtype]
 	if dbs != nil {
 		dbs = append(dbs, db)
+		a.gorms[dbtype] = dbs
+		return len(dbs) - 1
 	}
+	return -1
 }
 
 func get(gorms map[int][]*gorm.DB, db int, index int) *gorm.DB {
