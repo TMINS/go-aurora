@@ -4,6 +4,7 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"github.com/go-redis/redis/v8"
 	"github.com/spf13/viper"
 	"google.golang.org/grpc"
 	"gorm.io/gorm"
@@ -33,9 +34,9 @@ type Aurora struct {
 	port             string              //服务端口号 <***>
 	router           *route              //路由服务管理 <***>
 	projectRoot      string              //项目根路径 <***>
-	resource         string              //静态资源管理 默认为 root 目录 <--->
+	resource         string              //静态资源管理 默认为 root 目录 <***>
 	resourceMappings map[string][]string //静态资源映射路径标识 <***>
-	resourceMapType  map[string]string   //常用的静态资源头 <--->
+	resourceMapType  map[string]string   //常用的静态资源头 <***>
 
 	MaxMultipartMemory int64       //文件上传大小配置
 	message            chan string //启动自带的日志信息 <***>
@@ -45,7 +46,8 @@ type Aurora struct {
 	plugins          []PluginFunc       //全局插件处理链，每个请求都会走一次,待完善只实现了对插件统一调用，还未做出对插件中途取消，等操作。plugin 发生panic会阻断待执行的业务处理器，可借助panic进行中断，配合ctx进行消息返回<--->
 	routeInterceptor []interceptorArgs  //拦截器初始华切片 <***>
 	interceptorList  []Interceptor      //全局拦截器 <***>
-	gorms            map[int][]*gorm.DB //存储gorm各种类型的连接实例，默认初始化从配置文件中读取
+	gorms            map[int][]*gorm.DB //存储gorm各种类型的连接实例，默认初始化从配置文件中读取<***>
+	goredis          []*redis.Client    //存储go-redis 配置实例
 
 	cnf    *viper.Viper // 配置实例，读取配置文件 <***>
 	Server *http.Server // web服务器 <***>
@@ -103,8 +105,9 @@ func New(config ...string) *Aurora {
 	a.message <- fmt.Sprintf("项目根路径信息:%1s", a.projectRoot)
 	a.message <- fmt.Sprintf("服务器端口号:%1s", a.port)
 	a.message <- fmt.Sprintf("服务器静态资源根目录:%1s", a.resource)
-	loadResourceHead(a)                  //加载静态资源头
-	a.loadGormConfig()                   //加载配置文件中的gorm配置项
+	loadResourceHead(a) //加载静态资源头
+	a.loadGormConfig()  //加载配置文件中的gorm配置项
+	a.loadGoRedis()
 	a.Server.BaseContext = a.baseContext //配置 上下文对象属性
 	return a
 }

@@ -3,18 +3,20 @@ module github.com/awensir/go-aurora
 go 1.17
 
 require (
+	github.com/go-redis/redis/v8 v8.11.4
 	github.com/spf13/viper v1.9.0
 	google.golang.org/grpc v1.40.0
 	gorm.io/driver/mysql v1.2.1
 	gorm.io/driver/postgres v1.2.3
-	gorm.io/driver/sqlite v1.2.6
 	gorm.io/driver/sqlserver v1.2.1
 	gorm.io/gorm v1.22.4
 	nhooyr.io/websocket v1.8.7
 )
 
 require (
+	github.com/cespare/xxhash/v2 v2.1.2 // indirect
 	github.com/denisenkom/go-mssqldb v0.11.0 // indirect
+	github.com/dgryski/go-rendezvous v0.0.0-20200823014737-9f7001d12a5f // indirect
 	github.com/fsnotify/fsnotify v1.5.1 // indirect
 	github.com/go-sql-driver/mysql v1.6.0 // indirect
 	github.com/golang-sql/civil v0.0.0-20190719163853-cb61b32ac6fe // indirect
@@ -33,7 +35,6 @@ require (
 	github.com/jinzhu/now v1.1.3 // indirect
 	github.com/klauspost/compress v1.10.3 // indirect
 	github.com/magiconair/properties v1.8.5 // indirect
-	github.com/mattn/go-sqlite3 v1.14.9 // indirect
 	github.com/mitchellh/mapstructure v1.4.2 // indirect
 	github.com/pelletier/go-toml v1.9.4 // indirect
 	github.com/spf13/afero v1.6.0 // indirect
