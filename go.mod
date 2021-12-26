@@ -3,14 +3,17 @@ module github.com/awensir/go-aurora
 go 1.17
 
 require (
+	github.com/awensir/project v0.0.0-20211224070307-58d2b5985713
 	github.com/spf13/viper v1.9.0
 	google.golang.org/grpc v1.40.0
 	gorm.io/driver/mysql v1.2.1
 	gorm.io/driver/postgres v1.2.3
-	gorm.io/driver/sqlite v1.2.6
 	gorm.io/driver/sqlserver v1.2.1
 	gorm.io/gorm v1.22.4
 	nhooyr.io/websocket v1.8.7
+)
+replace (
+	github.com/awensir/project v0.0.0-20211224070307-58d2b5985713 => ../project
 )
 
 require (
@@ -33,7 +36,6 @@ require (
 	github.com/jinzhu/now v1.1.3 // indirect
 	github.com/klauspost/compress v1.10.3 // indirect
 	github.com/magiconair/properties v1.8.5 // indirect
-	github.com/mattn/go-sqlite3 v1.14.9 // indirect
 	github.com/mitchellh/mapstructure v1.4.2 // indirect
 	github.com/pelletier/go-toml v1.9.4 // indirect
 	github.com/spf13/afero v1.6.0 // indirect
