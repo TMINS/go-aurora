@@ -7,7 +7,7 @@ import (
 )
 
 /*
-	文件上传api参考的 gin 封装，操作和gin一致
+	文件上传api使用的 gin 封装，操作和gin一致
 */
 
 // MultipartForm is the parsed multipart form, including file uploads.

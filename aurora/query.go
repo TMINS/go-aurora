@@ -11,40 +11,40 @@ import (
 	get 请求参数查询
 */
 
-// GetString 获取一个字符串参数
-func (c *Ctx) GetString(Args string) (string, error) {
+// String 获取一个字符串参数
+func (c *Ctx) String(name string) (string, error) {
 
-	return c.get(Args, c.Request.URL.Query())
+	return c.get(name, c.Request.URL.Query())
 }
 
-// GetInt 获取一个整数参数
-func (c *Ctx) GetInt(Args string) (int, error) {
+// Int 获取一个整数参数
+func (c *Ctx) Int(name string) (int, error) {
 
-	return c.getInt(Args, c.Request.URL.Query())
+	return c.getInt(name, c.Request.URL.Query())
 }
 
-// GetFloat64 获取一个64位浮点参数
-func (c *Ctx) GetFloat64(Args string) (float64, error) {
+// Float64 获取一个64位浮点参数
+func (c *Ctx) Float64(name string) (float64, error) {
 
-	return c.getFloat64(Args, c.Request.URL.Query())
+	return c.getFloat64(name, c.Request.URL.Query())
 }
 
-// GetSlice 获取切片类型参数
-func (c *Ctx) GetSlice(Args string) ([]string, error) {
+// Slice 获取切片类型参数
+func (c *Ctx) Slice(name string) ([]string, error) {
 
-	return c.getSlice(Args, c.Request.URL.Query())
+	return c.getSlice(name, c.Request.URL.Query())
 }
 
-// GetIntSlice 整数切片
-func (c *Ctx) GetIntSlice(Args string) ([]int, error) {
+// IntSlice 整数切片
+func (c *Ctx) IntSlice(name string) ([]int, error) {
 
-	return c.getIntSlice(Args, c.Request.URL.Query())
+	return c.getIntSlice(name, c.Request.URL.Query())
 }
 
-// GetFloat64Slice 浮点切片
-func (c *Ctx) GetFloat64Slice(Args string) ([]float64, error) {
+// Float64Slice 浮点切片
+func (c *Ctx) Float64Slice(name string) ([]float64, error) {
 
-	return c.getFloat64Slice(Args, c.Request.URL.Query())
+	return c.getFloat64Slice(name, c.Request.URL.Query())
 }
 
 func (c *Ctx) getFloat64Slice(Args string, values url.Values) ([]float64, error) {

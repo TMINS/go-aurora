@@ -1,6 +1,7 @@
 package aurora
 
 import (
+	"encoding/json"
 	"errors"
 	"fmt"
 	"net/http"
@@ -49,7 +50,19 @@ func (s Serve) Controller(ctx *Ctx) interface{} {
 		v := recover()
 		if v != nil {
 			// Serve 处理器发生 panic 等严重错误处理，给调用者返回 500 并返回错误描述
-			http.Error(ctx.Response, v.(string), 500)
+			switch v.(type) {
+			case string:
+				http.Error(ctx.Response, v.(string), 500)
+			case error:
+				http.Error(ctx.Response, v.(error).Error(), 500)
+			default:
+				marshal, err := json.Marshal(v)
+				if err != nil {
+					fmt.Println(err.Error())
+					return
+				}
+				http.Error(ctx.Response, string(marshal), 500)
+			}
 			return
 		}
 	}(ctx)
@@ -90,7 +103,7 @@ func (r *route) addRoute(method, path string, fun Serve) {
 	}
 	if strings.Contains(path, "{}") {
 		//校验注册 REST API 的路径格式。如果存在空的属性，不给注册
-		e := errors.New(method + ":" + path + " path cannot exist {}")
+		e := errors.New(method + ":" + path + " restful接口的参数不能为空 {}")
 		r.AR.initError <- e
 	}
 	//防止go程产生并发操作覆盖路径
@@ -121,7 +134,7 @@ func (r *route) add(method string, root *node, Path string, fun Serve, path stri
 		root.Path = Path
 		root.Child = nil
 		root.handle = fun
-		l := fmt.Sprintf("Web Rout Mapping successds | %-10s %-20s bind (%-5s)", method, path, getFunName(fun))
+		l := fmt.Sprintf("服务器接口映射添加成功 | %-10s %-20s 绑定到函数 (%-5s)", method, path, getFunName(fun))
 		r.AR.message <- l
 		return
 	}
@@ -140,7 +153,8 @@ func (r *route) add(method string, root *node, Path string, fun Serve, path stri
 
 		//此处修改，注册同样的路径，选择覆盖前一个，若是出现bug，注释掉现在使用的代码，还原上面的注释部分即可
 		root.handle = fun
-		l := fmt.Sprintf("Web Rout Mapping successds | %-10s %-20s bind (%-5s)", method, path, getFunName(fun))
+		l := fmt.Sprintf("服务器接口映射添加成功 | %-10s %-20s 绑定到函数 (%-5s)", method, path, getFunName(fun))
+
 		r.AR.message <- l
 		return
 	}
@@ -185,7 +199,7 @@ func (r *route) add(method string, root *node, Path string, fun Serve, path stri
 					}
 				}
 				root.Child = append(root.Child, &node{Path: c, Child: nil, handle: fun})
-				l := fmt.Sprintf("Web Rout Mapping successds | %-10s %-20s bind (%-5s)", method, path, getFunName(fun))
+				l := fmt.Sprintf("服务器接口映射添加成功 | %-10s %-20s 绑定到函数 (%-5s)", method, path, getFunName(fun))
 				r.AR.message <- l
 				return
 			}
@@ -228,7 +242,7 @@ func (r *route) add(method string, root *node, Path string, fun Serve, path stri
 				root.Child = append(root.Child, &node{Path: c, Child: tempChild, handle: root.handle}) //封装被分裂的子节点 添加到当前根的子节点中
 				root.Path = root.Path[:i]                                                              //修改当前节点为添加的路径
 				root.handle = fun                                                                      //更改当前处理函数
-				l := fmt.Sprintf("Web Rout Mapping successds | %-10s %-20s bind (%-5s)", method, path, getFunName(fun))
+				l := fmt.Sprintf("服务器接口映射添加成功 | %-10s %-20s 绑定到函数 (%-5s)", method, path, getFunName(fun))
 				r.AR.message <- l
 				return
 			}
@@ -297,7 +311,7 @@ func (r *route) merge(method string, root *node, Path string, fun Serve, path st
 		}
 		root.Path = pub //覆盖原有值设置公共根
 
-		l := fmt.Sprintf("Web Rout Mapping successds | %-10s %-20s bind (%-5s)", method, path, getFunName(fun))
+		l := fmt.Sprintf("服务器接口映射添加成功 | %-10s %-20s 绑定到函数 (%-5s)", method, path, getFunName(fun))
 		r.AR.message <- l
 		return true
 	}
@@ -319,7 +333,7 @@ func (r *route) findPublicRoot(method, p1, p2 string) string {
 		s1 := p1[:index]
 		for i := len(s1); i > 0 && s1[i-1:i] != "/"; i-- { //从后往前检索到第一个 / 如果没有遇到 $ 则没有以取 REST API为公共根
 			if s1[i-1:i] == "{" {
-				e := errors.New(method + ":" + p1 + " and " + p2 + " collide with each other")
+				e := errors.New(method + ":" + p1 + " 和 " + p2 + " 发生冲突")
 				r.AR.initError <- e
 				//fmt.Println(" REST API 路径冲突 : " + s1)
 				//panic("REST API 路径冲突")
@@ -380,21 +394,21 @@ func optimizeSort(child []*node, start int, end int) {
 func (r *route) RegisterInterceptor(path string, interceptor ...Interceptor) {
 	pl := len(path)
 	if pl < 1 {
-		err := errors.New(path + "The path cannot be empty")
+		err := errors.New(path + "注册拦截器路径不能为空.")
 		r.AR.initError <- err
 		return
 	}
 	if pl > 1 {
 		//如果是通配路径 则进行校验
 		if path[pl-1:] == "*" && path[pl-2:] != "/*" {
-			err := errors.New(path + " Wildcard interceptor path error must end with /*")
+			err := errors.New(path + " 通配符拦截器路径错误,必须以/*结尾.")
 			r.AR.initError <- err
 			return
 		}
 	}
 	//校验路径开头是否以 / 否则不给添加
-	if path[0:1] != "/" {
-		err := errors.New(path + " The path interceptor cannot end with /")
+	if path[pl-1:] == "/" {
+		err := errors.New(path + " 拦截器不能以 / 结尾")
 		r.AR.initError <- err
 		return
 	}
@@ -418,7 +432,7 @@ func (r *route) register(root *node, path string, lpath string, interceptor ...I
 				//添加通配拦截器 的路径是一个服务的话就一并设置
 				root.InterList = interceptor
 			}
-			l := fmt.Sprintf("Web Rout Interceptor successds | %s  ", lpath)
+			l := fmt.Sprintf("服务路径拦截器添加成功 | %s  ", lpath)
 			r.AR.message <- l
 			return
 		}
@@ -430,7 +444,7 @@ func (r *route) register(root *node, path string, lpath string, interceptor ...I
 
 	if root.Path == path && root.handle != nil {
 		root.InterList = interceptor //再次添加会覆盖通配拦截器
-		l := fmt.Sprintf("Web Rout Interceptor successds | %s  ", lpath)
+		l := fmt.Sprintf("服务路径拦截器添加成功 | %s  ", lpath)
 		r.AR.message <- l
 		return
 	}
@@ -441,7 +455,7 @@ func (r *route) register(root *node, path string, lpath string, interceptor ...I
 	psl := len(ps)
 	sub := ""
 	if psl < rsl {
-		e := errors.New(path + " does not exist")
+		e := errors.New(path + " 路径不存在")
 
 		r.AR.initError <- e
 		//return
@@ -470,7 +484,7 @@ func (r *route) register(root *node, path string, lpath string, interceptor ...I
 				continue
 			}
 		}
-		e := errors.New(path + " does not exist")
+		e := errors.New(path + " 路径不存在!")
 
 		r.AR.initError <- e
 		//return
@@ -521,7 +535,7 @@ func (r *route) register(root *node, path string, lpath string, interceptor ...I
 			}
 		}
 		//fmt.Println(path, "拦截器注册失败")
-		e := errors.New(path + " does not exist")
+		e := errors.New(path + " 路径不存在")
 
 		r.AR.initError <- e
 		//return
@@ -681,26 +695,16 @@ func (r *route) search(root *node, path string, Args map[string]interface{}, rw 
 // ServeHTTP 一切的开始
 func (a *Aurora) ServeHTTP(rw http.ResponseWriter, req *http.Request) {
 
-	mapping := req.RequestURI
+	mapping := req.URL.Path
 	if err := checkUrl(mapping); err != nil {
-		http.Error(rw, newErrorResponse(mapping, "The rest ful path format is incorrect and cannot contain the symbol '{' or '}'", 500), 500)
+		rw.Header().Set(contentType, a.resourceMapType[".json"])
+		http.Error(rw, newErrorResponse(mapping, "rest ful 路径格式不正确，不能包含符号'{'或'}',"+err.Error(), 500), 500)
 		return
 	}
 
-	if index := strings.LastIndex(mapping, "."); index != -1 { //静态资源处理
-		t := mapping[index+1:]             //截取资源类型,（图片类型存在不同，待解决）
-		paths, ok := a.resourceMappings[t] //资源对应的路径映射
-		if !ok {
-			http.Error(rw, newErrorResponse(mapping, "The server static resource related configuration does not exist or the accessed resource is not on the server", 500), 500)
-			return
-		}
-		mp := ""
-		for _, v := range paths {
-			if i := strings.LastIndex(mapping, v); i != -1 { //查看路径是否匹配
-				mp = mapping[i:] //找到匹配的一条映射,截取到真实资源路径
-			}
-		}
-		a.resourceFun(rw, mapping, mp, t)
+	if index := strings.LastIndex(mapping, "."); index != -1 { //此处判断这个请求可能为静态资源处理
+		t := mapping[index:] //截取可能的资源类型
+		a.resourceHandler(rw, req, mapping, t)
 		return
 	}
 
@@ -713,7 +717,7 @@ func getFunName(fun Serve) string {
 
 func checkUrl(url string) error {
 	if strings.Contains(url, "%7B") || strings.Contains(url, "%7D") {
-		return errors.New("url request is illegal ")
+		return errors.New("url请求是非法的")
 	}
 	return nil
 }
