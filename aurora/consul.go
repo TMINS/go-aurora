@@ -45,35 +45,35 @@ func (a *Aurora) consulConfig() {
 		return
 	}
 	config := api.DefaultConfig()
-	if v, b := option["address"]; b {
+	if v, b := option[address]; b {
 		config.Address = v.(string)
 	}
-	if v, b := option["tlsServerName"]; b {
+	if v, b := option[tlsServerName]; b {
 		config.TLSConfig.Address = v.(string)
 	}
-	if v, b := option["cafile"]; b {
+	if v, b := option[cafile]; b {
 		config.TLSConfig.CertFile = v.(string)
 	}
-	if v, b := option["capath"]; b {
+	if v, b := option[capath]; b {
 		config.TLSConfig.CAPath = v.(string)
 	}
-	if v, b := option["clientCert"]; b {
+	if v, b := option[clientCert]; b {
 		config.TLSConfig.CertFile = v.(string)
 	}
-	if v, b := option["clientKey"]; b {
+	if v, b := option[clientKey]; b {
 		config.TLSConfig.KeyFile = v.(string)
 	}
-	if v, b := option["namespace"]; b {
+	if v, b := option[namespace]; b {
 		config.Namespace = v.(string)
 	}
-	if v, b := option["tokenFile"]; b {
+	if v, b := option[tokenFile]; b {
 		config.TokenFile = v.(string)
 	}
-	if v, b := option["token"]; b {
+	if v, b := option[token]; b {
 		config.Token = v.(string)
 	}
 
-	if v, b := option["auth"]; b {
+	if v, b := option[auth]; b {
 		var username, password string
 		if strings.Contains(v.(string), ":") {
 			split := strings.SplitN(v.(string), ":", 2)
@@ -88,7 +88,7 @@ func (a *Aurora) consulConfig() {
 		}
 	}
 
-	if v, b := option["ssl"]; b {
+	if v, b := option[ssl]; b {
 		enabled, err := strconv.ParseBool(v.(string))
 		if err != nil {
 			fmt.Errorf("could not parse ssl %s error", err)
@@ -97,7 +97,7 @@ func (a *Aurora) consulConfig() {
 			config.Scheme = "https"
 		}
 	}
-	if v, b := option["verify"]; b {
+	if v, b := option[verify]; b {
 		doVerify, err := strconv.ParseBool(v.(string))
 		if err != nil {
 			fmt.Errorf("could not parse verify error: %s ", err)
