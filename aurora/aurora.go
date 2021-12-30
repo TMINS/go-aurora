@@ -5,6 +5,7 @@ import (
 	"errors"
 	"fmt"
 	"github.com/go-redis/redis/v8"
+	"github.com/hashicorp/consul/api"
 	"github.com/spf13/viper"
 	"google.golang.org/grpc"
 	"gorm.io/gorm"
@@ -16,7 +17,6 @@ import (
 	"runtime"
 	"strings"
 	"sync"
-	"time"
 )
 
 /*
@@ -28,6 +28,7 @@ import (
 const format = "[信息]:%s \n"
 
 type Aurora struct {
+	name             string
 	lock             *sync.RWMutex
 	ctx              context.Context     //服务器顶级上下文，通过此上下文可以跳过 go web 自带的子上下文去开启纯净的子go程，结束此上下文 web服务也将结束 <***>
 	cancel           func()              //取消上下文 <***>
@@ -53,12 +54,13 @@ type Aurora struct {
 	Server *http.Server // web服务器 <***>
 	grpc   *grpc.Server // 用于接入grpc支持https服务 <***>,整合 grpc 需要 http 2
 	Ln     net.Listener // web服务器监听,启动服务器时候初始化
+
+	consulClient *api.Client
 }
 
 // New :最基础的 Aurora 实例
 // config:指定加载配置文件
 func New(config ...string) *Aurora {
-
 	a := &Aurora{
 		lock: &sync.RWMutex{},
 		port: "8080", //默认端口号
@@ -73,8 +75,7 @@ func New(config ...string) *Aurora {
 		message:         make(chan string),
 		errMessage:      make(chan string),
 	}
-	startLoading(a)
-	time.Sleep(1 * time.Second)
+	startLoading(a) //开启日志线程
 	a.message <- fmt.Sprintf("Golang 版本信息:%1s", runtime.Version())
 	a.message <- fmt.Sprintf("开始加载application.yml配置文件.")
 	a.viperConfig(config...) //加载默认位置的 application.yml
@@ -83,12 +84,12 @@ func New(config ...string) *Aurora {
 	a.router.defaultView = a //初始化使用默认视图解析,aurora的视图解析是一个简单的实现，可以通过修改 a.Router.DefaultView 实现自定义的试图处理，框架最终调用此方法返回页面响应
 	a.router.AR = a
 	//加载配置文件中定义的 端口号
-	port := a.cnf.GetString("server.port")
+	port := a.cnf.GetString("aurora.server.port")
 	if port != "" {
 		a.port = port
 	}
 	//读取配置路径
-	p := a.cnf.GetString("aurora.static")
+	p := a.cnf.GetString("aurora.resource.static")
 	if p != "" {
 		if p[:1] != "/" {
 			p = "/" + p
@@ -98,7 +99,11 @@ func New(config ...string) *Aurora {
 		}
 		a.resource = p
 	}
-
+	name := a.cnf.GetString("aurora.application.name")
+	if name != "" {
+		a.name = name
+	}
+	//加载默认的全局拦截器
 	a.interceptorList = []Interceptor{
 		0: &defaultInterceptor{},
 	}
@@ -107,9 +112,16 @@ func New(config ...string) *Aurora {
 	a.message <- fmt.Sprintf("服务器静态资源根目录:%1s", a.resource)
 	loadResourceHead(a) //加载静态资源头
 	a.loadGormConfig()  //加载配置文件中的gorm配置项
-	a.loadGoRedis()
+	a.loadGoRedis()     //加载go-redis
+	a.consulConfig()
 	a.Server.BaseContext = a.baseContext //配置 上下文对象属性
 	return a
+}
+
+func (a *Aurora) App(name string) {
+	if name == "" {
+		a.name = name
+	}
 }
 
 // Guide 启动 Aurora 服务器，默认端口号8080
@@ -141,7 +153,6 @@ func (a *Aurora) run(port ...string) error {
 	}
 	a.Server.Handler = a
 	return a.Server.ListenAndServe() //启动服务器
-
 }
 
 func (a *Aurora) tls(args ...string) error {
