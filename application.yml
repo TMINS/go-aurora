@@ -1,11 +1,17 @@
+#aurora 配置示例
 aurora:
   application:
+    #应用程序服务配置项
     name: app
   server:
+    #服务器端口配置项
     port: 8080
   resource:
+    #静态资源根目录配置项
     static: ""
+  #consul 注册中心配置
   consul:
+    #服务器地址
     address: localhost:8500
 #gorm配置快
 gorm:
