@@ -113,24 +113,25 @@ func (a *Aurora) consulConfig() {
 	a.Start()
 }
 
+func Check(c *Ctx) interface{} {
+	return "ok"
+}
+
 func (a *Aurora) Start() {
 	//拿到代理实例
 	agent := a.consulClient.Agent()
 	check := new(api.AgentServiceCheck)
-	check.HTTP = fmt.Sprintf("%s://%s:%s/actuator/health", "http", "localhost", a.port)
-	a.GET("/actuator/health", func(c *Ctx) interface{} {
-		return "ok"
-	})
-	check.Timeout = "5s"
-	check.Timeout = "5s"
-	check.Interval = "5s"
+	check.HTTP = fmt.Sprintf("%s://%s:%s/consul/health", "http", "localhost", a.port) //配置consul服务中心检擦服务的调用地址
+	a.GET("/consul/health", Check)
+	check.Timeout = "5s"                         //检查超时时间
+	check.Interval = "5s"                        //健康检查频率
 	check.DeregisterCriticalServiceAfter = "20s" // 故障检查失败30s后 consul自动将注册服务删除
 	err := agent.ServiceRegister(&api.AgentServiceRegistration{
-		ID:      "IDS",
-		Name:    a.name,
-		Address: ServerIp(),
-		Port:    a.Port(),
-		Check:   check,
+		ID:      "IDS",      //定义服务的id
+		Name:    a.name,     //定义服务的名称
+		Address: ServerIp(), //服务本地地址
+		Port:    a.Port(),   //服务端口号
+		Check:   check,      //服务的健康检查接口
 	})
 
 	if err != nil {
