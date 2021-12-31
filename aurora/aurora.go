@@ -15,6 +15,7 @@ import (
 	"net/http"
 	"os"
 	"runtime"
+	"strconv"
 	"strings"
 	"sync"
 )
@@ -32,6 +33,7 @@ type Aurora struct {
 	lock             *sync.RWMutex
 	ctx              context.Context     //服务器顶级上下文，通过此上下文可以跳过 go web 自带的子上下文去开启纯净的子go程，结束此上下文 web服务也将结束 <***>
 	cancel           func()              //取消上下文 <***>
+	host             string              //主机信息
 	port             string              //服务端口号 <***>
 	router           *route              //路由服务管理 <***>
 	projectRoot      string              //项目根路径 <***>
@@ -50,17 +52,19 @@ type Aurora struct {
 	gorms            map[int][]*gorm.DB //存储gorm各种类型的连接实例，默认初始化从配置文件中读取<***>
 	goredis          []*redis.Client    //存储go-redis 配置实例
 
-	cnf    *viper.Viper // 配置实例，读取配置文件 <***>
-	Server *http.Server // web服务器 <***>
-	grpc   *grpc.Server // 用于接入grpc支持
-	Ln     net.Listener // web服务器监听,启动服务器时候初始化
+	cnf          *viper.Viper // 配置实例，读取配置文件 <***>
+	configOption *auroraConfig
+	Server       *http.Server // web服务器 <***>
+	grpc         *grpc.Server // 用于接入grpc支持,该整合意义在于让grpc服务和http服务公用一个ip和端口号
+	Ln           net.Listener // web服务器监听,启动服务器时候初始化
 
-	consulClient *api.Client
+	consuls []*api.Client
 }
 
 // New :最基础的 Aurora 实例
 // config:指定加载配置文件
 func New(config ...string) *Aurora {
+	//初始化基本属性
 	a := &Aurora{
 		lock: &sync.RWMutex{},
 		port: "8080", //默认端口号
@@ -69,6 +73,7 @@ func New(config ...string) *Aurora {
 		},
 		Server:          &http.Server{},
 		resource:        "", //设定资源默认存储路径，需要连接项目更目录 和解析出来资源的路径，资源路径解析出来是没有前缀 “/” 的作为 resource属性，在其两边加上 斜杠
+		consuls:         make([]*api.Client, 0),
 		initError:       make(chan error),
 		resourceMapType: make(map[string]string),
 		gorms:           make(map[int][]*gorm.DB),
@@ -110,18 +115,44 @@ func New(config ...string) *Aurora {
 	a.message <- fmt.Sprintf("项目根路径信息:%1s", a.projectRoot)
 	a.message <- fmt.Sprintf("服务器端口号:%1s", a.port)
 	a.message <- fmt.Sprintf("服务器静态资源根目录:%1s", a.resource)
-	loadResourceHead(a) //加载静态资源头
-	a.loadGormConfig()  //加载配置文件中的gorm配置项
-	a.loadGoRedis()     //加载go-redis
-	a.consulConfig()
+	a.loadResourceHead()                 //加载静态资源头
+	a.loadGormConfig()                   //加载配置文件中的gorm配置项
+	a.loadGoRedis()                      //加载go-redis
+	a.consulConfig()                     //加载consul
 	a.Server.BaseContext = a.baseContext //配置 上下文对象属性
 	return a
 }
 
-func (a *Aurora) App(name string) {
+// ServiceName 设置程序服务名称
+func (a *Aurora) ServiceName(name string) {
 	if name == "" {
 		a.name = name
 	}
+}
+
+// Port 获取端口号 int类型
+func (a *Aurora) Port() int {
+	atoi, err := strconv.Atoi(a.port)
+	if err != nil {
+		return 0
+	}
+	return atoi
+}
+
+// ServerIp 获取服务器ip地址信息
+func ServerIp() string {
+	addrs, err := net.InterfaceAddrs()
+	if err != nil {
+		return ""
+	}
+	for _, value := range addrs {
+		if ipnet, ok := value.(*net.IPNet); ok && !ipnet.IP.IsLoopback() {
+			if ipnet.IP.To4() != nil {
+				return ipnet.IP.String()
+			}
+		}
+	}
+	return ""
 }
 
 // Guide 启动 Aurora 服务器，默认端口号8080

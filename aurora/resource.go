@@ -127,7 +127,7 @@ func (a *Aurora) resourceHandler(w http.ResponseWriter, req *http.Request, mappi
 	a.resourceFun(w, mapping, m, t) //传递参数进行资源发送
 }
 
-func loadResourceHead(a *Aurora) {
+func (a *Aurora) loadResourceHead() {
 	a.message <- fmt.Sprintf("开始导入服务器请求静态资源头信息")
 	v := viper.New()
 	//设置viper读取json格式的配置

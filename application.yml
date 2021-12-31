@@ -12,7 +12,7 @@ aurora:
   #consul 注册中心配置
   consul:
     #服务器地址
-    address: localhost:8500
+    address: localhost:8500,localhost:8501
 #gorm配置快
 gorm:
   #mysql配置示例
