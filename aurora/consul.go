@@ -3,7 +3,6 @@ package aurora
 import (
 	"fmt"
 	"github.com/hashicorp/consul/api"
-	"google.golang.org/grpc"
 	"google.golang.org/grpc/health"
 	"google.golang.org/grpc/health/grpc_health_v1"
 	"strconv"
@@ -11,6 +10,9 @@ import (
 )
 
 const (
+	/*
+		用于读取 api客户端连接的配信息
+	*/
 	address       = "address" //HTTPAddrEnvName   			consul 服务地址
 	scheme        = "scheme"
 	token         = "token"         //HTTPTokenEnvName
@@ -34,13 +36,20 @@ const (
 	defaultInterval   = "4s"  //默认检查间隔时间
 	defaultDeregister = "30s" //默认最大超时注销时间
 
-	HTTP = iota
-	gRPC
 )
 
 /*
-	consul 模块
+	consul 模块，该模块暂定支支持 普通http注册健康检查
 */
+
+// ConsulConfig 存储了 web consul相关的信息
+type ConsulConfig struct {
+	host               string        //本地服务器地址信息
+	port               string        //端口信息
+	checkUrl           string        //健康检查地址
+	defaultCheckHandle Serve         //定义aurora 的健康检查回调函数
+	consuls            []*api.Client //存放连接配置对象，单个或者集群
+}
 
 //  consulConfig 读取配置文件加载
 func (a *Aurora) consulConfig() {
@@ -119,41 +128,30 @@ func (a *Aurora) ConsulServiceRegister(client *api.Client, config *api.Config, o
 				panic("服务没有配置grpc")
 			}
 			check.GRPC = fmt.Sprintf("%s:%d", ServerIp(), a.port) //配置健康检查接口
-			check.GRPCUseTLS = false
+			check.GRPCUseTLS = true
 			grpc_health_v1.RegisterHealthServer(a.grpc, health.NewServer())
 		}
 	} else {
 		//默认采用http服务
-		check.HTTP = fmt.Sprintf("%s://%s:%d/consul/agent/health", config.Scheme, ServerIp(), a.Port()) //配置健康检查接口
+		check.HTTP = fmt.Sprintf("%s://%s:%d/consul/agent/health", "http", "localhost", a.Port()) //配置健康检查接口
 		a.GET("/consul/agent/health", HTTPCheck)
 	}
+
 	//创建准备注册的服务信息，服务的基本信息基于本程序的本机信息
 	service := &api.AgentServiceRegistration{}
-
 	service.Name = a.name        //Name 属性标识在consul中的服务名称
-	service.ID = a.name          //ID属性是基于Name属性下面的编号,使用的时候不应该出现重复
-	service.Check = check        //Check 属性用于配置，相对的Checks可以配置多个
+	service.ID = a.name          //ID属性是基于Name属性下面的编号,使用的时候不应该出现重复(准备时间戳+name属性来标识id)
+	service.Check = check        //Check 属性用于配置服务健康检查，相对的Checks可以配置多个
 	service.Address = ServerIp() //设置服务地址信息
-	service.Port = a.Port()      //设置端口信息
+	service.Port = a.Port()      //设置服务端口信息
 
 	agent := client.Agent()
 
-	err := agent.ServiceRegister(service)
+	err := agent.ServiceRegister(service) //把service 注册到对应的consul服务器上
 	if err != nil {
 		fmt.Println(err.Error())
 		return
 	}
-}
-
-// ConsulHttpServiceRegister 注册HTTP类型的服务
-func ConsulHttpServiceRegister() {
-
-}
-
-// ConsulGrpcServiceRegister 注册gRPC类型的服务
-func ConsulGrpcServiceRegister() {
-	newServer := grpc.NewServer()
-	grpc_health_v1.RegisterHealthServer(newServer, health.NewServer())
 }
 
 // DefaultConsulConfig 配置一个默认的Consul配置项，该配置实例address为默认值(localhost)，即使是集群地址也是每个地址采用一样的配置，该config 主要用来复用注册集群

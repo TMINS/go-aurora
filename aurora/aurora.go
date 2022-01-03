@@ -55,7 +55,7 @@ type Aurora struct {
 	cnf          *viper.Viper // 配置实例，读取配置文件 <***>
 	configOption *auroraConfig
 	Server       *http.Server // web服务器 <***>
-	grpc         *grpc.Server // 用于接入grpc支持,该整合意义在于让grpc服务和http服务公用一个ip和端口号
+	grpc         *grpc.Server // 用于接入grpc支持,该整合意义在于让grpc服务和http服务公用一个ip和端口号,仅支持tls通讯情况下的整合
 	Ln           net.Listener // web服务器监听,启动服务器时候初始化
 
 	consuls []*api.Client
@@ -182,19 +182,7 @@ func (a *Aurora) run(port ...string) error {
 		a.Server.Addr = p
 		a.port = p
 	}
-	if a.grpc != nil {
-		// 在 Aurora 和 GrpcServer 两个路由器中间 加一个原生路由器 用于 分别提供 http 和 https 服务（来自grpc 官方文档示例 url: https://pkg.go.dev/google.golang.org/grpc#NewServer ）
-		a.Server.Handler = http.HandlerFunc(func(writer http.ResponseWriter, request *http.Request) {
-			if request.ProtoMajor == 2 && strings.Contains(request.Header.Get("Content-Type"), "application/grpc") {
-				a.grpc.ServeHTTP(writer, request)
-			} else {
-				a.ServeHTTP(writer, request)
-			}
-			return
-		})
-	} else {
-		a.Server.Handler = a
-	}
+	a.Server.Handler = a
 	return a.Server.ListenAndServe() //启动服务器
 }
 
