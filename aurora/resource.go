@@ -128,18 +128,19 @@ func (a *Aurora) resourceHandler(w http.ResponseWriter, req *http.Request, mappi
 }
 
 func (a *Aurora) loadResourceHead() {
-	a.message <- fmt.Sprintf("开始导入服务器请求静态资源头信息")
+	a.auroraLog.Info("start importing server request static resource header information")
 	v := viper.New()
 	//设置viper读取json格式的配置
 	v.SetConfigType("json")
 	//读取 static 的配置串 见方法下面的全局变量
 	err := v.ReadConfig(bytes.NewBuffer(static))
 	if err != nil {
-		a.errMessage <- fmt.Sprintf("服务器请求静态资源头信息导入失败")
-		return
+		a.auroraLog.Error("failed to import static resource header information requested by the server")
+		os.Exit(1)
 	}
 	s := v.GetStringMapString("type")
 	a.resourceMapType = s
+	a.auroraLog.Info("the server requested that the static resource header information was imported successfully")
 }
 
 // 用于加载静态资源类型配置

@@ -42,13 +42,15 @@ const (
 	consul 模块，该模块暂定支支持 普通http注册健康检查
 */
 
-// ConsulConfig 存储了 web consul相关的信息
-type ConsulConfig struct {
-	host               string        //本地服务器地址信息
-	port               string        //端口信息
-	checkUrl           string        //健康检查地址
-	defaultCheckHandle Serve         //定义aurora 的健康检查回调函数
-	consuls            []*api.Client //存放连接配置对象，单个或者集群
+// consulConfig 存储了 web consul相关的信息
+type consulConfig struct {
+	host               string                        //本地服务器地址信息
+	port               string                        //端口信息
+	checkUrl           string                        //健康检查地址
+	defaultCheckHandle Serve                         //定义aurora 的健康检查回调函数
+	defaultService     *api.AgentServiceRegistration //默认本地服务注册信息
+	config             *api.Config                   //注册中心配置信息
+	consuls            []*api.Client                 //存放连接配置对象，单个或者集群
 }
 
 //  consulConfig 读取配置文件加载
@@ -56,9 +58,8 @@ func (a *Aurora) consulConfig() {
 	if a.cnf == nil {
 		return
 	}
-	var (
-		b bool
-	)
+	var b bool
+
 	c := a.cnf.Get("aurora.consul") //读取consul配置信息
 	if c == nil {
 		return

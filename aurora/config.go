@@ -36,7 +36,7 @@ func (a *Aurora) viperConfig(p ...string) {
 		_, err := os.Lstat(pat)
 		if err != nil {
 			if os.IsNotExist(err) {
-				a.message <- fmt.Sprintf("配置文件不存在，加载失败")
+				a.message <- fmt.Sprintf("no configuration file information was loaded because the default application.yml was not found.")
 			}
 			return
 		}
@@ -49,7 +49,7 @@ func (a *Aurora) viperConfig(p ...string) {
 		a.message <- err.Error()
 		return
 	}
-	a.message <- fmt.Sprint("配置文件加载成功.")
+	a.message <- fmt.Sprint("the configuration file is loaded successfully.")
 }
 
 // Viper 获取 Aurora viper实例

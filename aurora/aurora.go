@@ -35,6 +35,7 @@ type Aurora struct {
 	cancel           func()              //取消上下文 <***>
 	host             string              //主机信息
 	port             string              //服务端口号 <***>
+	auroraLog        *Log                //日志
 	router           *route              //路由服务管理 <***>
 	projectRoot      string              //项目根路径 <***>
 	resource         string              //静态资源管理 默认为 root 目录 <***>
@@ -59,6 +60,7 @@ type Aurora struct {
 	Ln           net.Listener // web服务器监听,启动服务器时候初始化
 
 	consuls []*api.Client
+	consul  consulConfig //集成consul模块
 }
 
 // New :最基础的 Aurora 实例
@@ -71,6 +73,7 @@ func New(config ...string) *Aurora {
 		router: &route{
 			mx: &sync.Mutex{},
 		},
+		auroraLog:       NewLog(),
 		Server:          &http.Server{},
 		resource:        "", //设定资源默认存储路径，需要连接项目更目录 和解析出来资源的路径，资源路径解析出来是没有前缀 “/” 的作为 resource属性，在其两边加上 斜杠
 		consuls:         make([]*api.Client, 0),
@@ -81,9 +84,9 @@ func New(config ...string) *Aurora {
 		errMessage:      make(chan string),
 	}
 	startLoading(a) //开启日志线程
-	a.message <- fmt.Sprintf("Golang 版本信息:%1s", runtime.Version())
-	a.message <- fmt.Sprintf("开始加载application.yml配置文件.")
-	a.viperConfig(config...) //加载默认位置的 application.yml
+	a.message <- fmt.Sprintf("golang version information:%1s", runtime.Version())
+	a.message <- fmt.Sprintf("start loading the application.yml configuration file.")
+	a.viperConfig(config...) //加载默认位置的 application.yml,config可配置路径信息
 	projectRoot, _ := os.Getwd()
 	a.projectRoot = projectRoot
 	a.router.defaultView = a //初始化使用默认视图解析,aurora的视图解析是一个简单的实现，可以通过修改 a.Router.DefaultView 实现自定义的试图处理，框架最终调用此方法返回页面响应
@@ -112,9 +115,7 @@ func New(config ...string) *Aurora {
 	a.interceptorList = []Interceptor{
 		0: &defaultInterceptor{},
 	}
-	a.message <- fmt.Sprintf("项目根路径信息:%1s", a.projectRoot)
-	a.message <- fmt.Sprintf("服务器端口号:%1s", a.port)
-	a.message <- fmt.Sprintf("服务器静态资源根目录:%1s", a.resource)
+	a.message <- fmt.Sprintf("server static resource root directory:%1s", a.resource)
 	a.loadResourceHead()                 //加载静态资源头
 	a.loadGormConfig()                   //加载配置文件中的gorm配置项
 	a.loadGoRedis()                      //加载go-redis
@@ -123,7 +124,7 @@ func New(config ...string) *Aurora {
 	return a
 }
 
-// ServiceName 设置程序服务名称
+// ServiceName 设置程序服务名称,配置文件信息由于api设置
 func (a *Aurora) ServiceName(name string) {
 	if name == "" {
 		a.name = name
