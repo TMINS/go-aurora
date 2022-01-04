@@ -206,6 +206,7 @@ func (a *Aurora) tls(args ...string) error {
 	if a.grpc != nil {
 		// 在 Aurora 和 GrpcServer 两个路由器中间 加一个原生路由器 用于 分别提供 http 和 https 服务（来自grpc 官方文档示例 url: https://pkg.go.dev/google.golang.org/grpc#NewServer ）
 		a.Server.Handler = http.HandlerFunc(func(writer http.ResponseWriter, request *http.Request) {
+			fmt.Println()
 			if request.ProtoMajor == 2 && strings.Contains(request.Header.Get("Content-Type"), "application/grpc") {
 				a.grpc.ServeHTTP(writer, request)
 			} else {
