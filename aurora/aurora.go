@@ -84,12 +84,12 @@ func New(config ...string) *Aurora {
 		errMessage:      make(chan string),
 	}
 	startLoading(a) //开启日志线程
-	a.message <- fmt.Sprintf("golang version information:%1s", runtime.Version())
-	a.message <- fmt.Sprintf("start loading the application.yml configuration file.")
+	a.auroraLog.Info(fmt.Sprintf("golang version information:%1s", runtime.Version()))
+	a.auroraLog.Info(fmt.Sprintf("start loading the application.yml configuration file."))
 	a.viperConfig(config...) //加载默认位置的 application.yml,config可配置路径信息
 	projectRoot, _ := os.Getwd()
-	a.projectRoot = projectRoot
-	a.router.defaultView = a //初始化使用默认视图解析,aurora的视图解析是一个简单的实现，可以通过修改 a.Router.DefaultView 实现自定义的试图处理，框架最终调用此方法返回页面响应
+	a.projectRoot = projectRoot //初始化项目路径信息
+	a.router.defaultView = a    //初始化使用默认视图解析,aurora的视图解析是一个简单的实现，可以通过修改 a.Router.DefaultView 实现自定义的试图处理，框架最终调用此方法返回页面响应
 	a.router.AR = a
 	//加载配置文件中定义的 端口号
 	port := a.cnf.GetString("aurora.server.port")
@@ -107,15 +107,16 @@ func New(config ...string) *Aurora {
 		}
 		a.resource = p
 	}
+
 	name := a.cnf.GetString("aurora.application.name")
-	if name != "" {
-		a.name = name
-	}
+	a.name = name
+	a.auroraLog.Info("the service name is " + a.name)
 	//加载默认的全局拦截器
 	a.interceptorList = []Interceptor{
 		0: &defaultInterceptor{},
 	}
-	a.message <- fmt.Sprintf("server static resource root directory:%1s", a.resource)
+	a.auroraLog.Info("initialize the default top-level interceptor")
+	a.auroraLog.Info(fmt.Sprintf("server static resource root directory:%1s", a.resource))
 	a.loadResourceHead()                 //加载静态资源头
 	a.loadGormConfig()                   //加载配置文件中的gorm配置项
 	a.loadGoRedis()                      //加载go-redis
@@ -222,6 +223,7 @@ func (a *Aurora) tls(args ...string) error {
 //添加静态资源配置，t资源类型必须以置源后缀命名，
 //paths为t类型资源的子路径，可以一次性设置多个。
 //每个资源类型最调用一次设置方法否则覆盖原有设置
+//Deprecated
 func (a *Aurora) resourceMapping(Type string, Paths ...string) {
 	a.registerResourceType(Type, Paths...)
 }
@@ -247,14 +249,12 @@ func (a *Aurora) RouteIntercept(path string, interceptor ...Interceptor) {
 	}
 	r := interceptorArgs{path: path, list: interceptor}
 	a.routeInterceptor = append(a.routeInterceptor, r)
-	//a.router.RegisterInterceptor(path, interceptor...)
 }
 
 // DefaultInterceptor 配置默认顶级拦截器
-func (a *Aurora) DefaultInterceptor(interceptor Interceptor) {
+func (a *Aurora) TopLevelInterceptor(interceptor Interceptor) {
 	a.interceptorList[0] = interceptor
-	l := fmt.Sprintf("Web Default Global Rout Interceptor successds")
-	a.message <- l
+	a.auroraLog.Info("web default global Rout Interceptor successds")
 }
 
 // AddInterceptor 追加全局拦截器
@@ -262,8 +262,7 @@ func (a *Aurora) AddInterceptor(interceptor ...Interceptor) {
 	//追加全局拦截器
 	for _, v := range interceptor {
 		a.interceptorList = append(a.interceptorList, v)
-		l := fmt.Sprintf("Web Global Rout Interceptor successds")
-		a.message <- l
+		a.auroraLog.Info("web global Rout Interceptor successds")
 	}
 }
 
@@ -302,12 +301,11 @@ func (a *Aurora) baseContext(ln net.Listener) context.Context {
 	//初始化 Aurora net.Listener 变量，用于整合grpc
 	a.Ln = ln
 	a.loadingInterceptor() //加载 拦截器
-	l := fmt.Sprintf("服务器成功绑定到端口:%s", a.port)
 	c, f := context.WithCancel(context.TODO())
 	a.ctx = c
 	a.cancel = f
-	a.message <- fmt.Sprintf("初始化上下文实例和清除函数.")
-	a.message <- l
+	a.auroraLog.Info("successfully initialized the context instance and cleanup function.")
+	a.auroraLog.Info(fmt.Sprintf("the server successfully binds to the port:%s", a.port))
 	return c
 }
 

@@ -15,6 +15,7 @@ import (
 	"regexp"
 	"runtime"
 	"runtime/pprof"
+	"strings"
 	"testing"
 	"time"
 )
@@ -315,6 +316,16 @@ func TestConfigFile(t *testing.T) {
 	}
 	static := v.Get("type")
 	fmt.Println(static)
+}
+
+func TestPath(t *testing.T) {
+	//url := "/sada/{sss}/{bbb}"
+
+}
+func Check(url string) {
+	if strings.Count(url, "{") == strings.Count(url, "}") {
+
+	}
 }
 
 var static = []byte(`{

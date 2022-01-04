@@ -15,17 +15,19 @@ import (
 
 const (
 	/*
-		levelFormat   = "[%c[%d;%d;%dm%s%s%c[0m] ==> "
-		用于定义彩色日志输出格式
+			彩色日志仅在 ide 中 有效果， windows cmd 下面，标记符号是无法识别，windows 下面没有调整此方面的bug,基础信息是正常显示的
+		   [[0;0;33mINFO[0m] >> [0;0;34m golang version information:go1.17.5,code line:aurora/aurora.go:87,func:(github.com/awensir/go-aurora/aurora.New) [0m
+			levelFormat   = "[%c[%d;%d;%dm%s%s%c[0m] >> "
+			用于定义彩色日志输出格式
 
-		messageFormat = "%c[%d;%d;%dm%s%s%c[0m\n"
-		定义彩色消息体
+			messageFormat = "%c[%d;%d;%dm%s%s%c[0m\n"
+			定义彩色消息体
 
-		defaultFormat = "|%s| --> "
-		用于定义普通format的输出格式，与彩色模式不兼容
+			defaultFormat = "|%s| --> "
+			用于定义普通format的输出格式，与彩色模式不兼容 ⇝
 	*/
-	levelFormat   = "[%c[%d;%d;%dm%s%s%c[0m] ==> "
-	messageFormat = "%c[%d;%d;%dm%s%s%c[0m\n"
+	levelFormat   = "[%c[%d;%d;%dm%s%-5s%c[0m] ↯ "
+	messageFormat = "%c[%d;%d;%dm%s %s%c[0m \n"
 	defaultFormat = "[%s] ==> "
 
 	/*
@@ -63,10 +65,10 @@ const (
 )
 
 var level = map[int]string{
-	Info:    "Infos",
-	Warning: "Warns",
-	Debug:   "Debug",
-	Error:   "Error",
+	Info:    "INFO",
+	Warning: "WARN",
+	Debug:   "DEBUG",
+	Error:   "ERROR",
 }
 
 type Logs interface {
@@ -103,25 +105,27 @@ type Log struct {
 // NewLog 生成一个日志实例
 func NewLog() *Log {
 	getwd, _ := os.Getwd()
+
 	return &Log{
 		mu:    &sync.Mutex{},
 		out:   os.Stdout,
 		head:  nil,
 		level: level,
+
 		formats: map[int][]interface{}{
-			Info:    []interface{}{0: 0x1B, 1: 0, 2: 1, 3: Yellow, 4: "", 5: 0x1B},
-			Warning: []interface{}{0: 0x1B, 1: 0, 2: 1, 3: Blue, 4: "", 5: 0x1B},
-			Debug:   []interface{}{0: 0x1B, 1: 0, 2: 1, 3: Pink, 4: "", 5: 0x1B},
-			Error:   []interface{}{0: 0x1B, 1: 0, 2: 1, 3: Rea, 4: "", 5: 0x1B},
+			Info:    []interface{}{0: 0x1B, 1: 0, 2: 0, 3: Yellow, 4: "", 5: 0x1B},
+			Warning: []interface{}{0: 0x1B, 1: 0, 2: 0, 3: Blue, 4: "", 5: 0x1B},
+			Debug:   []interface{}{0: 0x1B, 1: 0, 2: 0, 3: Pink, 4: "", 5: 0x1B},
+			Error:   []interface{}{0: 0x1B, 1: 0, 2: 0, 3: Rea, 4: "", 5: 0x1B},
 		},
 		//   [1]切换显示方式
-		//   [2]切换背景色40-47
+		//   [2]切换背景色40-47,0为默认暂时保持，修改背景色会影响 idea工具 其他提示的显示
 		//   [3]切换字体颜色 30-37
 		logFormats: map[int][]interface{}{
-			Info:    []interface{}{0: 0x1B, 1: 0, 2: 1, 3: Green, 4: "", 5: 0x1B},
-			Warning: []interface{}{0: 0x1B, 1: 0, 2: 1, 3: Yellow, 4: "", 5: 0x1B},
-			Debug:   []interface{}{0: 0x1B, 1: 0, 2: 1, 3: DarkGreen, 4: "", 5: 0x1B},
-			Error:   []interface{}{0: 0x1B, 1: 4, 2: 1, 3: Rea, 4: "", 5: 0x1B},
+			Info:    []interface{}{0: 0x1B, 1: 0, 2: 0, 3: Blue, 4: "", 5: 0x1B},
+			Warning: []interface{}{0: 0x1B, 1: 0, 2: 0, 3: Yellow, 4: "", 5: 0x1B},
+			Debug:   []interface{}{0: 0x1B, 1: 0, 2: 0, 3: DarkGreen, 4: "", 5: 0x1B},
+			Error:   []interface{}{0: 0x1B, 1: 4, 2: 0, 3: Rea, 4: "", 5: 0x1B},
 		},
 		pool: &sync.Pool{
 			New: func() interface{} {
@@ -184,11 +188,13 @@ func (l *Log) format(level int, format string, args ...interface{}) {
 		log.Fatal(err.Error())
 		return
 	}
+	l.mu.Lock()
 	_, err = l.out.Write(buffer.Bytes())
 	if err != nil {
 		log.Fatal(err.Error())
 		return
 	}
+	l.mu.Unlock()
 	//fmt.Printf("%+v\n", entry.Json())
 	buffer.Reset()     //刷新缓冲区
 	l.pool.Put(buffer) //放入池
@@ -241,7 +247,7 @@ func (l *Log) fileInfo() string {
 	f := runtime.FuncForPC(pc[0])
 	if ok {
 		itoa := strconv.Itoa(line)
-		return ",code line:" + file[l.length+1:] + ":" + itoa + ",func:" + "(" + f.Name() + ")"
+		return ";code line:" + file[l.length+1:] + ":" + itoa + ";func:" + "(" + f.Name() + ")"
 	}
 	return ""
 }
@@ -268,11 +274,16 @@ func (l *Log) colorFormat(level int, format string, args ...interface{}) (Entry,
 	}
 	message += file //拼接文件位置信息
 	//h := fmt.Sprint(entry.Head...)
-	marshal, err := json.Marshal(entry.Head)
-	if err != nil {
-		return Entry{}, ""
+	head := ""
+	if entry.Head != nil {
+		marshal, err := json.Marshal(entry.Head)
+		if err != nil {
+			return Entry{}, ""
+		}
+		head = string(marshal)
 	}
-	sprintf := fmt.Sprintf("%s %s"+logType+messageFormat, entry.Time, marshal, lcolor[0], lcolor[1], lcolor[2], lcolor[3], lcolor[4], message, lcolor[5])
+
+	sprintf := fmt.Sprintf("%s %s"+logType+messageFormat, entry.Time, head, lcolor[0], lcolor[1], lcolor[2], lcolor[3], lcolor[4], message, lcolor[5])
 	return entry, sprintf
 }
 

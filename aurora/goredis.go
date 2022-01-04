@@ -12,6 +12,7 @@ func (a *Aurora) loadGoRedis() {
 	if configs == nil {
 		return
 	}
+	a.auroraLog.Info("start loading go-redis configuration")
 	config, b := configs.([]map[string]interface{})
 	if !b {
 		return
@@ -24,5 +25,4 @@ func (a *Aurora) loadGoRedis() {
 		})
 		a.goredis = append(a.goredis, c)
 	}
-
 }

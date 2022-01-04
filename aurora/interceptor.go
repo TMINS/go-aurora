@@ -2,6 +2,7 @@ package aurora
 
 import (
 	"fmt"
+	"log"
 	"time"
 )
 
@@ -42,8 +43,8 @@ func (de *defaultInterceptor) AfterCompletion(ctx *Ctx) {
 		radd = radd[5:]
 		radd = ip + radd
 	}
-	l := fmt.Sprintf(" %s → %s | %s %s | %s", radd, re.URL.Host, re.Method, re.URL.Path, times)
-	ctx.ar.message <- l
+	l := fmt.Sprintf("%s → %s | %s %s | %s", radd, re.URL.Host, re.Method, re.URL.Path, times)
+	log.Println(l)
 }
 
 // InterceptorData 实现拦截器压栈出栈功能
