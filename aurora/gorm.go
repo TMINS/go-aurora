@@ -2,6 +2,7 @@ package aurora
 
 import (
 	"fmt"
+	"github.com/awensir/minilog/mini"
 	"gorm.io/driver/mysql"
 	"gorm.io/driver/postgres"
 	"gorm.io/driver/sqlserver"
@@ -30,19 +31,19 @@ func (a *Aurora) loadGormConfig() {
 		//如果配置文件没有加载成功，将不做任何事情
 		return
 	}
-	mysqls := a.cnf.GetStringSlice("gorm.mysql.url")
+	mysqls := a.cnf.GetStringSlice("aurora.gorm.mysql.url")
 	if mysqls != nil {
 		a.auroraLog.Info("load gorm mysql configuration information")
 	}
 	add(mysqls, &a.gorms, Mysql, a.auroraLog)
 
-	sqlservers := a.cnf.GetStringSlice("gorm.sqlserver.url")
+	sqlservers := a.cnf.GetStringSlice("aurora.gorm.sqlserver.url")
 	if sqlservers != nil {
 		a.auroraLog.Info("load gorm sqlservers mysql configuration information")
 	}
 	add(sqlservers, &a.gorms, SqlServer, a.auroraLog)
 
-	postgresql := a.cnf.GetStringSlice("gorm.postgresql.url")
+	postgresql := a.cnf.GetStringSlice("aurora.gorm.postgresql.url")
 	if postgresql != nil {
 		a.auroraLog.Info("load gorm postgresql configuration information")
 	}
@@ -55,7 +56,7 @@ func (a *Aurora) loadGormConfig() {
 }
 
 // 添加一个 gorm 配置
-func add(urls []string, gorms *map[int][]*gorm.DB, db int, logs *Log) {
+func add(urls []string, gorms *map[int][]*gorm.DB, db int, logs *mini.Log) {
 	if urls != nil {
 		if _, b := (*gorms)[db]; !b {
 			(*gorms)[db] = make([]*gorm.DB, 0)
@@ -77,7 +78,7 @@ func add(urls []string, gorms *map[int][]*gorm.DB, db int, logs *Log) {
 // config[2]:ip			地址
 // config[3]:port 		端口
 // config[4]:db_name	库
-func DefaultSQLConfig(database int, logs *Log, config ...string) *gorm.DB {
+func DefaultSQLConfig(database int, logs *mini.Log, config ...string) *gorm.DB {
 	dns := ""
 	if len(config) != 1 && len(config) != 5 {
 		logs.Error("configuration parameter error returns nil")
@@ -134,7 +135,7 @@ func defaultConfig() *gorm.Config {
 }
 
 // mysqlDb 返回mysql连接实例
-func mysqlDb(url string, logs *Log) *gorm.DB {
+func mysqlDb(url string, logs *mini.Log) *gorm.DB {
 	db, err := gorm.Open(mysql.New(
 		mysql.Config{
 			//数据库驱动配置项
@@ -162,7 +163,7 @@ func mysqlDb(url string, logs *Log) *gorm.DB {
 //}
 
 // sqlServer 返回 sqlServer 连接实例
-func sqlServer(url string, logs *Log) *gorm.DB {
+func sqlServer(url string, logs *mini.Log) *gorm.DB {
 	db, err := gorm.Open(sqlserver.Open(url), defaultConfig())
 	if err != nil {
 		logs.Error("sqlserver:" + err.Error())
@@ -172,7 +173,7 @@ func sqlServer(url string, logs *Log) *gorm.DB {
 }
 
 // postgreSql 返回 postgreSql 连接实例
-func postgreSql(url string, logs *Log) *gorm.DB {
+func postgreSql(url string, logs *mini.Log) *gorm.DB {
 	db, err := gorm.Open(postgres.Open(url), defaultConfig())
 	if err != nil {
 		logs.Error("postgresql:" + err.Error())
@@ -201,6 +202,8 @@ func (a Aurora) SqlServer() *gorm.DB {
 	return get(a.gorms, SqlServer, 0)
 }
 
+// RegisterGorm 注册一个gorm 实例，dbtype 可选值Mysql，SQLite，Postgresql，SqlServer
+//注册成功会返回db存储索引，失败则返回-1
 func (a *Aurora) RegisterGorm(dbtype int, db *gorm.DB) int {
 	if _, b := a.gorms[dbtype]; !b {
 		a.gorms[dbtype] = make([]*gorm.DB, 0)

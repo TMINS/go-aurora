@@ -47,7 +47,7 @@ func (a *Aurora) viperConfig(p ...string) {
 	a.cnf.SetConfigFile(conf)
 	err := a.cnf.ReadInConfig()
 	if err != nil {
-		a.message <- err.Error()
+		a.auroraLog.Warning(err.Error())
 		return
 	}
 	a.auroraLog.Info("the configuration file is loaded successfully.")

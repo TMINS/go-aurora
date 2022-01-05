@@ -10,20 +10,20 @@ aurora:
     #静态资源根目录配置项
     static: ""
   #consul 注册中心配置
-  consul:
+  #consul:
     #服务器地址
-    address: localhost:8500
-#gorm配置快
-gorm:
-  #mysql配置示例
-  mysql:
-    url:
-      - root:duanzhiwen@tcp(82.157.160.117:3306)/test_db?charset=utf8&parseTime=True&loc=Local
-#redis配置块
-redis:
-  #go-redis 配置示例
-  go-redis:
-    - addr: 82.157.160.117:6379
-      password: duanzhiwen
-      db: 0
-      PoolSize: 100
+    #address: localhost:8500
+  #gorm配置快
+  gorm:
+    #mysql配置示例
+    mysql:
+      url:
+        - root:duanzhiwen@tcp(82.157.160.117:3306)/test_db?charset=utf8&parseTime=True&loc=Local
+  #redis配置块
+  redis:
+    #go-redis 配置示例
+    go-redis:
+      - addr: 82.157.160.117:6379
+        password: duanzhiwen
+        db: 0
+        PoolSize: 100

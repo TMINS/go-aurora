@@ -4,6 +4,7 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"github.com/awensir/minilog/mini"
 	"github.com/go-redis/redis/v8"
 	"github.com/hashicorp/consul/api"
 	"github.com/spf13/viper"
@@ -26,8 +27,6 @@ import (
 	<+++> 进行中，还没投入使用
 */
 
-const format = "[信息]:%s \n"
-
 type Aurora struct {
 	name             string
 	lock             *sync.RWMutex
@@ -35,7 +34,7 @@ type Aurora struct {
 	cancel           func()              //取消上下文 <***>
 	host             string              //主机信息
 	port             string              //服务端口号 <***>
-	auroraLog        *Log                //日志
+	auroraLog        *mini.Log           //日志,(代码文件logs.go 单独分离出去为 minilog库 ，将不再使用logs.log)
 	router           *route              //路由服务管理 <***>
 	projectRoot      string              //项目根路径 <***>
 	resource         string              //静态资源管理 默认为 root 目录 <***>
@@ -73,7 +72,7 @@ func New(config ...string) *Aurora {
 		router: &route{
 			mx: &sync.Mutex{},
 		},
-		auroraLog:       NewLog(),
+		auroraLog:       mini.NewLog(),
 		Server:          &http.Server{},
 		resource:        "", //设定资源默认存储路径，需要连接项目更目录 和解析出来资源的路径，资源路径解析出来是没有前缀 “/” 的作为 resource属性，在其两边加上 斜杠
 		consuls:         make([]*api.Client, 0),
@@ -252,7 +251,7 @@ func (a *Aurora) RouteIntercept(path string, interceptor ...Interceptor) {
 	a.routeInterceptor = append(a.routeInterceptor, r)
 }
 
-// DefaultInterceptor 配置默认顶级拦截器
+// TopLevelInterceptor 配置默认顶级拦截器
 func (a *Aurora) TopLevelInterceptor(interceptor Interceptor) {
 	a.interceptorList[0] = interceptor
 	a.auroraLog.Info("web default global Rout Interceptor successds")
@@ -277,12 +276,12 @@ func (a *Aurora) View(ctx *Ctx, html string) {
 
 	parseFiles, err := template.ParseFiles(html)
 	if err != nil {
-		a.errMessage <- err.Error()
+		a.auroraLog.Error(err.Error())
 		return
 	}
 	err = parseFiles.Execute(ctx.Response, ctx.Attribute)
 	if err != nil {
-		a.errMessage <- err.Error()
+		a.auroraLog.Error(err.Error())
 		return
 	}
 }
@@ -319,7 +318,7 @@ func startLoading(a *Aurora) {
 
 			//初始化实例日志信息
 			case info := <-a.message:
-				log.Printf(format, info)
+				log.Printf("", info)
 
 			//服务器内部错误信息
 			case e := <-a.errMessage:

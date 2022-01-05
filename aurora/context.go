@@ -48,22 +48,22 @@ func (c *Ctx) SqlServer() *gorm.DB {
 	return get(c.ar.gorms, SqlServer, 0)
 }
 
-// MysqlList 获取注册的 默认 mysql
+// MysqlList 获取对应索引的 mysql
 func (c *Ctx) MysqlList(index int) *gorm.DB {
 	return get(c.ar.gorms, Mysql, index)
 }
 
-// SQLiteList 获取注册的 默认 SQLite
+// SQLiteList 获取对应索引的 SQLite
 func (c *Ctx) SQLiteList(index int) *gorm.DB {
 	return get(c.ar.gorms, SQLite, index)
 }
 
-// PostgreSqlList 获取注册的 默认 PostgreSql
+// PostgreSqlList 获取对应索引的 PostgreSql
 func (c *Ctx) PostgreSqlList(index int) *gorm.DB {
 	return get(c.ar.gorms, Postgresql, index)
 }
 
-// SqlServerList 获取注册的 默认 SqlServer
+// SqlServerList 获取对应索引的 SqlServer
 func (c *Ctx) SqlServerList(index int) *gorm.DB {
 	return get(c.ar.gorms, SqlServer, index)
 }
@@ -76,7 +76,7 @@ func (c *Ctx) json(data interface{}) {
 		c.Response.Header().Set(contentType, c.ar.resourceMapType[".json"])
 		_, err := c.Response.Write([]byte(s)) // 直接写入响应
 		if err != nil {
-			c.ar.errMessage <- err.Error()
+			c.ar.auroraLog.Error(err.Error())
 		}
 		return
 	}
@@ -84,14 +84,14 @@ func (c *Ctx) json(data interface{}) {
 	if err != nil {
 		c.Response.WriteHeader(http.StatusBadGateway)
 		_, err = c.Response.Write([]byte(err.Error()))
-		c.ar.errMessage <- err.Error()
+		c.ar.auroraLog.Error(err.Error())
 		return
 	}
 	c.Response.Header().Set(contentType, c.ar.resourceMapType[".json"])
 	c.Response.WriteHeader(http.StatusOK)
 	_, err = c.Response.Write(marshal)
 	if err != nil {
-		c.ar.errMessage <- err.Error()
+		c.ar.auroraLog.Error(err.Error())
 	}
 }
 

@@ -3,6 +3,7 @@ module github.com/awensir/go-aurora
 go 1.17
 
 require (
+	github.com/awensir/minilog v0.0.0-20220105030537-adf304a8d78f
 	github.com/go-redis/redis/v8 v8.11.4
 	github.com/hashicorp/consul/api v1.10.1
 	github.com/spf13/viper v1.9.0

@@ -1,10 +1,10 @@
 package aurora
 
 import (
-	"errors"
 	"fmt"
 	"github.com/awensir/go-aurora/aurora/is"
 	"net/http"
+	"os"
 	"strings"
 	"sync"
 )
@@ -47,9 +47,10 @@ func (sp *proxy) start() {
 		if i := recover(); i != nil {
 			switch i.(type) {
 			case string:
-				sp.ar.errMessage <- fmt.Sprintf("panic: %s", i.(string))
+
+				sp.ar.auroraLog.Error(fmt.Sprintf("panic: %s", i.(string)))
 			case error:
-				sp.ar.errMessage <- fmt.Sprintf("panic: %s", i.(error).Error())
+				sp.ar.auroraLog.Error(fmt.Sprintf("panic: %s", i.(error).Error()))
 			}
 			return
 		}
@@ -58,9 +59,9 @@ func (sp *proxy) start() {
 			if i := recover(); i != nil {
 				switch i.(type) {
 				case string:
-					sp.ar.errMessage <- fmt.Sprintf("panic: %s", i.(string))
+					sp.ar.auroraLog.Error(fmt.Sprintf("panic: %s", i.(string)))
 				case error:
-					sp.ar.errMessage <- fmt.Sprintf("panic: %s", i.(error).Error())
+					sp.ar.auroraLog.Error(fmt.Sprintf("panic: %s", i.(error).Error()))
 				}
 				return
 			}
@@ -106,7 +107,8 @@ func (sp *proxy) start() {
 			message := sp.ctx.GetMessage(plugin)
 			if message == nil {
 				//如果没有拿到 Error，需要给出一个错误提示，这个消息提取不到会影响到整个框架运行逻辑因此会 painc 或者结束服务器程序
-				sp.ctx.ar.initError <- errors.New("Plugin Error Message not find")
+				sp.ar.auroraLog.Error("Plugin Error Message not find")
+				os.Exit(1)
 			}
 			//正确拿到消息后，对客户端进行响应并且发出 500 错误
 			http.Error(sp.rew, message.(string), 500)
@@ -136,9 +138,9 @@ func (sp *proxy) before() {
 				sp.Interceptor = false
 				switch i.(type) {
 				case string:
-					sp.ar.errMessage <- fmt.Sprintf("panic: %s", i.(string))
+					sp.ar.auroraLog.Error(fmt.Sprintf("panic: %s", i.(string)))
 				case error:
-					sp.ar.errMessage <- fmt.Sprintf("panic: %s", i.(error).Error())
+					sp.ar.auroraLog.Error(fmt.Sprintf("panic: %s", i.(error).Error()))
 				}
 				return
 			}
@@ -190,9 +192,9 @@ func (sp *proxy) after() {
 		if i := recover(); i != nil {
 			switch i.(type) {
 			case string:
-				sp.ar.errMessage <- fmt.Sprintf("panic: %s", i.(string))
+				sp.ar.auroraLog.Error(fmt.Sprintf("panic: %s", i.(string)))
 			case error:
-				sp.ar.errMessage <- fmt.Sprintf("panic: %s", i.(error).Error())
+				sp.ar.auroraLog.Error(fmt.Sprintf("panic: %s", i.(error).Error()))
 			}
 			return
 		}
@@ -202,9 +204,9 @@ func (sp *proxy) after() {
 			if i := recover(); i != nil {
 				switch i.(type) {
 				case string:
-					sp.ar.errMessage <- fmt.Sprintf("panic: %s", i.(string))
+					sp.ar.auroraLog.Error(fmt.Sprintf("panic: %s", i.(string)))
 				case error:
-					sp.ar.errMessage <- fmt.Sprintf("panic: %s", i.(error).Error())
+					sp.ar.auroraLog.Error(fmt.Sprintf("panic: %s", i.(error).Error()))
 				}
 				return
 			}

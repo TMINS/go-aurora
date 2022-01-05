@@ -8,7 +8,7 @@ func (a *Aurora) loadGoRedis() {
 		//如果配置文件没有加载成功，将不做任何事情
 		return
 	}
-	configs := a.cnf.Get("redis.go-redis")
+	configs := a.cnf.Get("aurora.redis.go-redis")
 	if configs == nil {
 		return
 	}

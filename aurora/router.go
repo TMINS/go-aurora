@@ -104,10 +104,10 @@ func (r *route) addRoute(method, path string, fun Serve) {
 		path = path[1:]
 	}
 
-	if strings.Contains(path, "{}") {
+	if strings.Contains(path, "{}") { //此处的校验还需要加强，单一判断{}存在其他风险，开发者要么自己不能出现一些其他问题，比如 ...{}ss/.. or  .../a{s}a/.. 等情况 发现时间: 2022.1.5
 		//校验注册 REST API 的路径格式。如果存在空的属性，不给注册
-		e := errors.New(method + ":" + path + " restful接口的参数不能为空 {}")
-		r.AR.initError <- e
+		r.AR.auroraLog.Error(method + ":" + path + " The parameters of the restful interface cannot be empty {}")
+		os.Exit(1)
 	}
 	//防止go程产生并发操作覆盖路径
 	r.mx.Lock()
@@ -339,11 +339,10 @@ func (r *route) findPublicRoot(method, p1, p2 string) string {
 		s1 := p1[:index]
 		for i := len(s1); i > 0 && s1[i-1:i] != "/"; i-- { //从后往前检索到第一个 / 如果没有遇到 $ 则没有以取 REST API为公共根
 			if s1[i-1:i] == "{" {
-				e := errors.New(method + ":" + p1 + " 和 " + p2 + " 发生冲突")
-				r.AR.initError <- e
 				//fmt.Println(" REST API 路径冲突 : " + s1)
 				//panic("REST API 路径冲突")
-				//os.Exit(-1)
+				r.AR.auroraLog.Error(method + ":" + p1 + "and" + p2 + "conflict")
+				os.Exit(-1)
 			}
 		}
 		return s1
@@ -461,9 +460,8 @@ func (r *route) register(root *node, path string, lpath string, interceptor ...I
 	psl := len(ps)
 	sub := ""
 	if psl < rsl {
-		e := errors.New(path + " 路径不存在")
-
-		r.AR.initError <- e
+		r.AR.auroraLog.Error(path + " path does not exist")
+		os.Exit(1)
 		//return
 	}
 	for i := 0; i < rsl; i++ { //解析当前路径和查找路径是否有相同部分
@@ -473,7 +471,8 @@ func (r *route) register(root *node, path string, lpath string, interceptor ...I
 		}
 		if rs[i] != ps[i] && strings.Contains(rs[i], "{") { //检测 rs是否为rest api
 			if rs[i][0:1] != "{" {
-				panic("REST API 解析错误")
+				r.AR.auroraLog.Error("rest api parsing error")
+				os.Exit(1)
 			}
 			//kl := len(rs[i])
 			//key := rs[i][2 : kl-1]
@@ -490,9 +489,8 @@ func (r *route) register(root *node, path string, lpath string, interceptor ...I
 				continue
 			}
 		}
-		e := errors.New(path + " 路径不存在!")
-
-		r.AR.initError <- e
+		r.AR.auroraLog.Error(path + " path does not exist")
+		os.Exit(1)
 		//return
 	}
 	//此处修复 if sub=="" 为 if sub=="" && rsl==psl， /user/${name}/update  和 /user 类型情况下  /user 解析出 [""."user"]和[""."user","xxx","update"],上面的检查
@@ -541,9 +539,8 @@ func (r *route) register(root *node, path string, lpath string, interceptor ...I
 			}
 		}
 		//fmt.Println(path, "拦截器注册失败")
-		e := errors.New(path + " 路径不存在")
-
-		r.AR.initError <- e
+		r.AR.auroraLog.Error(path + " path does not exist")
+		os.Exit(1)
 		//return
 	}
 }
