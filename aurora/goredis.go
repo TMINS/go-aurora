@@ -8,10 +8,11 @@ func (a *Aurora) loadGoRedis() {
 		//如果配置文件没有加载成功，将不做任何事情
 		return
 	}
-	configs := a.cnf.Get("redis.go-redis")
+	configs := a.cnf.Get("aurora.redis.go-redis")
 	if configs == nil {
 		return
 	}
+	a.auroraLog.Info("start loading go-redis configuration")
 	config, b := configs.([]map[string]interface{})
 	if !b {
 		return
@@ -24,5 +25,9 @@ func (a *Aurora) loadGoRedis() {
 		})
 		a.goredis = append(a.goredis, c)
 	}
+}
 
+// GoRedis 获取默认的go redis 客户端
+func (a *Aurora) GoRedis() *redis.Client {
+	return a.goredis[0]
 }

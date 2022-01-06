@@ -87,24 +87,6 @@ func (a *Aurora) readResource(path string) []byte {
 	return nil
 }
 
-// RegisterResourceType 加载静态资源路径，静态资源读取路径，服务器处理静态资源策略改为ServeHTTP处判别，最终静态资源的处理取决于 resource 根的设置
-//存在不同的图片类型需要多次调用设置对应的存储路径（图片类型存在不同，待解决）
-func (a *Aurora) registerResourceType(t string, paths ...string) {
-	if a.resourceMappings == nil {
-		a.resourceMappings = make(map[string][]string)
-	}
-	for i := 0; i < len(paths); i++ {
-		pl := len(paths[i])
-		if paths[i][:1] != "/" {
-			paths[i] = "/" + paths[i]
-		}
-		if paths[i][pl-1:] != "/" {
-			paths[i] = paths[i] + "/"
-		}
-	}
-	a.resourceMappings[t] = paths
-}
-
 func (a *Aurora) resourceHandler(w http.ResponseWriter, req *http.Request, mapping, t string) {
 	if mapping == favicon {
 		http.NotFound(w, req)
@@ -127,19 +109,20 @@ func (a *Aurora) resourceHandler(w http.ResponseWriter, req *http.Request, mappi
 	a.resourceFun(w, mapping, m, t) //传递参数进行资源发送
 }
 
-func loadResourceHead(a *Aurora) {
-	a.message <- fmt.Sprintf("开始导入服务器请求静态资源头信息")
+func (a *Aurora) loadResourceHead() {
+	a.auroraLog.Info("start importing server request static resource header information")
 	v := viper.New()
 	//设置viper读取json格式的配置
 	v.SetConfigType("json")
 	//读取 static 的配置串 见方法下面的全局变量
 	err := v.ReadConfig(bytes.NewBuffer(static))
 	if err != nil {
-		a.errMessage <- fmt.Sprintf("服务器请求静态资源头信息导入失败")
-		return
+		a.auroraLog.Error("failed to import static resource header information requested by the server")
+		os.Exit(1)
 	}
 	s := v.GetStringMapString("type")
 	a.resourceMapType = s
+	a.auroraLog.Info("the server requested that the static resource header information was imported successfully")
 }
 
 // 用于加载静态资源类型配置

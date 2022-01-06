@@ -2,6 +2,7 @@ package aurora
 
 import (
 	"encoding/json"
+	"github.com/go-redis/redis/v8"
 	"github.com/spf13/viper"
 	"gorm.io/gorm"
 	"net/http"
@@ -48,24 +49,39 @@ func (c *Ctx) SqlServer() *gorm.DB {
 	return get(c.ar.gorms, SqlServer, 0)
 }
 
-// MysqlList 获取注册的 默认 mysql
+// MysqlList 获取对应索引的 mysql
 func (c *Ctx) MysqlList(index int) *gorm.DB {
 	return get(c.ar.gorms, Mysql, index)
 }
 
-// SQLiteList 获取注册的 默认 SQLite
+// SQLiteList 获取对应索引的 SQLite
 func (c *Ctx) SQLiteList(index int) *gorm.DB {
 	return get(c.ar.gorms, SQLite, index)
 }
 
-// PostgreSqlList 获取注册的 默认 PostgreSql
+// PostgreSqlList 获取对应索引的 PostgreSql
 func (c *Ctx) PostgreSqlList(index int) *gorm.DB {
 	return get(c.ar.gorms, Postgresql, index)
 }
 
-// SqlServerList 获取注册的 默认 SqlServer
+// SqlServerList 获取对应索引的 SqlServer
 func (c *Ctx) SqlServerList(index int) *gorm.DB {
 	return get(c.ar.gorms, SqlServer, index)
+}
+
+// GoRedis 获取默认的 go-redis 客户端
+func (c *Ctx) GoRedis() *redis.Client {
+	return c.ar.goredis[0]
+}
+
+// GoRedisList 获取指定索引下的 go-redis 客户端
+func (c *Ctx) GoRedisList(index int) *redis.Client {
+	if index > len(c.ar.goredis) || index < 0 {
+		//取客户端，超出索引边界给出提示
+		c.ar.auroraLog.Warning("out of the storage index range of redis, the retrieval failed, please check the configuration information or parameters, a nil is returned")
+		return nil
+	}
+	return c.ar.goredis[index]
 }
 
 // JSON 向浏览器输出json数据
@@ -76,7 +92,7 @@ func (c *Ctx) json(data interface{}) {
 		c.Response.Header().Set(contentType, c.ar.resourceMapType[".json"])
 		_, err := c.Response.Write([]byte(s)) // 直接写入响应
 		if err != nil {
-			c.ar.errMessage <- err.Error()
+			c.ar.auroraLog.Error(err.Error())
 		}
 		return
 	}
@@ -84,14 +100,14 @@ func (c *Ctx) json(data interface{}) {
 	if err != nil {
 		c.Response.WriteHeader(http.StatusBadGateway)
 		_, err = c.Response.Write([]byte(err.Error()))
-		c.ar.errMessage <- err.Error()
+		c.ar.auroraLog.Error(err.Error())
 		return
 	}
 	c.Response.Header().Set(contentType, c.ar.resourceMapType[".json"])
 	c.Response.WriteHeader(http.StatusOK)
 	_, err = c.Response.Write(marshal)
 	if err != nil {
-		c.ar.errMessage <- err.Error()
+		c.ar.auroraLog.Error(err.Error())
 	}
 }
 

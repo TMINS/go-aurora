@@ -12,9 +12,11 @@ const FILE = "application.yml"
 /*
 	viper 配置文件实例
 	提供Aurora 默认的配置实例
-	默认读取配置文件的位置为根目录l application.ym
+	默认读取配置文件的位置为根目录 application.yml
+	默认配置文件项，优先于api配置项
 */
-// ViperConfig 配置并加载 application.yml 配置文件
+
+// viperConfig 配置并加载 application.yml 配置文件
 func (a *Aurora) viperConfig(p ...string) {
 	if a.cnf != nil {
 		return
@@ -22,7 +24,6 @@ func (a *Aurora) viperConfig(p ...string) {
 	a.cnf = viper.New() //创建配置文件实例
 	cnf := make([]string, 0)
 	cnf = append(cnf, a.projectRoot) //添加项目根路径
-	//cnfpath:=path.Join(a.projectRoot,CNF_FILE)
 	if p != nil {
 		cnf = append(cnf, p...)
 	} else {
@@ -31,7 +32,8 @@ func (a *Aurora) viperConfig(p ...string) {
 		_, err := os.Lstat(pat)
 		if err != nil {
 			if os.IsNotExist(err) {
-				a.message <- fmt.Sprintf("配置文件不存在，加载失败")
+				//没有加载到配置文件 给出警告
+				a.auroraLog.Warning(fmt.Sprintf("no configuration file information was loaded because the default application.yml was not found."))
 			}
 			return
 		}
@@ -41,10 +43,10 @@ func (a *Aurora) viperConfig(p ...string) {
 	a.cnf.SetConfigFile(conf)
 	err := a.cnf.ReadInConfig()
 	if err != nil {
-		a.message <- err.Error()
+		a.auroraLog.Warning(err.Error())
 		return
 	}
-	a.message <- fmt.Sprint("配置文件加载成功.")
+	a.auroraLog.Info("the configuration file is loaded successfully.")
 }
 
 // Viper 获取 Aurora viper实例

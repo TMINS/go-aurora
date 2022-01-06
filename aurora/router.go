@@ -5,6 +5,7 @@ import (
 	"errors"
 	"fmt"
 	"net/http"
+	"os"
 	"reflect"
 	"runtime"
 	"strings"
@@ -95,16 +96,18 @@ func (r *route) addRoute(method, path string, fun Serve) {
 		path += "/" + path //没有写 "/" 则添加斜杠开头
 	}
 	if path != "/" && path[len(path)-1:] == "/" {
-		e := fmt.Errorf(" %s 路径注册, %s 注册路径不能以 '/' 结尾", method, path)
-		r.AR.initError <- e
+		//e := fmt.Errorf(" %s 路径注册, %s 注册路径不能以 '/' 结尾", method, path)
+		r.AR.auroraLog.Error(method + " registration, " + path + " the registration path cannot end with'/'")
+		os.Exit(1)
 	}
 	if strings.HasPrefix(path, "//") { //解决 根 / 路径分组产生的bug
 		path = path[1:]
 	}
-	if strings.Contains(path, "{}") {
+
+	if strings.Contains(path, "{}") { //此处的校验还需要加强，单一判断{}存在其他风险，开发者要么自己不能出现一些其他问题，比如 ...{}ss/.. or  .../a{s}a/.. 等情况 发现时间: 2022.1.5
 		//校验注册 REST API 的路径格式。如果存在空的属性，不给注册
-		e := errors.New(method + ":" + path + " restful接口的参数不能为空 {}")
-		r.AR.initError <- e
+		r.AR.auroraLog.Error(method + ":" + path + " The parameters of the restful interface cannot be empty {}")
+		os.Exit(1)
 	}
 	//防止go程产生并发操作覆盖路径
 	r.mx.Lock()
@@ -134,8 +137,8 @@ func (r *route) add(method string, root *node, Path string, fun Serve, path stri
 		root.Path = Path
 		root.Child = nil
 		root.handle = fun
-		l := fmt.Sprintf("服务器接口映射添加成功 | %-10s %-20s 绑定到函数 (%-5s)", method, path, getFunName(fun))
-		r.AR.message <- l
+		l := fmt.Sprintf("server interface mapping added successfully | %-10s %-20s bind to function (%-5s)", method, path, getFunName(fun))
+		r.AR.auroraLog.Debug(l)
 		return
 	}
 	if root.Path == Path { //相同路径可能是分裂或者提取的公共根
@@ -153,9 +156,8 @@ func (r *route) add(method string, root *node, Path string, fun Serve, path stri
 
 		//此处修改，注册同样的路径，选择覆盖前一个，若是出现bug，注释掉现在使用的代码，还原上面的注释部分即可
 		root.handle = fun
-		l := fmt.Sprintf("服务器接口映射添加成功 | %-10s %-20s 绑定到函数 (%-5s)", method, path, getFunName(fun))
-
-		r.AR.message <- l
+		l := fmt.Sprintf("server interface mapping added successfully | %-10s %-20s bind to function (%-5s)", method, path, getFunName(fun))
+		r.AR.auroraLog.Debug(l)
 		return
 	}
 	//如果当前的节点是 REST API 节点 ，子节点可以添加REST API节点
@@ -193,14 +195,15 @@ func (r *route) add(method string, root *node, Path string, fun Serve, path stri
 					//如果存储的路径是REST API 检索 当前子节点是否存有路径，存有路径则为冲突
 					for i := 0; i < len(root.Child); i++ {
 						if !(strings.HasPrefix(root.Child[i].Path, "{") && strings.HasPrefix(Path, "{")) {
-							e := errors.New(method + ":" + Path + " and " + root.Child[i].Path + " collide with each other")
-							r.AR.initError <- e
+							//e := errors.New(method + ":" + Path + " and " + root.Child[i].Path + " collide with each other")
+							r.AR.auroraLog.Error(method + ":" + Path + " and " + root.Child[i].Path + " collide with each other")
+							os.Exit(1)
 						}
 					}
 				}
 				root.Child = append(root.Child, &node{Path: c, Child: nil, handle: fun})
-				l := fmt.Sprintf("服务器接口映射添加成功 | %-10s %-20s 绑定到函数 (%-5s)", method, path, getFunName(fun))
-				r.AR.message <- l
+				l := fmt.Sprintf("server interface mapping added successfully | %-10s %-20s bind to function (%-5s)", method, path, getFunName(fun))
+				r.AR.auroraLog.Debug(l)
 				return
 			}
 		}
@@ -232,8 +235,9 @@ func (r *route) add(method string, root *node, Path string, fun Serve, path stri
 					//如果存储的路径是REST API 需要检索当前子节点是否存有路径，存有路径则为冲突
 					for i := 0; i < len(root.Child); i++ {
 						if !(strings.HasPrefix(root.Child[i].Path, "{") && strings.HasPrefix(Path, "{")) {
-							e := errors.New(method + ":" + Path + " and " + root.Child[i].Path + " collide with each other")
-							r.AR.initError <- e
+							//e := errors.New(method + ":" + Path + " and " + root.Child[i].Path + " collide with each other")
+							r.AR.auroraLog.Error(method + ":" + Path + " and " + root.Child[i].Path + " collide with each other")
+							os.Exit(1)
 						}
 					}
 				}
@@ -242,8 +246,8 @@ func (r *route) add(method string, root *node, Path string, fun Serve, path stri
 				root.Child = append(root.Child, &node{Path: c, Child: tempChild, handle: root.handle}) //封装被分裂的子节点 添加到当前根的子节点中
 				root.Path = root.Path[:i]                                                              //修改当前节点为添加的路径
 				root.handle = fun                                                                      //更改当前处理函数
-				l := fmt.Sprintf("服务器接口映射添加成功 | %-10s %-20s 绑定到函数 (%-5s)", method, path, getFunName(fun))
-				r.AR.message <- l
+				l := fmt.Sprintf("server interface mapping added successfully | %-10s %-20s bind to function (%-5s)", method, path, getFunName(fun))
+				r.AR.auroraLog.Debug(l)
 				return
 			}
 		}
@@ -290,15 +294,17 @@ func (r *route) merge(method string, root *node, Path string, fun Serve, path st
 						return true
 					}
 				}
-				//检索插入路径REST API冲突
+				//检索插入路径REST API冲突。
 				for i := 0; i < len(root.Child); i++ {
 					if strings.HasPrefix(root.Child[i].Path, "{") || strings.HasPrefix(ch2, "{") {
-						e := errors.New(method + " :" + path + "  Conflict with other rest ful")
-						r.AR.initError <- e
+						//e := errors.New(method + " :" + path + "  Conflict with other rest ful")
+						r.AR.auroraLog.Error(method + " :" + path + "  Conflict with other rest ful")
+						os.Exit(1)
 					}
 					if strings.HasPrefix(root.Child[i].Path, "{") && strings.HasPrefix(ch2, "{") {
-						e := errors.New(method + " :" + path + "  Conflict with other rest ful")
-						r.AR.initError <- e
+						//e := errors.New(method + " :" + path + "  Conflict with other rest ful")
+						r.AR.auroraLog.Error(method + " :" + path + "  Conflict with other rest ful")
+						os.Exit(1)
 					}
 				}
 			}
@@ -311,8 +317,8 @@ func (r *route) merge(method string, root *node, Path string, fun Serve, path st
 		}
 		root.Path = pub //覆盖原有值设置公共根
 
-		l := fmt.Sprintf("服务器接口映射添加成功 | %-10s %-20s 绑定到函数 (%-5s)", method, path, getFunName(fun))
-		r.AR.message <- l
+		l := fmt.Sprintf("server interface mapping added successfully | %-10s %-20s bind to function (%-5s)", method, path, getFunName(fun))
+		r.AR.auroraLog.Debug(l)
 		return true
 	}
 	return false
@@ -333,11 +339,10 @@ func (r *route) findPublicRoot(method, p1, p2 string) string {
 		s1 := p1[:index]
 		for i := len(s1); i > 0 && s1[i-1:i] != "/"; i-- { //从后往前检索到第一个 / 如果没有遇到 $ 则没有以取 REST API为公共根
 			if s1[i-1:i] == "{" {
-				e := errors.New(method + ":" + p1 + " 和 " + p2 + " 发生冲突")
-				r.AR.initError <- e
 				//fmt.Println(" REST API 路径冲突 : " + s1)
 				//panic("REST API 路径冲突")
-				//os.Exit(-1)
+				r.AR.auroraLog.Error(method + ":" + p1 + "and" + p2 + "conflict")
+				os.Exit(-1)
 			}
 		}
 		return s1
@@ -394,23 +399,23 @@ func optimizeSort(child []*node, start int, end int) {
 func (r *route) RegisterInterceptor(path string, interceptor ...Interceptor) {
 	pl := len(path)
 	if pl < 1 {
-		err := errors.New(path + "注册拦截器路径不能为空.")
-		r.AR.initError <- err
-		return
+		//err := errors.New(path + "注册拦截器路径不能为空.")
+		r.AR.auroraLog.Error("registration interceptor path cannot be empty")
+		os.Exit(1)
 	}
 	if pl > 1 {
 		//如果是通配路径 则进行校验
 		if path[pl-1:] == "*" && path[pl-2:] != "/*" {
-			err := errors.New(path + " 通配符拦截器路径错误,必须以/*结尾.")
-			r.AR.initError <- err
-			return
+			//err := errors.New(path + " 通配符拦截器路径错误,必须以/*结尾.")
+			r.AR.auroraLog.Error(path + " the wildcard interceptor path is wrong, it must end with /*")
+			os.Exit(1)
 		}
 	}
 	//校验路径开头是否以 / 否则不给添加
 	if path[pl-1:] == "/" {
-		err := errors.New(path + " 拦截器不能以 / 结尾")
-		r.AR.initError <- err
-		return
+		//err := errors.New(path + " 拦截器不能以 / 结尾")
+		r.AR.auroraLog.Error(path + " interceptor cannot end with /")
+		os.Exit(1)
 	}
 	//为每个路径添加上拦截器
 	for k, _ := range r.tree {
@@ -432,8 +437,8 @@ func (r *route) register(root *node, path string, lpath string, interceptor ...I
 				//添加通配拦截器 的路径是一个服务的话就一并设置
 				root.InterList = interceptor
 			}
-			l := fmt.Sprintf("服务路径拦截器添加成功 | %s  ", lpath)
-			r.AR.message <- l
+			l := fmt.Sprintf("service path interceptor added successfully | %s  ", lpath)
+			r.AR.auroraLog.Info(l)
 			return
 		}
 		//root.InterList = interceptor //再次添加会覆盖通配拦截器
@@ -444,8 +449,8 @@ func (r *route) register(root *node, path string, lpath string, interceptor ...I
 
 	if root.Path == path && root.handle != nil {
 		root.InterList = interceptor //再次添加会覆盖通配拦截器
-		l := fmt.Sprintf("服务路径拦截器添加成功 | %s  ", lpath)
-		r.AR.message <- l
+		l := fmt.Sprintf("service path interceptor added successfully | %s  ", lpath)
+		r.AR.auroraLog.Info(l)
 		return
 	}
 
@@ -455,9 +460,8 @@ func (r *route) register(root *node, path string, lpath string, interceptor ...I
 	psl := len(ps)
 	sub := ""
 	if psl < rsl {
-		e := errors.New(path + " 路径不存在")
-
-		r.AR.initError <- e
+		r.AR.auroraLog.Error(path + " path does not exist")
+		os.Exit(1)
 		//return
 	}
 	for i := 0; i < rsl; i++ { //解析当前路径和查找路径是否有相同部分
@@ -467,7 +471,8 @@ func (r *route) register(root *node, path string, lpath string, interceptor ...I
 		}
 		if rs[i] != ps[i] && strings.Contains(rs[i], "{") { //检测 rs是否为rest api
 			if rs[i][0:1] != "{" {
-				panic("REST API 解析错误")
+				r.AR.auroraLog.Error("rest api parsing error")
+				os.Exit(1)
 			}
 			//kl := len(rs[i])
 			//key := rs[i][2 : kl-1]
@@ -484,9 +489,8 @@ func (r *route) register(root *node, path string, lpath string, interceptor ...I
 				continue
 			}
 		}
-		e := errors.New(path + " 路径不存在!")
-
-		r.AR.initError <- e
+		r.AR.auroraLog.Error(path + " path does not exist")
+		os.Exit(1)
 		//return
 	}
 	//此处修复 if sub=="" 为 if sub=="" && rsl==psl， /user/${name}/update  和 /user 类型情况下  /user 解析出 [""."user"]和[""."user","xxx","update"],上面的检查
@@ -535,9 +539,8 @@ func (r *route) register(root *node, path string, lpath string, interceptor ...I
 			}
 		}
 		//fmt.Println(path, "拦截器注册失败")
-		e := errors.New(path + " 路径不存在")
-
-		r.AR.initError <- e
+		r.AR.auroraLog.Error(path + " path does not exist")
+		os.Exit(1)
 		//return
 	}
 }
