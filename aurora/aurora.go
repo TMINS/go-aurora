@@ -11,7 +11,6 @@ import (
 	"google.golang.org/grpc"
 	"gorm.io/gorm"
 	"html/template"
-	"log"
 	"net"
 	"net/http"
 	"os"
@@ -28,38 +27,33 @@ import (
 */
 
 type Aurora struct {
-	name             string
-	lock             *sync.RWMutex
-	ctx              context.Context     //服务器顶级上下文，通过此上下文可以跳过 go web 自带的子上下文去开启纯净的子go程，结束此上下文 web服务也将结束 <***>
-	cancel           func()              //取消上下文 <***>
-	host             string              //主机信息
-	port             string              //服务端口号 <***>
-	auroraLog        *mini.Log           //日志,(代码文件logs.go 单独分离出去为 minilog库 ，将不再使用logs.log)
-	router           *route              //路由服务管理 <***>
-	projectRoot      string              //项目根路径 <***>
-	resource         string              //静态资源管理 默认为 root 目录 <***>
-	resourceMappings map[string][]string //静态资源映射路径标识 <***>
-	resourceMapType  map[string]string   //常用的静态资源头 <***>
+	name            string //服务名称
+	lock            *sync.RWMutex
+	ctx             context.Context   //服务器顶级上下文，通过此上下文可以跳过 go web 自带的子上下文去开启纯净的子go程，结束此上下文 web服务也将结束 <***>
+	cancel          func()            //取消上下文 <***>
+	host            string            //主机信息
+	port            string            //服务端口号 <***>
+	auroraLog       *mini.Log         //日志,(代码文件logs.go 单独分离出去为 minilog库 ，将不再使用logs.log)<***>
+	router          *route            //路由服务管理 <***>
+	projectRoot     string            //项目根路径 <***>
+	resource        string            //静态资源管理 默认为 root 目录 <***>
+	resourceMapType map[string]string //常用的静态资源头 <***>
 
-	MaxMultipartMemory int64       //文件上传大小配置
-	message            chan string //启动自带的日志信息 <***>
-	errMessage         chan string //服务内部api处理错误消息日志<***>
-	initError          chan error  //路由器级别错误通道 一旦初始化出错，则结束服务，检查配置 <***>
+	MaxMultipartMemory int64 //文件上传大小配置
 
-	plugins          []PluginFunc       //全局插件处理链，每个请求都会走一次,待完善只实现了对插件统一调用，还未做出对插件中途取消，等操作。plugin 发生panic会阻断待执行的业务处理器，可借助panic进行中断，配合ctx进行消息返回<--->
+	plugins          []PluginFunc       //<--->全局插件处理链，每个请求都会走一次,待完善只实现了对插件统一调用，还未做出对插件中途取消，等操作。plugin 发生panic会阻断待执行的业务处理器，可借助panic进行中断，配合ctx进行消息返回
 	routeInterceptor []interceptorArgs  //拦截器初始华切片 <***>
 	interceptorList  []Interceptor      //全局拦截器 <***>
 	gorms            map[int][]*gorm.DB //存储gorm各种类型的连接实例，默认初始化从配置文件中读取<***>
 	goredis          []*redis.Client    //存储go-redis 配置实例
 
-	cnf          *viper.Viper // 配置实例，读取配置文件 <***>
-	configOption *auroraConfig
-	Server       *http.Server // web服务器 <***>
-	grpc         *grpc.Server // 用于接入grpc支持,该整合意义在于让grpc服务和http服务公用一个ip和端口号,仅支持tls通讯情况下的整合
-	Ln           net.Listener // web服务器监听,启动服务器时候初始化
+	cnf    *viper.Viper // 配置实例，读取配置文件 <***>
+	Server *http.Server // web服务器 <***>
+	grpc   *grpc.Server // 用于接入grpc支持,该整合意义在于让grpc服务和http服务公用一个ip和端口号,仅支持tls通讯情况下的整合
+	Ln     net.Listener // web服务器监听,启动服务器时候初始化
 
-	consuls []*api.Client
-	consul  consulConfig //集成consul模块
+	consuls []*api.Client //<+++>
+	consul  consulConfig  //集成consul模块<+++>
 }
 
 // New :最基础的 Aurora 实例
@@ -76,13 +70,9 @@ func New(config ...string) *Aurora {
 		Server:          &http.Server{},
 		resource:        "", //设定资源默认存储路径，需要连接项目更目录 和解析出来资源的路径，资源路径解析出来是没有前缀 “/” 的作为 resource属性，在其两边加上 斜杠
 		consuls:         make([]*api.Client, 0),
-		initError:       make(chan error),
 		resourceMapType: make(map[string]string),
 		gorms:           make(map[int][]*gorm.DB),
-		message:         make(chan string),
-		errMessage:      make(chan string),
 	}
-	startLoading(a) //开启日志线程
 	a.auroraLog.Info(fmt.Sprintf("golang version information:%1s", runtime.Version()))
 	a.auroraLog.Info(fmt.Sprintf("start loading the application.yml configuration file."))
 	a.viperConfig(config...) //加载默认位置的 application.yml,config可配置路径信息
@@ -219,15 +209,6 @@ func (a *Aurora) tls(args ...string) error {
 	return a.Server.ListenAndServeTLS(args[0], args[1]) //启动服务器
 }
 
-// ResourceMapping 资源映射(暂时弃用)
-//添加静态资源配置，t资源类型必须以置源后缀命名，
-//paths为t类型资源的子路径，可以一次性设置多个。
-//每个资源类型最调用一次设置方法否则覆盖原有设置
-//Deprecated
-func (a *Aurora) resourceMapping(Type string, Paths ...string) {
-	a.registerResourceType(Type, Paths...)
-}
-
 // StaticRoot 设置静态资源根路径，会覆盖配置文件选项
 func (a *Aurora) StaticRoot(root string) {
 	if root == "" {
@@ -307,28 +288,6 @@ func (a *Aurora) baseContext(ln net.Listener) context.Context {
 	a.auroraLog.Info("successfully initialized the context instance and cleanup function.")
 	a.auroraLog.Info(fmt.Sprintf("the server successfully binds to the port:%s", a.port))
 	return c
-}
-
-// startLoading 启动加载
-func startLoading(a *Aurora) {
-	//启动日志
-	go func(a *Aurora) {
-		for true {
-			select {
-
-			//初始化实例日志信息
-			case info := <-a.message:
-				log.Printf("", info)
-
-			//服务器内部错误信息
-			case e := <-a.errMessage:
-				log.Println(e)
-
-			case err := <-a.initError: //启动初始化错误处理
-				log.Fatal(err)
-			}
-		}
-	}(a)
 }
 
 func (a *Aurora) ProjectPath() string {

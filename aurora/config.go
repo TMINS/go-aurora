@@ -16,10 +16,6 @@ const FILE = "application.yml"
 	默认配置文件项，优先于api配置项
 */
 
-type auroraConfig struct {
-	config interface{}
-}
-
 // viperConfig 配置并加载 application.yml 配置文件
 func (a *Aurora) viperConfig(p ...string) {
 	if a.cnf != nil {

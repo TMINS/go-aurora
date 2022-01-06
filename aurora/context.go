@@ -2,6 +2,7 @@ package aurora
 
 import (
 	"encoding/json"
+	"github.com/go-redis/redis/v8"
 	"github.com/spf13/viper"
 	"gorm.io/gorm"
 	"net/http"
@@ -66,6 +67,21 @@ func (c *Ctx) PostgreSqlList(index int) *gorm.DB {
 // SqlServerList 获取对应索引的 SqlServer
 func (c *Ctx) SqlServerList(index int) *gorm.DB {
 	return get(c.ar.gorms, SqlServer, index)
+}
+
+// GoRedis 获取默认的 go-redis 客户端
+func (c *Ctx) GoRedis() *redis.Client {
+	return c.ar.goredis[0]
+}
+
+// GoRedisList 获取指定索引下的 go-redis 客户端
+func (c *Ctx) GoRedisList(index int) *redis.Client {
+	if index > len(c.ar.goredis) || index < 0 {
+		//取客户端，超出索引边界给出提示
+		c.ar.auroraLog.Warning("out of the storage index range of redis, the retrieval failed, please check the configuration information or parameters, a nil is returned")
+		return nil
+	}
+	return c.ar.goredis[index]
 }
 
 // JSON 向浏览器输出json数据

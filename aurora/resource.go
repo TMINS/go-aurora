@@ -87,24 +87,6 @@ func (a *Aurora) readResource(path string) []byte {
 	return nil
 }
 
-// RegisterResourceType 加载静态资源路径，静态资源读取路径，服务器处理静态资源策略改为ServeHTTP处判别，最终静态资源的处理取决于 resource 根的设置
-//存在不同的图片类型需要多次调用设置对应的存储路径（图片类型存在不同，待解决）
-func (a *Aurora) registerResourceType(t string, paths ...string) {
-	if a.resourceMappings == nil {
-		a.resourceMappings = make(map[string][]string)
-	}
-	for i := 0; i < len(paths); i++ {
-		pl := len(paths[i])
-		if paths[i][:1] != "/" {
-			paths[i] = "/" + paths[i]
-		}
-		if paths[i][pl-1:] != "/" {
-			paths[i] = paths[i] + "/"
-		}
-	}
-	a.resourceMappings[t] = paths
-}
-
 func (a *Aurora) resourceHandler(w http.ResponseWriter, req *http.Request, mapping, t string) {
 	if mapping == favicon {
 		http.NotFound(w, req)

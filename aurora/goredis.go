@@ -26,3 +26,8 @@ func (a *Aurora) loadGoRedis() {
 		a.goredis = append(a.goredis, c)
 	}
 }
+
+// GoRedis 获取默认的go redis 客户端
+func (a *Aurora) GoRedis() *redis.Client {
+	return a.goredis[0]
+}
