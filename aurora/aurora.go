@@ -95,23 +95,30 @@ func New(config ...string) *Aurora {
 			p = p + "/"
 		}
 		a.resource = p
+		a.auroraLog.Info(fmt.Sprintf("server static resource root directory:%1s", a.resource))
 	}
 
 	name := a.cnf.GetString("aurora.application.name")
-	a.name = name
-	a.auroraLog.Info("the service name is " + a.name)
+	if name != "" {
+		a.name = name
+		a.auroraLog.Info("the service name is " + a.name)
+	}
 	//加载默认的全局拦截器
 	a.interceptorList = []Interceptor{
 		0: &defaultInterceptor{},
 	}
 	a.auroraLog.Info("initialize the default top-level interceptor")
-	a.auroraLog.Info(fmt.Sprintf("server static resource root directory:%1s", a.resource))
 	a.loadResourceHead()                 //加载静态资源头
 	a.loadGormConfig()                   //加载配置文件中的gorm配置项
 	a.loadGoRedis()                      //加载go-redis
 	a.consulConfig()                     //加载consul
 	a.Server.BaseContext = a.baseContext //配置 上下文对象属性
 	return a
+}
+
+// Level 修改系统日志输出级别，系统默认输出任何级别
+func (a *Aurora) Level(level int) {
+	a.auroraLog.Level(level)
 }
 
 // ServiceName 设置程序服务名称,配置文件信息由于api设置

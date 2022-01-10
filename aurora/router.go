@@ -105,7 +105,7 @@ func (r *route) addRoute(method, path string, fun Serve) {
 	}
 
 	if strings.Contains(path, "{}") { //此处的校验还需要加强，单一判断{}存在其他风险，开发者要么自己不能出现一些其他问题，比如 ...{}ss/.. or  .../a{s}a/.. 等情况 发现时间: 2022.1.5
-		//校验注册 REST API 的路径格式。如果存在空的属性，不给注册
+		//校验注册 REST API 的路径格式。如果存在空的属性，不给注册 /asd/sad/{xx}/{xx}
 		r.AR.auroraLog.Error(method + ":" + path + " The parameters of the restful interface cannot be empty {}")
 		os.Exit(1)
 	}
