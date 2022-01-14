@@ -2,8 +2,6 @@
 
 Aurora 是一个用 Go (Golang) 编写的 Web 框架。如果您需要性能和良好的生产力，您一定会喜欢 Aurora 。
 
-------
-
 
 
 ## 主要内容
@@ -21,8 +19,6 @@ Aurora 是一个用 Go (Golang) 编写的 Web 框架。如果您需要性能和�
 - [x] GORM 集成
 - [x] Redis 集成
 - [x] gRPC 端口整合
-
-------
 
 
 
