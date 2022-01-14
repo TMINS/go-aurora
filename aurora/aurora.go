@@ -4,6 +4,7 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"github.com/awensir/aurora-email/email"
 	"github.com/awensir/minilog/mini"
 	"github.com/go-redis/redis/v8"
 	"github.com/hashicorp/consul/api"
@@ -46,6 +47,7 @@ type Aurora struct {
 	interceptorList  []Interceptor      //全局拦截器 <***>
 	gorms            map[int][]*gorm.DB //存储gorm各种类型的连接实例，默认初始化从配置文件中读取<***>
 	goredis          []*redis.Client    //存储go-redis 配置实例
+	email            *email.Client
 
 	cnf    *viper.Viper // 配置实例，读取配置文件 <***>
 	Server *http.Server // web服务器 <***>
@@ -111,6 +113,7 @@ func New(config ...string) *Aurora {
 	a.loadResourceHead()                 //加载静态资源头
 	a.loadGormConfig()                   //加载配置文件中的gorm配置项
 	a.loadGoRedis()                      //加载go-redis
+	a.loadEmail()                        //加载邮件配置
 	a.consulConfig()                     //加载consul
 	a.Server.BaseContext = a.baseContext //配置 上下文对象属性
 	return a

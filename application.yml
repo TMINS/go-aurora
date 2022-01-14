@@ -13,6 +13,10 @@ aurora:
   #consul:
     #服务器地址
     #address: localhost:8500
+  email:
+    user: zhiwen_der@qq.com
+    password: xxxxx
+    host: xxxxxx
   #gorm配置快
   gorm:
     #mysql配置示例
