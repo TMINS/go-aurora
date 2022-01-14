@@ -4,7 +4,7 @@ go 1.17
 
 require (
 	github.com/awensir/aurora-email v0.0.1
-	github.com/awensir/minilog v0.0.3
+	github.com/awensir/minilog v0.0.5
 	github.com/go-redis/redis/v8 v8.11.4
 	github.com/hashicorp/consul/api v1.10.1
 	github.com/spf13/viper v1.9.0

@@ -1,16 +1,17 @@
 package main
 
 import (
+	"fmt"
 	"github.com/awensir/go-aurora/aurora"
 )
 
 func main() {
 	//获取 aurora 路由实例
 	a := aurora.New()
-
+	//a.Level(mini.ALL)
 	// GET 方法注册 web get请求
 	a.GET("/", func(c *aurora.Ctx) interface{} {
-
+		fmt.Println("hello")
 		return nil
 	})
 

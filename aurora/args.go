@@ -40,6 +40,15 @@ func (c *Ctx) StringArgs(name string) (string, error) {
 	return args.(string), nil
 }
 
+// BoolArgs 获取 逻辑 形式的 REST FUL 参数
+func (c *Ctx) BoolArgs(name string) (bool, error) {
+	args, err := c.getArgs(name)
+	if err != nil {
+		return false, err
+	}
+	return strconv.ParseBool(args.(string))
+}
+
 func (c *Ctx) getArgs(name string) (interface{}, error) {
 	v, b := c.Args[name]
 	if !b {
