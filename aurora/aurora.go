@@ -27,6 +27,11 @@ import (
 	<+++> 进行中，还没投入使用
 */
 
+const (
+	Dev = mini.ALL
+	Pro = mini.INFO
+)
+
 type Aurora struct {
 	name            string            //服务名称
 	ctx             context.Context   //服务器顶级上下文，通过此上下文可以跳过 go web 自带的子上下文去开启纯净的子go程，结束此上下文 web服务也将结束 <***>
@@ -70,7 +75,7 @@ func New(config ...string) *Aurora {
 		router: &route{
 			mx: &sync.Mutex{},
 		},
-		auroraLog:       mini.NewLog(),
+		auroraLog:       mini.NewLog(Dev),
 		Server:          &http.Server{},
 		resource:        "", //设定资源默认存储路径，需要连接项目更目录 和解析出来资源的路径，资源路径解析出来是没有前缀 “/” 的作为 resource属性，在其两边加上 斜杠
 		consuls:         make([]*api.Client, 0),
