@@ -3,12 +3,13 @@ package main
 import (
 	"fmt"
 	"github.com/awensir/go-aurora/aurora"
+	"github.com/awensir/minilog/mini"
 )
 
 func main() {
 	//获取 aurora 路由实例
 	a := aurora.New()
-	//a.Level(mini.ALL)
+	a.Level(mini.INFO)
 	// GET 方法注册 web get请求
 	a.GET("/", func(c *aurora.Ctx) interface{} {
 		fmt.Println("hello")

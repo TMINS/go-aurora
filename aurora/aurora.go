@@ -28,8 +28,7 @@ import (
 */
 
 type Aurora struct {
-	name            string //服务名称
-	lock            *sync.RWMutex
+	name            string            //服务名称
 	ctx             context.Context   //服务器顶级上下文，通过此上下文可以跳过 go web 自带的子上下文去开启纯净的子go程，结束此上下文 web服务也将结束 <***>
 	cancel          func()            //取消上下文 <***>
 	host            string            //主机信息
@@ -49,7 +48,10 @@ type Aurora struct {
 	goredis          []*redis.Client    //存储go-redis 配置实例
 	email            *email.Client
 
-	cnf    *viper.Viper // 配置实例，读取配置文件 <***>
+	cnf          *viper.Viper // 配置实例，读取配置文件 <***>
+	remoteConfig func() *viper.Viper
+	cnfLock      *sync.RWMutex //分布式配置中心处理动态刷新web 服务配置的读写锁
+
 	Server *http.Server // web服务器 <***>
 	grpc   *grpc.Server // 用于接入grpc支持,该整合意义在于让grpc服务和http服务公用一个ip和端口号,仅支持tls通讯情况下的整合
 	Ln     net.Listener // web服务器监听,启动服务器时候初始化
@@ -63,8 +65,8 @@ type Aurora struct {
 func New(config ...string) *Aurora {
 	//初始化基本属性
 	a := &Aurora{
-		lock: &sync.RWMutex{},
-		port: "8080", //默认端口号
+		cnfLock: &sync.RWMutex{},
+		port:    "8080", //默认端口号
 		router: &route{
 			mx: &sync.Mutex{},
 		},
@@ -122,6 +124,10 @@ func New(config ...string) *Aurora {
 // Level 修改系统日志输出级别，系统默认输出任何级别
 func (a *Aurora) Level(level int) {
 	a.auroraLog.Level(level)
+}
+
+func (a *Aurora) RemoteConfig(fun func() *viper.Viper) {
+	a.remoteConfig = fun
 }
 
 // ServiceName 设置程序服务名称,配置文件信息由于api设置

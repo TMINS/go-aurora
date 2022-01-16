@@ -1,10 +1,15 @@
 package aurora
 
 import (
+	"bytes"
 	"fmt"
+	"github.com/nacos-group/nacos-sdk-go/clients"
+	"github.com/nacos-group/nacos-sdk-go/common/constant"
+	"github.com/nacos-group/nacos-sdk-go/vo"
 	"github.com/spf13/viper"
 	"os"
 	"path"
+	"time"
 )
 
 const FILE = "application.yml"
@@ -46,10 +51,189 @@ func (a *Aurora) viperConfig(p ...string) {
 		a.auroraLog.Warning(err.Error())
 		return
 	}
+	//开始检查加载远程配置中心
+	NacosConfig := a.cnf.GetStringMap("remote.config.nacos")
+	a.remoteConfigs(NacosConfig)
+
 	a.auroraLog.Info("the configuration file is loaded successfully.")
 }
 
 // Viper 获取 Aurora viper实例
 func (a *Aurora) Viper() *viper.Viper {
 	return a.cnf
+}
+
+// 远程配置中心读取 在开发中，未测试
+func (a *Aurora) remoteConfigs(remote map[string]interface{}) *viper.Viper {
+	if remote == nil {
+		//没有读取到远程配置中心
+		return nil
+	}
+	var ServerConfig []constant.ServerConfig
+	var ClientConfig *constant.ClientConfig
+	dataid := remote["DataId"].(string)
+	gropu := remote["Group"].(string)
+	//配置服务器
+	if v, b := remote["server"]; b {
+		servers, f := v.([]interface{})
+		if f {
+			//如果失败则，配置参数是存在问题的，nacos的服务器参数配置传递参数是数组方式，并且至少一个服务器实例
+			a.auroraLog.Fatal("the server parameter information in the nacos remote configuration center is incorrectly configured. check whether the configuration is in the array mode.")
+		}
+		ServerConfig = make([]constant.ServerConfig, 0)
+		for _, s := range servers {
+			args := s.(map[string]interface{})
+			server := constant.ServerConfig{}
+			if field, t := args["IpAddr"]; t {
+				server.IpAddr = field.(string)
+			}
+			if field, t := args["Prot"]; t {
+				server.Port = field.(uint64)
+			}
+			if field, t := args["Scheme"]; t {
+				server.Scheme = field.(string)
+			}
+			if field, t := args["ContextPath"]; t {
+				server.ContextPath = field.(string)
+			}
+			ServerConfig = append(ServerConfig, server)
+		}
+	}
+	//初始化 客户端配置
+	if v, b := remote["client"]; b {
+		ClientConfig = &constant.ClientConfig{}
+		args := v.(map[string]interface{})
+		if field, t := args["NamespaceId"]; t {
+			ClientConfig.NamespaceId = field.(string)
+		}
+		if field, t := args["TimeoutMs"]; t {
+			ClientConfig.TimeoutMs = field.(uint64)
+		}
+		if field, t := args["ListenInterval"]; t {
+			ClientConfig.ListenInterval = field.(uint64)
+		}
+		if field, t := args["BeatInterval"]; t {
+			ClientConfig.BeatInterval = field.(int64)
+		}
+		if field, t := args["AppName"]; t {
+			ClientConfig.AppName = field.(string)
+		}
+		if field, t := args["Endpoint"]; t {
+			ClientConfig.Endpoint = field.(string)
+		}
+		if field, t := args["RegionId"]; t {
+			ClientConfig.Endpoint = field.(string)
+		}
+		if field, t := args["AccessKey"]; t {
+			ClientConfig.Endpoint = field.(string)
+		}
+		if field, t := args["SecretKey"]; t {
+			ClientConfig.Endpoint = field.(string)
+		}
+		if field, t := args["OpenKMS"]; t {
+			ClientConfig.OpenKMS = field.(bool)
+		}
+		if field, t := args["CacheDir"]; t {
+			ClientConfig.Endpoint = field.(string)
+		}
+		if field, t := args["UpdateThreadNum"]; t {
+			ClientConfig.UpdateThreadNum = field.(int)
+		}
+		if field, t := args["NotLoadCacheAtStart"]; t {
+			ClientConfig.NotLoadCacheAtStart = field.(bool)
+		}
+		if field, t := args["UpdateCacheWhenEmpty"]; t {
+			ClientConfig.UpdateCacheWhenEmpty = field.(bool)
+		}
+		if field, t := args["Username"]; t {
+			ClientConfig.Username = field.(string)
+		}
+		if field, t := args["Password"]; t {
+			ClientConfig.Password = field.(string)
+		}
+		if field, t := args["LogDir"]; t {
+			ClientConfig.LogDir = field.(string)
+		}
+		if field, t := args["RotateTime"]; t {
+			ClientConfig.RotateTime = field.(string)
+		}
+		if field, t := args["MaxAge"]; t {
+			ClientConfig.MaxAge = field.(int64)
+		}
+		if field, t := args["LogLevel"]; t {
+			ClientConfig.LogLevel = field.(string)
+		}
+		if field, t := args["LogSampling"]; t {
+			arg := field.(map[string]interface{})
+			ClientConfig.LogSampling = &constant.ClientLogSamplingConfig{}
+			if f, is := arg["Initial"]; is {
+				ClientConfig.LogSampling.Initial = f.(int)
+			}
+			if f, is := arg["Thereafter"]; is {
+				ClientConfig.LogSampling.Thereafter = f.(int)
+			}
+			if f, is := arg["Tick"]; is {
+				ClientConfig.LogSampling.Tick = f.(time.Duration)
+			}
+		}
+		if field, t := args["ContextPath"]; t {
+			ClientConfig.ContextPath = field.(string)
+		}
+	}
+	if ServerConfig == nil || ClientConfig == nil {
+		return nil
+	}
+	client, err := clients.NewConfigClient(vo.NacosClientParam{
+		ClientConfig:  ClientConfig,
+		ServerConfigs: ServerConfig,
+	})
+	if err != nil {
+		a.auroraLog.Fatal("nacos remote configuration failed to load error:", err.Error())
+		return nil
+	}
+
+	//开始读取配置文件
+	config, err := client.GetConfig(vo.ConfigParam{
+		DataId: dataid,
+		Group:  gropu,
+	})
+	if err != nil {
+		a.auroraLog.Fatal(err.Error())
+		return nil
+	}
+
+	//初次加载远程配置
+	buf := bytes.NewBufferString(config)
+	a.cnf.SetConfigType("yml")
+	err = a.cnf.ReadConfig(buf)
+	if err != nil {
+		a.auroraLog.Fatal(err.Error())
+		return nil
+	}
+
+	//启动远程配置监听
+	err = client.ListenConfig(vo.ConfigParam{
+		DataId:   dataid,
+		Group:    gropu,
+		OnChange: a.refreshConfig,
+	})
+	if err != nil {
+		a.auroraLog.Fatal(err.Error())
+		return nil
+	}
+	return nil
+}
+
+// 重新加载远程配置文件
+func (a *Aurora) refreshConfig(namespace, group, dataId, data string) {
+	//刷新服务运行配置
+	a.cnfLock.Lock()
+	defer a.cnfLock.Unlock()
+	buf := bytes.NewBufferString(data)
+	err := a.cnf.ReadConfig(buf)
+	if err != nil {
+		a.auroraLog.Fatal(err.Error())
+		return
+	}
+	a.auroraLog.Info("config changed group:" + group + ", dataId:" + dataId + ", content:" + data)
 }

@@ -13,6 +13,44 @@ aurora:
   #consul:
     #服务器地址
     #address: localhost:8500
+
+  #远程配置中心
+  remote:
+    config:
+      nacos:
+        DataID:
+        Group:
+        server:
+         - IpAddr:
+           Prot:
+           Scheme:
+           ContextPath:
+        client:
+          TimeoutMs:
+          ListenInterval:
+          BeatInterval:
+          NamespaceId:
+          AppName:
+          Endpoint:
+          RegionId:
+          AccessKey:
+          SecretKey:
+          OpenKMS:
+          CacheDir:
+          UpdateThreadNum:
+          NotLoadCacheAtStart:
+          UpdateCacheWhenEmpty:
+          Username:
+          Password:
+          LogDir:
+          RotateTime:
+          MaxAge:
+          LogLevel:
+          LogSampling:
+            Initial:
+            Thereafter:
+            Tick:
+          ContextPath:
   email:
     user: zhiwen_der@qq.com
     password: xxxxx
