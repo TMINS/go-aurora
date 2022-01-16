@@ -64,10 +64,10 @@ func (a *Aurora) Viper() *viper.Viper {
 }
 
 // 远程配置中心读取 在开发中，未测试
-func (a *Aurora) remoteConfigs(remote map[string]interface{}) *viper.Viper {
+func (a *Aurora) remoteConfigs(remote map[string]interface{}) {
 	if remote == nil {
 		//没有读取到远程配置中心
-		return nil
+		return
 	}
 	var ServerConfig []constant.ServerConfig
 	var ClientConfig *constant.ClientConfig
@@ -99,6 +99,7 @@ func (a *Aurora) remoteConfigs(remote map[string]interface{}) *viper.Viper {
 			ServerConfig = append(ServerConfig, server)
 		}
 	}
+
 	//初始化 客户端配置
 	if v, b := remote["client"]; b {
 		ClientConfig = &constant.ClientConfig{}
@@ -181,7 +182,7 @@ func (a *Aurora) remoteConfigs(remote map[string]interface{}) *viper.Viper {
 		}
 	}
 	if ServerConfig == nil || ClientConfig == nil {
-		return nil
+		return
 	}
 	client, err := clients.NewConfigClient(vo.NacosClientParam{
 		ClientConfig:  ClientConfig,
@@ -189,7 +190,7 @@ func (a *Aurora) remoteConfigs(remote map[string]interface{}) *viper.Viper {
 	})
 	if err != nil {
 		a.auroraLog.Fatal("nacos remote configuration failed to load error:", err.Error())
-		return nil
+		return
 	}
 
 	//开始读取配置文件
@@ -199,7 +200,7 @@ func (a *Aurora) remoteConfigs(remote map[string]interface{}) *viper.Viper {
 	})
 	if err != nil {
 		a.auroraLog.Fatal(err.Error())
-		return nil
+		return
 	}
 
 	//初次加载远程配置
@@ -208,7 +209,7 @@ func (a *Aurora) remoteConfigs(remote map[string]interface{}) *viper.Viper {
 	err = a.cnf.ReadConfig(buf)
 	if err != nil {
 		a.auroraLog.Fatal(err.Error())
-		return nil
+		return
 	}
 
 	//启动远程配置监听
@@ -219,9 +220,8 @@ func (a *Aurora) remoteConfigs(remote map[string]interface{}) *viper.Viper {
 	})
 	if err != nil {
 		a.auroraLog.Fatal(err.Error())
-		return nil
+		return
 	}
-	return nil
 }
 
 // 重新加载远程配置文件
