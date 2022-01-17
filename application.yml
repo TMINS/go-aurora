@@ -13,25 +13,21 @@ aurora:
   #consul:
     #服务器地址
     #address: localhost:8500
-
-  #远程配置中心,
-  remote:
-    config:
-      nacos:
-        DataID: app_ymal
-        Group: dev
-        server:
-         - IpAddr: localhost
-           Prot: 8848
-        client:
-          TimeoutMs: 5000
-          NamespaceId: 974109a2-45d6-41d1-90f5-416d9c179e67
-          CacheDir: nacos/cache
-          NotLoadCacheAtStart: true
-          LogDir: nacos/log
-          RotateTime: 1h
-          MaxAge: 3
-          LogLevel: debug
+  nacos:
+    DataID: app_ymal
+    Group: dev
+    ServerConfig:
+      - IpAddr: localhost
+        Prot: 8848
+    ClientConfig:
+      TimeoutMs: 5000
+      NamespaceId: 974109a2-45d6-41d1-90f5-416d9c179e67
+      CacheDir: nacos/cache
+      NotLoadCacheAtStart: true
+      LogDir: nacos/log
+      RotateTime: 1h
+      MaxAge: 3
+      LogLevel: debug
   email:
     user: zhiwen_der@qq.com
     password: xxxxx

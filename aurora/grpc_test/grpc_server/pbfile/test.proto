@@ -1,0 +1,14 @@
+syntax="proto3";
+option go_package="../services";
+
+message TestRequest{
+  string message=1;
+}
+
+message TestResponse{
+  string status=1;
+}
+
+service TestService{
+  rpc TestPRC(TestRequest)returns(TestResponse);
+}

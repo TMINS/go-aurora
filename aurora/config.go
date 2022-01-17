@@ -23,7 +23,7 @@ const FILE = "application.yml"
 	默认配置文件项，优先于api配置项
 */
 
-// ConfigCenter 配置中心 的读写锁主要用来解决分布式配置的动态刷新配置
+// ConfigCenter 配置中心 的读写锁主要用来解决分布式配置的动态刷新配置，和以后存在的并发读取配置和修改
 // 对于修改配置数据库连接信息或者需要重新初始化的配置项这些无法起到同步更新的效果只能保持配置信息是最新的（需要重新初始化的配置建议重启服务）
 // 对被配置的使用实例没有并发安全的效果
 type ConfigCenter struct {
@@ -126,7 +126,7 @@ func (a *Aurora) viperConfig(p ...string) {
 		return
 	}
 	//开始检查加载远程配置中心
-	NacosConfig := a.config.GetStringMap("aurora.remote.config.nacos")
+	NacosConfig := a.config.GetStringMap("aurora.nacos")
 	a.remoteConfigs(NacosConfig)
 
 	a.auroraLog.Info("the configuration file is loaded successfully.")
@@ -151,7 +151,7 @@ func (a *Aurora) remoteConfigs(remote map[string]interface{}) {
 		a.auroraLog.Fatal("please check whether the dataid or group configuration in the configuration file is configured correctly")
 	}
 	//配置服务器
-	if v, b := remote["server"]; b {
+	if v, b := remote["serverconfig"]; b {
 		servers, f := v.([]interface{})
 		if !f {
 			//如果失败则，配置参数是存在问题的，nacos的服务器参数配置传递参数是数组方式，并且至少一个服务器实例
@@ -178,7 +178,7 @@ func (a *Aurora) remoteConfigs(remote map[string]interface{}) {
 	}
 
 	//初始化 客户端配置
-	if v, b := remote["client"]; b {
+	if v, b := remote["clientconfig"]; b {
 		ClientConfig = &constant.ClientConfig{}
 		args := v.(map[string]interface{})
 		if field, t := args["namespaceid"]; t {

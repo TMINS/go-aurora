@@ -190,6 +190,7 @@ func (a *Aurora) run(port ...string) error {
 		a.port = p
 	}
 	a.Server.Handler = a
+
 	return a.Server.ListenAndServe() //启动服务器
 }
 
@@ -213,7 +214,7 @@ func (a *Aurora) tls(args ...string) error {
 		a.Server.Handler = http.HandlerFunc(func(writer http.ResponseWriter, request *http.Request) {
 			fmt.Println()
 			if request.ProtoMajor == 2 && strings.Contains(request.Header.Get("Content-Type"), "application/grpc") {
-				a.grpc.ServeHTTP(writer, request)
+				go a.grpc.ServeHTTP(writer, request)
 			} else {
 				a.ServeHTTP(writer, request)
 			}
