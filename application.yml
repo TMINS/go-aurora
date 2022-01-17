@@ -14,43 +14,24 @@ aurora:
     #服务器地址
     #address: localhost:8500
 
-  #远程配置中心
+  #远程配置中心,
   remote:
     config:
       nacos:
-        DataID:
-        Group:
+        DataID: app_ymal
+        Group: dev
         server:
-         - IpAddr:
-           Prot:
-           Scheme:
-           ContextPath:
+         - IpAddr: localhost
+           Prot: 8848
         client:
-          TimeoutMs:
-          ListenInterval:
-          BeatInterval:
-          NamespaceId:
-          AppName:
-          Endpoint:
-          RegionId:
-          AccessKey:
-          SecretKey:
-          OpenKMS:
-          CacheDir:
-          UpdateThreadNum:
-          NotLoadCacheAtStart:
-          UpdateCacheWhenEmpty:
-          Username:
-          Password:
-          LogDir:
-          RotateTime:
-          MaxAge:
-          LogLevel:
-          LogSampling:
-            Initial:
-            Thereafter:
-            Tick:
-          ContextPath:
+          TimeoutMs: 5000
+          NamespaceId: 974109a2-45d6-41d1-90f5-416d9c179e67
+          CacheDir: nacos/cache
+          NotLoadCacheAtStart: true
+          LogDir: nacos/log
+          RotateTime: 1h
+          MaxAge: 3
+          LogLevel: debug
   email:
     user: zhiwen_der@qq.com
     password: xxxxx

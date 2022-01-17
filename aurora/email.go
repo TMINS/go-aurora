@@ -3,11 +3,11 @@ package aurora
 import "github.com/awensir/aurora-email/email"
 
 func (a *Aurora) loadEmail() {
-	if a.cnf == nil {
+	if a.config == nil {
 		//如果配置文件没有加载成功，将不做任何事情
 		return
 	}
-	EmailCinfig := a.cnf.GetStringMapString("aurora.email")
+	EmailCinfig := a.config.GetStringMapString("aurora.email")
 	var user, passwd, host string
 	if v, b := EmailCinfig["user"]; b {
 		if v != "" {

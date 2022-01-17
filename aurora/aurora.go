@@ -5,6 +5,7 @@ import (
 	"errors"
 	"fmt"
 	"github.com/awensir/aurora-email/email"
+	"github.com/awensir/go-aurora/aurora/level"
 	"github.com/awensir/minilog/mini"
 	"github.com/go-redis/redis/v8"
 	"github.com/hashicorp/consul/api"
@@ -26,11 +27,6 @@ import (
 	<---> 非稳定模块，可能会随着使用的范围，出现问题
 	<+++> 进行中，还没投入使用
 */
-
-const (
-	Dev = mini.ALL
-	Pro = mini.INFO
-)
 
 type Aurora struct {
 	name            string            //服务名称
@@ -74,7 +70,7 @@ func New(config ...string) *Aurora {
 		router: &route{
 			mx: &sync.Mutex{},
 		},
-		auroraLog:       mini.NewLog(Dev),
+		auroraLog:       mini.NewLog(level.Dev), //默认打开的 dev级别日志
 		Server:          &http.Server{},
 		resource:        "", //设定资源默认存储路径，需要连接项目更目录 和解析出来资源的路径，资源路径解析出来是没有前缀 “/” 的作为 resource属性，在其两边加上 斜杠
 		consuls:         make([]*api.Client, 0),
@@ -89,12 +85,12 @@ func New(config ...string) *Aurora {
 	a.router.defaultView = a    //初始化使用默认视图解析,aurora的视图解析是一个简单的实现，可以通过修改 a.Router.DefaultView 实现自定义的试图处理，框架最终调用此方法返回页面响应
 	a.router.AR = a
 	//加载配置文件中定义的 端口号
-	port := a.cnf.GetString("aurora.server.port")
+	port := a.config.GetString("aurora.server.port")
 	if port != "" {
 		a.port = port
 	}
 	//读取配置路径
-	p := a.cnf.GetString("aurora.resource.static")
+	p := a.config.GetString("aurora.resource.static")
 	if p != "" {
 		if p[:1] != "/" {
 			p = "/" + p
@@ -106,7 +102,7 @@ func New(config ...string) *Aurora {
 		a.auroraLog.Info(fmt.Sprintf("server static resource root directory:%1s", a.resource))
 	}
 
-	name := a.cnf.GetString("aurora.application.name")
+	name := a.config.GetString("aurora.application.name")
 	if name != "" {
 		a.name = name
 		a.auroraLog.Info("the service name is " + a.name)

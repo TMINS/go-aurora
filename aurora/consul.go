@@ -55,12 +55,12 @@ type consulConfig struct {
 
 //  consulConfig 读取配置文件加载
 func (a *Aurora) consulConfig() {
-	if a.cnf == nil {
+	if a.config == nil {
 		return
 	}
 	var b bool
 
-	c := a.cnf.Get("aurora.consul") //读取consul配置信息
+	c := a.config.Get("aurora.consul") //读取consul配置信息
 	if c == nil {
 		return
 	}

@@ -27,23 +27,23 @@ const (
 */
 
 func (a *Aurora) loadGormConfig() {
-	if a.cnf == nil {
+	if a.config == nil {
 		//如果配置文件没有加载成功，将不做任何事情
 		return
 	}
-	mysqls := a.cnf.GetStringSlice("aurora.gorm.mysql.url")
+	mysqls := a.config.GetStringSlice("aurora.gorm.mysql.url")
 	if mysqls != nil {
 		a.auroraLog.Info("load gorm mysql configuration information")
 	}
 	add(mysqls, &a.gorms, Mysql, a.auroraLog)
 
-	sqlservers := a.cnf.GetStringSlice("aurora.gorm.sqlserver.url")
+	sqlservers := a.config.GetStringSlice("aurora.gorm.sqlserver.url")
 	if sqlservers != nil {
 		a.auroraLog.Info("load gorm sqlservers mysql configuration information")
 	}
 	add(sqlservers, &a.gorms, SqlServer, a.auroraLog)
 
-	postgresql := a.cnf.GetStringSlice("aurora.gorm.postgresql.url")
+	postgresql := a.config.GetStringSlice("aurora.gorm.postgresql.url")
 	if postgresql != nil {
 		a.auroraLog.Info("load gorm postgresql configuration information")
 	}

@@ -4,11 +4,11 @@ import "github.com/go-redis/redis/v8"
 
 //初步完成
 func (a *Aurora) loadGoRedis() {
-	if a.cnf == nil {
+	if a.config == nil {
 		//如果配置文件没有加载成功，将不做任何事情
 		return
 	}
-	configs := a.cnf.Get("aurora.redis.go-redis")
+	configs := a.config.Get("aurora.redis.go-redis")
 	if configs == nil {
 		return
 	}
