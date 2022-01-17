@@ -724,3 +724,16 @@ func checkUrl(url string) error {
 	}
 	return nil
 }
+
+func restCheck(url string) bool {
+	if strings.Contains(url, "{") && strings.Contains(url, "}") {
+		ulen := len(url)
+		ubyte := []byte(url)
+		for i := 0; i < ulen; i++ {
+			if string(ubyte[i]) == "{" {
+
+			}
+		}
+	}
+	return true
+}
