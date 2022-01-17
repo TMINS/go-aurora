@@ -9,6 +9,7 @@ import (
 	"github.com/spf13/viper"
 	"os"
 	"path"
+	"sync"
 	"time"
 )
 
@@ -21,10 +22,48 @@ const FILE = "application.yml"
 	默认配置文件项，优先于api配置项
 */
 
+type ConfigCenter struct {
+	cnf *viper.Viper
+	rw  *sync.RWMutex
+}
+
+func (c *ConfigCenter) GetStringMapString(key string) map[string]string {
+	c.rw.RLock()
+	defer c.rw.RUnlock()
+	return c.cnf.GetStringMapString(key)
+}
+
+func (c *ConfigCenter) Get(key string) interface{} {
+	c.rw.RLock()
+	defer c.rw.RUnlock()
+	return c.cnf.Get(key)
+}
+
+func (c *ConfigCenter) GetStringMap(key string) map[string]interface{} {
+	c.rw.RLock()
+	defer c.rw.RUnlock()
+	return c.cnf.GetStringMap(key)
+}
+
+func (c *ConfigCenter) GetString(key string) string {
+	c.rw.RLock()
+	defer c.rw.RUnlock()
+	return c.cnf.GetString(key)
+}
+
+func (c *ConfigCenter) GetStringMapStringSlice(key string) map[string][]string {
+	c.rw.RLock()
+	defer c.rw.RUnlock()
+	return c.cnf.GetStringMapStringSlice(key)
+}
+
 // viperConfig 配置并加载 application.yml 配置文件
 func (a *Aurora) viperConfig(p ...string) {
-	if a.cnf != nil {
-		return
+	if a.config == nil {
+		a.config = &ConfigCenter{
+			cnf: viper.New(),
+			rw:  &sync.RWMutex{},
+		}
 	}
 	a.cnf = viper.New() //创建配置文件实例
 	cnf := make([]string, 0)
@@ -45,14 +84,14 @@ func (a *Aurora) viperConfig(p ...string) {
 	}
 	cnf = append(cnf, FILE)
 	conf := path.Join(cnf...)
-	a.cnf.SetConfigFile(conf)
-	err := a.cnf.ReadInConfig()
+	a.config.cnf.SetConfigFile(conf)
+	err := a.config.cnf.ReadInConfig()
 	if err != nil {
-		a.auroraLog.Warning(err.Error())
+		a.auroraLog.Fatal(err.Error())
 		return
 	}
 	//开始检查加载远程配置中心
-	NacosConfig := a.cnf.GetStringMap("remote.config.nacos")
+	NacosConfig := a.config.cnf.GetStringMap("remote.config.nacos")
 	a.remoteConfigs(NacosConfig)
 
 	a.auroraLog.Info("the configuration file is loaded successfully.")
@@ -227,10 +266,8 @@ func (a *Aurora) remoteConfigs(remote map[string]interface{}) {
 // 重新加载远程配置文件
 func (a *Aurora) refreshConfig(namespace, group, dataId, data string) {
 	//刷新服务运行配置
-	a.cnfLock.Lock()
-	defer a.cnfLock.Unlock()
 	buf := bytes.NewBufferString(data)
-	err := a.cnf.ReadConfig(buf)
+	err := a.config.cnf.ReadConfig(buf) //需要分装加锁
 	if err != nil {
 		a.auroraLog.Fatal(err.Error())
 		return

@@ -54,8 +54,8 @@ type Aurora struct {
 	email            *email.Client
 
 	cnf          *viper.Viper // 配置实例，读取配置文件 <***>
+	config       *ConfigCenter
 	remoteConfig func() *viper.Viper
-	cnfLock      *sync.RWMutex //分布式配置中心处理动态刷新web 服务配置的读写锁
 
 	Server *http.Server // web服务器 <***>
 	grpc   *grpc.Server // 用于接入grpc支持,该整合意义在于让grpc服务和http服务公用一个ip和端口号,仅支持tls通讯情况下的整合
@@ -70,8 +70,7 @@ type Aurora struct {
 func New(config ...string) *Aurora {
 	//初始化基本属性
 	a := &Aurora{
-		cnfLock: &sync.RWMutex{},
-		port:    "8080", //默认端口号
+		port: "8080", //默认端口号
 		router: &route{
 			mx: &sync.Mutex{},
 		},
