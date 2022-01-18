@@ -731,7 +731,7 @@ func restCheck(url string) bool {
 		ubyte := []byte(url)
 		for i := 0; i < ulen; i++ {
 			if string(ubyte[i]) == "{" {
-
+				//带实现校验
 			}
 		}
 	}
