@@ -3,31 +3,35 @@ aurora:
   application:
     #应用程序服务配置项
     name: app
+  #服务器端口配置项
   server:
-    #服务器端口配置项
     port: 8080
+  #静态资源根目录配置项
   resource:
-    #静态资源根目录配置项
     static: ""
   #consul 注册中心配置
-  #consul:
+  consul:
     #服务器地址
-    #address: localhost:8500
-  nacos:
-    DataID: app_ymal
-    Group: dev
-    ServerConfig:
-      - IpAddr: localhost
-        Prot: 8848
-    ClientConfig:
-      TimeoutMs: 5000
-      NamespaceId: 974109a2-45d6-41d1-90f5-416d9c179e67
-      CacheDir: nacos/cache
-      NotLoadCacheAtStart: true
-      LogDir: nacos/log
-      RotateTime: 1h
-      MaxAge: 3
-      LogLevel: debug
+    address: 82.157.160.117:8500
+  #gRPC相关配置
+  grpc:
+    #gRPC内置默认端口号为 web 程序端口号+1，若配置此项则覆盖默认端口
+    port: 8081
+#  nacos:
+#    DataID: app_ymal
+#    Group: dev
+#    ServerConfig:
+#      - IpAddr: localhost
+#        Prot: 8848
+#    ClientConfig:
+#      TimeoutMs: 5000
+#      NamespaceId: 974109a2-45d6-41d1-90f5-416d9c179e67
+#      CacheDir: nacos/cache
+#      NotLoadCacheAtStart: true
+#      LogDir: nacos/log
+#      RotateTime: 1h
+#      MaxAge: 3
+#      LogLevel: debug
   email:
     user: zhiwen_der@qq.com
     password: xxxxx

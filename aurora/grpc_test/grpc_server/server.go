@@ -19,7 +19,7 @@ func main() {
 		}
 		server := grpc.NewServer(grpc.Creds(file))
 		services.RegisterTestServiceServer(server, &services.TestService{})
-		a.Grpc(server)
+		a.GRPC(server)
 	}
 
 	// GET 方法注册 web get请求

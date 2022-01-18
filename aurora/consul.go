@@ -1,17 +1,21 @@
 package aurora
 
 import (
+	"crypto/sha512"
 	"fmt"
 	"github.com/hashicorp/consul/api"
 	"google.golang.org/grpc/health"
 	"google.golang.org/grpc/health/grpc_health_v1"
+	"math/rand"
 	"strconv"
 	"strings"
+	"time"
 )
 
 const (
 	/*
 		用于读取 api客户端连接的配信息
+		下面的key 存在问题待解决 所有的key 对标 viper 需要全部小写
 	*/
 	address       = "address" //HTTPAddrEnvName   			consul 服务地址
 	scheme        = "scheme"
@@ -26,11 +30,9 @@ const (
 	namespace     = "namespace"     //HTTPNamespaceEnvName
 	verify        = "verify"        //HTTPSSLVerifyEnvName
 	auth          = "auth"          //HTTPAuthEnvName
-
-	serviceType = "type"       //服务类型
-	timeout     = "timeout"    //健康检查超时时间
-	interval    = "interval"   //健康检查间隔时间
-	deregister  = "deregister" //最大超时时间 注销服务
+	timeout       = "timeout"       //健康检查超时时间
+	interval      = "interval"      //健康检查间隔时间
+	deregister    = "deregister"    //最大超时时间 注销服务
 
 	defaultTimeout    = "5s"  //默认超时时间
 	defaultInterval   = "4s"  //默认检查间隔时间
@@ -44,10 +46,12 @@ const (
 
 // consulConfig 存储了 web consul相关的信息
 type consulConfig struct {
-	host               string                        //本地服务器地址信息
+	host               string                        //本地服务器地址信息,以配置文件中的地址为主
 	port               string                        //端口信息
-	checkUrl           string                        //健康检查地址
+	grpcport           string                        //grpc端口
+	checkUrl           string                        //健康检查地址,
 	defaultCheckHandle Serve                         //定义aurora 的健康检查回调函数
+	defaultgRPCCheck   *health.Server                //grpc 默认的健康检查实例
 	defaultService     *api.AgentServiceRegistration //默认本地服务注册信息
 	config             *api.Config                   //注册中心配置信息
 	consuls            []*api.Client                 //存放连接配置对象，单个或者集群
@@ -68,6 +72,7 @@ func (a *Aurora) consulConfig() {
 	if !b {
 		return
 	}
+
 	if addrs, v := option[address]; v {
 		config := DefaultConsulConfig(option)
 		switch addrs.(type) {
@@ -118,24 +123,14 @@ func (a *Aurora) ConsulServiceRegister(client *api.Client, config *api.Config, o
 		check.DeregisterCriticalServiceAfter = defaultDeregister
 	}
 	//配置服务健康检查接口
-	if v, b := option[serviceType]; b {
-		switch v.(string) {
-		case "HTTP", "http":
-			check.HTTP = fmt.Sprintf("%s://%s:%d/consul/health", config.Scheme, ServerIp(), a.port) //配置健康检查接口
-			a.GET("/consul/health", HTTPCheck)
-		case "GRPC", "grpc", "gRPC":
-			//先检查grpc 是否进行配置
-			if a.grpc == nil {
-				panic("服务没有配置grpc")
-			}
-			check.GRPC = fmt.Sprintf("%s:%d", ServerIp(), a.port) //配置健康检查接口
-			check.GRPCUseTLS = true
-			grpc_health_v1.RegisterHealthServer(a.grpc, health.NewServer())
-		}
-	} else {
-		//默认采用http服务
-		check.HTTP = fmt.Sprintf("%s://%s:%d/consul/agent/health", "http", "localhost", a.Port()) //配置健康检查接口
-		a.GET("/consul/agent/health", HTTPCheck)
+	check.HTTP = fmt.Sprintf("%s://%s:%d/consul/agent/health", config.Scheme, "61.183.119.226", a.Port()) //配置健康检查接口
+	a.GET("/consul/agent/health", HTTPCheck)
+
+	//先检查grpc 是否进行配置
+	if a.grpc != nil {
+		check.GRPC = fmt.Sprintf("%s:%d", ServerIp(), a.port) //配置健康检查接口
+		check.GRPCUseTLS = true
+		grpc_health_v1.RegisterHealthServer(a.grpc, health.NewServer())
 	}
 
 	//创建准备注册的服务信息，服务的基本信息基于本程序的本机信息
@@ -223,4 +218,14 @@ func DefaultConsulConfig(option map[string]interface{}) *api.Config {
 // HTTPCheck HTTP健康检查
 func HTTPCheck(c *Ctx) interface{} {
 	return "ok"
+}
+
+func (a *Aurora) getServiceId() string {
+	unix := time.Now().Unix() //获取时间戳
+	intn := rand.Intn(100)    //生成一个随机数
+	id := fmt.Sprint(intn, a.name, unix)
+	hash := sha512.New()
+	hash.Write([]byte(id))
+	sum := hash.Sum(nil)
+	return string(sum)
 }
