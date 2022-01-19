@@ -2,11 +2,12 @@ package aurora
 
 import (
 	"fmt"
-	"github.com/awensir/go-aurora/aurora/is"
 	"net/http"
 	"os"
 	"strings"
 	"sync"
+
+	"github.com/awensir/go-aurora/aurora/is"
 )
 
 // HandlerProxy 代理 路由处理，负责生成上下文变量和调用具体处理函数
@@ -16,7 +17,7 @@ type proxy struct {
 	req          *http.Request
 	ServeHandler                        //处理函数
 	args         map[string]interface{} //REST API 参数解析
-	ctx          *Ctx                   //上下文
+	ctx          *Ctx                   //上下文，<后期设计将上下文隐藏在代理中>
 	result       interface{}            //业务结果
 	view         Views                  //支持自定义视图渲染机制
 	ar           *Aurora
