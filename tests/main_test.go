@@ -5,12 +5,7 @@ import (
 	"context"
 	"flag"
 	"fmt"
-	"github.com/awensir/go-aurora/aurora"
-	"github.com/awensir/go-aurora/aurora/pprofs"
-	"github.com/spf13/viper"
 	"log"
-	"nhooyr.io/websocket"
-	"nhooyr.io/websocket/wsjson"
 	"os"
 	"regexp"
 	"runtime"
@@ -18,6 +13,12 @@ import (
 	"strings"
 	"testing"
 	"time"
+
+	"github.com/awensir/go-aurora/aurora"
+	"github.com/awensir/go-aurora/aurora/pprofs"
+	"github.com/spf13/viper"
+	"nhooyr.io/websocket"
+	"nhooyr.io/websocket/wsjson"
 )
 
 type Mm1 struct {
@@ -257,45 +258,13 @@ func TestColor(t *testing.T) {
 	}
 }
 
-func TestLog(t *testing.T) {
-	newLog := aurora.NewLog()
+func TestHttpRequest(t *testing.T) {
+	Get(aurora.HttpRequest{"name": "awen"})
+}
 
-	go func() {
-		for i := 0; i < 100; i++ {
-			for i := 0; i < 100; i++ {
-				newLog.Info("Info ", i)
-				newLog.Warning("Warning ", i)
-				newLog.Debug("Debug ", i)
-				newLog.Error("Error ", i)
-			}
-		}
-	}()
-	go func() {
-		for i := 0; i < 100; i++ {
-			newLog.Info("Info ", i)
-			newLog.Warning("Warning ", i)
-			newLog.Debug("Debug ", i)
-			newLog.Error("Error ", i)
-		}
-	}()
-	go func() {
-		for i := 0; i < 100; i++ {
-			newLog.Info("Info ", i)
-			newLog.Warning("Warning ", i)
-			newLog.Debug("Debug ", i)
-			newLog.Error("Error ", i)
-		}
-	}()
-	go func() {
-		for i := 0; i < 100; i++ {
-			newLog.Info("Info ", i)
-			newLog.Warning("Warning ", i)
-			newLog.Debug("Debug ", i)
-			newLog.Error("Error ", i)
-		}
-	}()
-
-	time.Sleep(5 * time.Second)
+func Get(a aurora.HttpRequest) {
+	name := a["name"]
+	fmt.Println(name)
 }
 
 func TestJ(t *testing.T) {

@@ -10,10 +10,10 @@ aurora:
   resource:
     static: ""
   #consul 注册中心配置
-  consul:
-    #服务器地址
-    address: 82.157.160.117:8500
-  #gRPC相关配置
+  # consul:
+  #   #服务器地址
+  #   address: 82.157.160.117:8500
+  # #gRPC相关配置
   grpc:
     #gRPC内置默认端口号为 web 程序端口号+1，若配置此项则覆盖默认端口
     port: 8081

@@ -15,7 +15,8 @@ type proxy struct {
 	rw           sync.RWMutex
 	rew          http.ResponseWriter
 	req          *http.Request
-	ServeHandler                        //处理函数
+	ServeHandler //处理函数
+	params       HttpRequest
 	args         map[string]interface{} //REST API 参数解析
 	ctx          *Ctx                   //上下文，<后期设计将上下文隐藏在代理中>
 	result       interface{}            //业务结果
@@ -117,6 +118,8 @@ func (sp *proxy) start() {
 			goto PluginsEnd
 		}
 	}
+
+	//开始解析参数
 
 	if sp.AInterceptor { //判断全局 拦截器是否放行 ，如果plugin处发生了，panic 后续业务将无法执行下去
 		sp.before()
@@ -321,7 +324,7 @@ func (sp *proxy) resultHandler() {
 
 // Init 初始化 Context变量
 func (sp *proxy) initCtx() {
-	if sp.ctx == nil {
+	if sp.ctx == nil { //ctx为空意味着是第一次请求
 		sp.ctx = &Ctx{}
 		sp.ctx.Attribute = &sync.Map{}
 		sp.ctx.Request = sp.req
@@ -329,13 +332,8 @@ func (sp *proxy) initCtx() {
 		sp.ctx.rw = &sync.RWMutex{}
 		sp.ctx.ar = sp.ar
 		sp.ctx.Args = sp.args
+
+		//新增加解析部分
+
 	}
-}
-
-func (sp *proxy) bad() {
-
-}
-
-func (sp *proxy) ok() {
-
 }
