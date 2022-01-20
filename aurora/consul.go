@@ -3,13 +3,14 @@ package aurora
 import (
 	"crypto/sha512"
 	"fmt"
-	"github.com/hashicorp/consul/api"
-	"google.golang.org/grpc/health"
-	"google.golang.org/grpc/health/grpc_health_v1"
 	"math/rand"
 	"strconv"
 	"strings"
 	"time"
+
+	"github.com/hashicorp/consul/api"
+	"google.golang.org/grpc/health"
+	"google.golang.org/grpc/health/grpc_health_v1"
 )
 
 const (
@@ -124,7 +125,7 @@ func (a *Aurora) ConsulServiceRegister(client *api.Client, config *api.Config, o
 	}
 	//配置服务健康检查接口
 	check.HTTP = fmt.Sprintf("%s://%s:%d/consul/agent/health", config.Scheme, "61.183.119.226", a.Port()) //配置健康检查接口
-	a.GET("/consul/agent/health", HTTPCheck)
+	//a.GET("/consul/agent/health", HTTPCheck)
 
 	//先检查grpc 是否进行配置
 	if a.grpc != nil {

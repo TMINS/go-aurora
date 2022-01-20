@@ -6,32 +6,32 @@ import (
 )
 
 // GET 请求
-func (a *Aurora) GET(path string, servlet Serve) {
+func (a *Aurora) GET(path string, servlet Handel) {
 	a.register(http.MethodGet, path, servlet)
 }
 
 // POST 请求
-func (a *Aurora) POST(path string, servlet Serve) {
+func (a *Aurora) POST(path string, servlet Handel) {
 	a.register(http.MethodPost, path, servlet)
 }
 
 // PUT 请求
-func (a *Aurora) PUT(path string, servlet Serve) {
+func (a *Aurora) PUT(path string, servlet Handel) {
 	a.register(http.MethodPut, path, servlet)
 }
 
 // DELETE 请求
-func (a *Aurora) DELETE(path string, servlet Serve) {
+func (a *Aurora) DELETE(path string, servlet Handel) {
 	a.register(http.MethodDelete, path, servlet)
 }
 
 // HEAD 请求
-func (a *Aurora) HEAD(path string, servlet Serve) {
+func (a *Aurora) HEAD(path string, servlet Handel) {
 	a.register(http.MethodHead, path, servlet)
 }
 
 // register 通用注册器
-func (a *Aurora) register(method string, mapping string, fun Serve) {
+func (a *Aurora) register(method string, mapping string, fun Handel) {
 
 	a.router.addRoute(method, mapping, fun)
 }

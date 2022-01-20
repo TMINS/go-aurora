@@ -1,9 +1,12 @@
 package aurora
 
 import (
+	"encoding/json"
 	"fmt"
+	"io"
 	"net/http"
 	"os"
+	"strconv"
 	"strings"
 	"sync"
 
@@ -12,16 +15,16 @@ import (
 
 // HandlerProxy 代理 路由处理，负责生成上下文变量和调用具体处理函数
 type proxy struct {
-	rw           sync.RWMutex
-	rew          http.ResponseWriter
-	req          *http.Request
-	ServeHandler //处理函数
-	params       HttpRequest
-	args         map[string]interface{} //REST API 参数解析
-	ctx          *Ctx                   //上下文，<后期设计将上下文隐藏在代理中>
-	result       interface{}            //业务结果
-	view         Views                  //支持自定义视图渲染机制
-	ar           *Aurora
+	rw         sync.RWMutex
+	rew        http.ResponseWriter
+	req        *http.Request
+	HttpHandle //处理函数
+	params     HttpRequest
+	args       map[string]interface{} //REST API 参数解析
+	ctx        *Ctx                   //上下文，<后期设计将上下文隐藏在代理中>
+	result     interface{}            //业务结果
+	view       Views                  //支持自定义视图渲染机制
+	ar         *Aurora
 
 	index   int          //全局插件索引
 	plugins []PluginFunc //全局插件
@@ -185,7 +188,7 @@ func (sp *proxy) before() {
 
 // Execute 执行业务
 func (sp *proxy) execute() {
-	sp.result = sp.ServeHandler.Controller(sp.ctx) // 此处的panic 已在执行阶段处理，如果发生panic 被捕捉，处理函数一般直接返回为 nil，后续结果处理的部分也是 按照nil进行处理
+	sp.result = sp.HttpHandle.Hadnle(sp.params) // 此处的panic 已在执行阶段处理，如果发生panic 被捕捉，处理函数一般直接返回为 nil，后续结果处理的部分也是 按照nil进行处理
 }
 
 // After 服务处理之后，主要处理业务结果
@@ -333,7 +336,160 @@ func (sp *proxy) initCtx() {
 		sp.ctx.ar = sp.ar
 		sp.ctx.Args = sp.args
 
-		//新增加解析部分
+		// 新增加解析部分
+		sp.params = sp.initRequestArgs() //初始化请求参数 get post put delete 等
+		sp.params["reqCtx"] = sp.ctx     //分装请求上下文
+		sp.params["rest-ful"] = sp.args  //封装rest ful参数
+	}
+}
+
+func (sp *proxy) initRequestArgs() HttpRequest {
+	hq := make(HttpRequest)
+
+	//获取所有的解析参数
+	values := sp.req.URL.Query()
+	if values != nil {
+		for k, v := range values {
+			//v 对应每个k的多个值
+			hq[k] = args(v)
+		}
+	}
+
+	//解析 post 请求
+	data, err := io.ReadAll(sp.req.Body)
+	defer func(Body io.ReadCloser) {
+		err := Body.Close()
+		if err != nil {
+			fmt.Println(err.Error())
+		}
+	}(sp.req.Body)
+	var body interface{}
+
+	if data != nil && len(data) > 0 {
+		err = json.Unmarshal(data, &body)
+		if err != nil {
+			return nil
+		}
+		// 该post 是个独立的post 不带文件的消息体
+		hq["post"] = data
+	}
+
+	//解析 post 或者 文件
+	err = sp.req.ParseMultipartForm(sp.ar.MaxMultipartMemory)
+	if err == nil {
 
 	}
+
+	mf := sp.req.MultipartForm
+	if mf == nil {
+		return hq
+	}
+
+	return hq
+}
+
+func args(v []string) interface{} {
+	if v == nil {
+		return nil
+	}
+	if len(v) > 1 {
+		arr := make([]interface{}, 0)
+		for _, value := range v {
+			var data interface{}
+			//经测试此处为nil的可能 是存在 "1，2，3，4" 或者 [asd,1,2] "ss"这几种,字符串格式的一定要满足json格式
+			json.Unmarshal([]byte(value), &data)
+
+			//此处 参数如果能被json解析
+			if data != nil {
+				switch data.(type) {
+				//解析出来的底层是数组，则把数组按照对应的类型转化好
+				case []interface{}:
+					d := data.([]interface{})
+					switch d[0].(type) {
+					case string:
+						sarr := make([]string, 0)
+						for i := 0; i < len(d); i++ {
+							sarr = append(sarr, d[i].(string))
+						}
+						arr = append(arr, sarr)
+					case float64:
+						sarr := make([]float64, 0)
+						for i := 0; i < len(d); i++ {
+							sarr = append(sarr, d[i].(float64))
+						}
+						arr = append(arr, sarr)
+					case map[string]interface{}:
+						sarr := make([]map[string]interface{}, 0)
+						for i := 0; i < len(d); i++ {
+							sarr = append(sarr, d[i].(map[string]interface{}))
+						}
+						arr = append(arr, sarr)
+					}
+				default:
+					arr = append(arr, data) //非数组直接添加进去
+				}
+				continue
+			}
+			//如果常规解析不成功(格式不是 [1,2,3]，[\"as\"] 等类型 ) 我们需要特殊处理
+			r := slices(value)
+			arr = append(arr, r)
+		}
+		return arr
+	}
+	var data interface{}
+	//经测试此处为nil的可能 是存在 "1，2，3，4" 或者 [asd,1,2] "ss"这几种,字符串格式的一定要满足json格式
+	json.Unmarshal([]byte(v[0]), &data)
+	if data == nil {
+		data = slices(v[0])
+	}
+	switch data.(type) {
+	case []interface{}:
+		d := data.([]interface{})
+		switch d[0].(type) {
+		case string:
+			sarr := make([]string, 0)
+			for i := 0; i < len(d); i++ {
+				sarr = append(sarr, d[i].(string))
+			}
+			return sarr
+		case float64:
+			sarr := make([]float64, 0)
+			for i := 0; i < len(d); i++ {
+				sarr = append(sarr, d[i].(float64))
+			}
+			return sarr
+		case map[string]interface{}:
+			sarr := make([]map[string]interface{}, 0)
+			for i := 0; i < len(d); i++ {
+				sarr = append(sarr, d[i].(map[string]interface{}))
+			}
+			return sarr
+		}
+	}
+	return data
+}
+
+func slices(v string) interface{} {
+	if v[:1] == "[" && v[len(v)-1:] == "]" {
+		v = v[1 : len(v)-1]
+	}
+	//该参数可能是 数字切片，字符切片，或者说是json对象切片(如果是jsong对象切片，那么就不能够用逗号来进行切割)
+	a := strings.Split(v, ",")
+	if len(a) == 1 {
+		f, err := strconv.ParseFloat(a[0], 64) //把所有的数字类型转化为 float64
+		if err != nil {
+			return a[0] //解析不成功直接返回字符串
+		}
+		return f
+	}
+	//解析切片
+	arr := make([]float64, 0)
+	for _, args := range a {
+		f, err := strconv.ParseFloat(args, 64)
+		if err != nil { //只要有解析失败的就返回字符串切片
+			return a
+		}
+		arr = append(arr, f)
+	}
+	return arr
 }

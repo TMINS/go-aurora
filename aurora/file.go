@@ -47,3 +47,13 @@ func (c *Ctx) SaveUploadedFile(file *multipart.FileHeader, dst string) error {
 	_, err = io.Copy(out, src)
 	return err
 }
+
+func (c *Ctx) perse() interface{} {
+	if c.Request.MultipartForm == nil {
+		if err := c.Request.ParseMultipartForm(c.ar.MaxMultipartMemory); err != nil {
+			return nil
+		}
+	}
+
+	return nil
+}

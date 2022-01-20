@@ -12,12 +12,11 @@ func main() {
 	a := aurora.New()
 
 	// GET 方法注册 web get请求
-	a.GET("/test", func(c *aurora.Ctx) interface{} {
-		fmt.Println("hello")
+	a.GET("/test", func(params aurora.HttpRequest) interface{} {
+		fmt.Println(params)
 		return nil
 	})
-
 	// 启动服务器 默认端口8080，更改端口号 a.Guide(”8081“) 即可
-	a.Guide("8081")
+	a.Guide()
 
 }

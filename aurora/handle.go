@@ -11,6 +11,9 @@ import (
 //2022/01/19 重新构建 处理函数
 
 // HttpRequest 作为处理函数的主要参数,其中会初始化一个上下文参数，如果无法初始化上下文参数则不会进入到处理方法,为了不重复的构建api HttpRequest将对Ctx进行封装
+// HttpRequest 解析的参数默认类型：
+// 数字类型: float64
+// json数据：map[string]interface{}
 type HttpRequest map[string]interface{}
 
 type HttpHandle interface {

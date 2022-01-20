@@ -81,7 +81,7 @@ type route struct {
 // Node 路由节点
 type node struct {
 	Path      string        //当前节点路径
-	handle    Serve         //服务处理函数
+	handle    Handel        //服务处理函数
 	Child     []*node       //子节点
 	InterList []Interceptor //当前路径拦截链，默认为空
 	TreeInter []Interceptor //路径匹配拦截器，默认为空
@@ -90,7 +90,7 @@ type node struct {
 //——————————————————————————————————————————————————————————————————————————路由注册————————————————————————————————————————————————————————————————————————————————————————————
 
 // addRoute 预处理被添加路径
-func (r *route) addRoute(method, path string, fun Serve) {
+func (r *route) addRoute(method, path string, fun Handel) {
 
 	if path[0:1] != "/" { //校验path开头
 		path += "/" + path //没有写 "/" 则添加斜杠开头
@@ -130,7 +130,7 @@ func (r *route) addRoute(method, path string, fun Serve) {
 // method 指定请求类型，root 根路径，Path和fun 被添加的路径和处理函数，path携带路径副本添加过程中不会有任何操作仅用于日志处理
 // method: 请求类型(日志相关参数)
 // path: 插入的路径(日志相关参数)
-func (r *route) add(method string, root *node, Path string, fun Serve, path string) {
+func (r *route) add(method string, root *node, Path string, fun Handel, path string) {
 
 	//初始化根
 	if root.Path == "" && root.Child == nil {
@@ -265,7 +265,7 @@ func (r *route) add(method string, root *node, Path string, fun Serve, path stri
 // root: 根合并相关参数
 // Path: 根合并相关参数
 // fun: 根合并相关参数
-func (r *route) merge(method string, root *node, Path string, fun Serve, path string, rpath string) bool {
+func (r *route) merge(method string, root *node, Path string, fun Handel, path string, rpath string) bool {
 	pub := r.findPublicRoot(method, root.Path, Path) //公共路径
 	if pub != "" {
 		pl := len(pub)
@@ -581,7 +581,7 @@ func (r *route) search(root *node, path string, Args map[string]interface{}, rw 
 				rew:             rw,
 				req:             req,
 				Interceptor:     true,
-				ServeHandler:    root.handle,
+				HttpHandle:      root.handle,
 				args:            Args,
 				ctx:             ctx,
 				InterceptorList: root.InterList,
@@ -645,7 +645,7 @@ func (r *route) search(root *node, path string, Args map[string]interface{}, rw 
 				rew:             rw,
 				req:             req,
 				Interceptor:     true,
-				ServeHandler:    root.handle,
+				HttpHandle:      root.handle,
 				args:            Args,
 				ctx:             ctx,
 				InterceptorList: root.InterList,
@@ -714,7 +714,7 @@ func (a *Aurora) ServeHTTP(rw http.ResponseWriter, req *http.Request) {
 	a.router.SearchPath(req.Method, req.URL.Path, rw, req, nil) //初始一个nil ctx
 }
 
-func getFunName(fun Serve) string {
+func getFunName(fun Handel) string {
 	return runtime.FuncForPC(reflect.ValueOf(fun).Pointer()).Name()
 }
 
