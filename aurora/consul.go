@@ -129,7 +129,7 @@ func (a *Aurora) ConsulServiceRegister(client *api.Client, config *api.Config, o
 
 	//先检查grpc 是否进行配置
 	if a.grpc != nil {
-		check.GRPC = fmt.Sprintf("%s:%d", ServerIp(), a.port) //配置健康检查接口
+		check.GRPC = fmt.Sprintf("%s:%s", ServerIp(), a.port) //配置健康检查接口
 		check.GRPCUseTLS = true
 		grpc_health_v1.RegisterHealthServer(a.grpc, health.NewServer())
 	}
@@ -198,7 +198,7 @@ func DefaultConsulConfig(option map[string]interface{}) *api.Config {
 	if v, b := option[ssl]; b {
 		enabled, err := strconv.ParseBool(v.(string))
 		if err != nil {
-			fmt.Errorf("could not parse ssl %s error", err)
+			//fmt.Errorf("could not parse ssl %s error", err)
 		}
 		if enabled {
 			config.Scheme = "https"
@@ -207,7 +207,7 @@ func DefaultConsulConfig(option map[string]interface{}) *api.Config {
 	if v, b := option[verify]; b {
 		doVerify, err := strconv.ParseBool(v.(string))
 		if err != nil {
-			fmt.Errorf("could not parse verify error: %s ", err)
+			//fmt.Errorf("could not parse verify error: %s ", err)
 		}
 		if !doVerify {
 			config.TLSConfig.InsecureSkipVerify = true

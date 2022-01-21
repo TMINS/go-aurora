@@ -5,12 +5,12 @@ import (
 	"fmt"
 	"io"
 	"net/http"
-	"os"
 	"strconv"
 	"strings"
 	"sync"
 
 	"github.com/awensir/go-aurora/aurora/is"
+	"github.com/awensir/go-aurora/aurora/req"
 )
 
 // HandlerProxy 代理 路由处理，负责生成上下文变量和调用具体处理函数
@@ -25,9 +25,6 @@ type proxy struct {
 	result     interface{}            //业务结果
 	view       Views                  //支持自定义视图渲染机制
 	ar         *Aurora
-
-	index   int          //全局插件索引
-	plugins []PluginFunc //全局插件
 
 	Interceptor  bool //是否放行拦截器
 	AInterceptor bool
@@ -103,25 +100,6 @@ func (sp *proxy) start() {
 		}
 	}
 
-	//执行插件，插件优先级 高于路径拦截器，低于全局拦截器
-	for _, p := range sp.plugins {
-		if b := p(sp.ctx); !b {
-			//插件执行 返回false 则中断 该请求的后续执行 退出 本次请求处理，在退出服务处理之前 应该在插件层面 对 应用用户做出一个发送消息的动作 以表示在插件处理过程中出现问题
-
-			//对中断插件进行消息处理
-			message := sp.ctx.GetMessage(plugin)
-			if message == nil {
-				//如果没有拿到 Error，需要给出一个错误提示，这个消息提取不到会影响到整个框架运行逻辑因此会 painc 或者结束服务器程序
-				sp.ar.auroraLog.Error("Plugin Error Message not find")
-				os.Exit(1)
-			}
-			//正确拿到消息后，对客户端进行响应并且发出 500 错误
-			http.Error(sp.rew, message.(string), 500)
-			//通过goto跳转掉下面的执行
-			goto PluginsEnd
-		}
-	}
-
 	//开始解析参数
 
 	if sp.AInterceptor { //判断全局 拦截器是否放行 ，如果plugin处发生了，panic 后续业务将无法执行下去
@@ -131,7 +109,6 @@ func (sp *proxy) start() {
 			sp.after()
 		}
 	}
-PluginsEnd: //结束 插调用链的执行，此处不走结果处理器
 }
 
 // Before 服务处理之前
@@ -327,7 +304,7 @@ func (sp *proxy) resultHandler() {
 
 // Init 初始化 Context变量
 func (sp *proxy) initCtx() {
-	if sp.ctx == nil { //ctx为空意味着是第一次请求
+	if sp.ctx == nil && sp.params == nil { //ctx和 params 第一次请求必然为空
 		sp.ctx = &Ctx{}
 		sp.ctx.Attribute = &sync.Map{}
 		sp.ctx.Request = sp.req
@@ -338,24 +315,36 @@ func (sp *proxy) initCtx() {
 
 		// 新增加解析部分
 		sp.params = sp.initRequestArgs() //初始化请求参数 get post put delete 等
-		sp.params["reqCtx"] = sp.ctx     //分装请求上下文
-		sp.params["rest-ful"] = sp.args  //封装rest ful参数
+		sp.params[req.Ctx] = sp.ctx      //分装请求上下文
+		sp.params[req.Args] = sp.args    //封装rest ful参数
 	}
 }
 
 func (sp *proxy) initRequestArgs() HttpRequest {
 	hq := make(HttpRequest)
 
-	//获取所有的解析参数
+	//get 参数解析
 	values := sp.req.URL.Query()
 	if values != nil {
-		for k, v := range values {
-			//v 对应每个k的多个值
-			hq[k] = args(v)
+		paresValue(hq, values)
+	}
+
+	//解析 post 和 文件 混合解析
+	err := sp.req.ParseMultipartForm(sp.ar.MaxMultipartMemory)
+	if err == nil {
+		//表示解析完成
+		mf := sp.req.MultipartForm
+		if mf != nil {
+			pm := make(map[string]interface{})
+			paresValue(pm, mf.Value)
+			if len(pm) > 0 {
+				hq[req.Post] = pm
+			}
+			hq[req.File] = mf.File //把文件单独存储到文件域里面
 		}
 	}
 
-	//解析 post 请求
+	//解析 独立post 请求体
 	data, err := io.ReadAll(sp.req.Body)
 	defer func(Body io.ReadCloser) {
 		err := Body.Close()
@@ -363,29 +352,38 @@ func (sp *proxy) initRequestArgs() HttpRequest {
 			fmt.Println(err.Error())
 		}
 	}(sp.req.Body)
-	var body interface{}
 
+	var body interface{}
 	if data != nil && len(data) > 0 {
 		err = json.Unmarshal(data, &body)
 		if err != nil {
-			return nil
+			//待解决
+			return hq
 		}
 		// 该post 是个独立的post 不带文件的消息体
-		hq["post"] = data
+		if body != nil {
+			if m, b := body.(map[string]interface{}); b {
+				if len(hq) > 0 {
+					//如果存在 携带get参数的 post请求 为了避免同名参数覆盖问题买把post请求体解析到Post key中
+					hq[req.Post] = m
+				} else {
+					for k, v := range m {
+						hq[k] = v
+					}
+				}
+			}
+		}
 	}
-
-	//解析 post 或者 文件
-	err = sp.req.ParseMultipartForm(sp.ar.MaxMultipartMemory)
-	if err == nil {
-
-	}
-
-	mf := sp.req.MultipartForm
-	if mf == nil {
-		return hq
-	}
-
 	return hq
+}
+
+func paresValue(hq HttpRequest, values map[string][]string) {
+	if values != nil {
+		for k, v := range values {
+			//v 对应每个k的多个值
+			hq[k] = args(v)
+		}
+	}
 }
 
 func args(v []string) interface{} {
@@ -436,6 +434,7 @@ func args(v []string) interface{} {
 		}
 		return arr
 	}
+
 	var data interface{}
 	//经测试此处为nil的可能 是存在 "1，2，3，4" 或者 [asd,1,2] "ss"这几种,字符串格式的一定要满足json格式
 	json.Unmarshal([]byte(v[0]), &data)

@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"net/http"
 
+	"github.com/awensir/go-aurora/aurora/req"
 	"gorm.io/gorm"
 )
 
@@ -14,6 +15,7 @@ import (
 // HttpRequest 解析的参数默认类型：
 // 数字类型: float64
 // json数据：map[string]interface{}
+// HttpRequest 只用于封装ctx的对外调用和数据解析的承载
 type HttpRequest map[string]interface{}
 
 type HttpHandle interface {
@@ -22,9 +24,9 @@ type HttpHandle interface {
 
 type Handel func(HttpRequest) interface{}
 
-func (handel Handel) Hadnle(req HttpRequest) interface{} {
-	defer func(req HttpRequest) {
-		ctx := req["ctx"].(*Ctx)
+func (handel Handel) Hadnle(hq HttpRequest) interface{} {
+	defer func(hq HttpRequest) {
+		ctx := hq[req.Ctx].(*Ctx)
 		v := recover()
 		if v != nil {
 			// Serve 处理器发生 panic 等严重错误处理，给调用者返回 500 并返回错误描述
@@ -43,8 +45,8 @@ func (handel Handel) Hadnle(req HttpRequest) interface{} {
 			}
 			return
 		}
-	}(req)
-	return handel(req)
+	}(hq)
+	return handel(hq)
 }
 
 //封装基础组件调用

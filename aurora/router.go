@@ -550,15 +550,16 @@ func (r *route) register(root *node, path string, lpath string, interceptor ...I
 // ———————————————————————————————路由查询算法—(兼职路由转发任务)——————————————————————--———————————————————————————————————————————————————————————————————————————————————————
 
 // SearchPath 检索指定的path路由
-// method 请求类型，path 查询路径，rw，req http生成的请求响应，ctx 主要用于转发请求时携带
-func (r *route) SearchPath(method, path string, rw http.ResponseWriter, req *http.Request, ctx *Ctx) {
+// method 请求类型，path 查询路径，rw，req http生成的请求响应,
+//ctx 和 params 主要用于转发请求时携带，初始化的时候是nil 在后续初始化，目前两个同时存在不会影响
+func (r *route) SearchPath(method, path string, rw http.ResponseWriter, req *http.Request, ctx *Ctx, params HttpRequest) {
 	if n, ok := r.tree[method]; ok { //查找指定的Method树
-		r.search(n, path, nil, rw, req, ctx)
+		r.search(n, path, nil, rw, req, ctx, params)
 	}
 }
 
 // Search 路径查找，参数和 SearchPath意义 一致， Args map主要用于存储解析REST API路径参数，默认传nil,Interceptor拦截器可变参数，用于生成最终拦截链
-func (r *route) search(root *node, path string, Args map[string]interface{}, rw http.ResponseWriter, req *http.Request, ctx *Ctx, Interceptor ...Interceptor) {
+func (r *route) search(root *node, path string, Args map[string]interface{}, rw http.ResponseWriter, req *http.Request, ctx *Ctx, params HttpRequest, Interceptor ...Interceptor) {
 
 	if root == nil {
 		return
@@ -584,11 +585,11 @@ func (r *route) search(root *node, path string, Args map[string]interface{}, rw 
 				HttpHandle:      root.handle,
 				args:            Args,
 				ctx:             ctx,
+				params:          params,
 				InterceptorList: root.InterList,
 				TreeInter:       Interceptor,
 				view:            r.defaultView, //使用路由器ServerRouter 的默认处理函数
 				ar:              r.AR,
-				plugins:         r.AR.plugins, //初始化需要执行的插件列表
 			}
 			proxy.start() //开始执行
 			return        //执行结束
@@ -652,7 +653,6 @@ func (r *route) search(root *node, path string, Args map[string]interface{}, rw 
 				view:            r.defaultView,
 				ar:              r.AR,
 				TreeInter:       Interceptor,
-				plugins:         r.AR.plugins, //初始化需要执行的插件列表
 			}
 			proxy.start()
 			return
@@ -683,7 +683,7 @@ func (r *route) search(root *node, path string, Args map[string]interface{}, rw 
 		for i := 0; i < len(root.Child); i++ { //子路径解析完成，开始遍历子节点路径，找到一个符合的路径继续走下去
 			pub := r.findPublicRoot("", str, root.Child[i].Path)
 			if pub != "" {
-				r.search(root.Child[i], str, Args, rw, req, ctx, Interceptor...)
+				r.search(root.Child[i], str, Args, rw, req, ctx, params, Interceptor...)
 				return
 			}
 		}
@@ -711,7 +711,7 @@ func (a *Aurora) ServeHTTP(rw http.ResponseWriter, req *http.Request) {
 		return
 	}
 
-	a.router.SearchPath(req.Method, req.URL.Path, rw, req, nil) //初始一个nil ctx
+	a.router.SearchPath(req.Method, req.URL.Path, rw, req, nil, nil) //初始一个nil ctx
 }
 
 func getFunName(fun Handel) string {

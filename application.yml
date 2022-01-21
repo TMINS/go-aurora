@@ -8,7 +8,8 @@ aurora:
     port: 8080
   #静态资源根目录配置项
   resource:
-    static: ""
+    #项目内测试
+    static: "aurora"
   #consul 注册中心配置
   # consul:
   #   #服务器地址

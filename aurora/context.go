@@ -2,11 +2,12 @@ package aurora
 
 import (
 	"encoding/json"
+	"net/http"
+	"sync"
+
 	"github.com/go-redis/redis/v8"
 	"github.com/spf13/viper"
 	"gorm.io/gorm"
-	"net/http"
-	"sync"
 )
 
 type Ctx struct {
@@ -113,7 +114,7 @@ func (c *Ctx) json(data interface{}) {
 
 // RequestForward 内部路由转发，会携带 Ctx 本身进行转发，转发之后继续持有该 Ctx
 func (c *Ctx) forward(path string) {
-	c.ar.router.SearchPath(c.Request.Method, path, c.Response, c.Request, c)
+	//c.ar.router.SearchPath(c.Request.Method, path, c.Response, c.Request, c)
 }
 
 // Redirect 发送重定向
