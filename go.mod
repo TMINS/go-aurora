@@ -8,6 +8,7 @@ require (
 	github.com/go-redis/redis/v8 v8.11.4
 	github.com/hashicorp/consul/api v1.10.1
 	github.com/nacos-group/nacos-sdk-go v1.0.9
+	github.com/rs/zerolog v1.15.0
 	github.com/spf13/viper v1.9.0
 	google.golang.org/grpc v1.40.0
 	google.golang.org/protobuf v1.27.1

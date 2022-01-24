@@ -2,6 +2,10 @@ package aurora
 
 import (
 	"fmt"
+	"log"
+	"os"
+	"time"
+
 	"github.com/awensir/minilog/mini"
 	"gorm.io/driver/mysql"
 	"gorm.io/driver/postgres"
@@ -9,9 +13,6 @@ import (
 	"gorm.io/gorm"
 	"gorm.io/gorm/logger"
 	"gorm.io/gorm/schema"
-	"log"
-	"os"
-	"time"
 )
 
 const (
@@ -150,6 +151,7 @@ func mysqlDb(url string, logs *mini.Log) *gorm.DB {
 		logs.Error("mysql:" + err.Error())
 		panic(err)
 	}
+
 	return db
 }
 

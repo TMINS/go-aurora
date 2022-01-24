@@ -4,14 +4,6 @@ import (
 	"context"
 	"errors"
 	"fmt"
-	"github.com/awensir/aurora-email/email"
-	"github.com/awensir/go-aurora/aurora/level"
-	"github.com/awensir/minilog/mini"
-	"github.com/go-redis/redis/v8"
-	"github.com/hashicorp/consul/api"
-	"github.com/spf13/viper"
-	"google.golang.org/grpc"
-	"gorm.io/gorm"
 	"html/template"
 	"net"
 	"net/http"
@@ -20,6 +12,15 @@ import (
 	"strconv"
 	"strings"
 	"sync"
+
+	"github.com/awensir/aurora-email/email"
+	"github.com/awensir/go-aurora/aurora/level"
+	"github.com/awensir/minilog/mini"
+	"github.com/go-redis/redis/v8"
+	"github.com/hashicorp/consul/api"
+	"github.com/spf13/viper"
+	"google.golang.org/grpc"
+	"gorm.io/gorm"
 )
 
 /*
@@ -42,7 +43,6 @@ type Aurora struct {
 
 	MaxMultipartMemory int64 //文件上传大小配置
 
-	plugins          []PluginFunc       //<--->全局插件处理链，每个请求都会走一次,待完善只实现了对插件统一调用，还未做出对插件中途取消，等操作。plugin 发生panic会阻断待执行的业务处理器，可借助panic进行中断，配合ctx进行消息返回
 	routeInterceptor []interceptorArgs  //拦截器初始华切片 <***>
 	interceptorList  []Interceptor      //全局拦截器 <***>
 	gorms            map[int][]*gorm.DB //存储gorm各种类型的连接实例，默认初始化从配置文件中读取<***>
@@ -69,6 +69,12 @@ func New(config ...string) *Aurora {
 		port: "8080", //默认端口号
 		router: &route{
 			mx: &sync.Mutex{},
+			pool: &sync.Pool{
+
+				New: func() interface{} {
+					return &proxy{}
+				},
+			},
 		},
 		auroraLog:       mini.NewLog(level.Dev), //默认打开的 dev级别日志
 		Server:          &http.Server{},
@@ -76,6 +82,7 @@ func New(config ...string) *Aurora {
 		consuls:         make([]*api.Client, 0),
 		resourceMapType: make(map[string]string),
 		gorms:           make(map[int][]*gorm.DB),
+		goredis:         make([]*redis.Client, 0), //后期 集成其他 redis客户端库 预计改为 gorm 类似的方式,当前不做变更
 	}
 	a.auroraLog.Info(fmt.Sprintf("golang version information:%1s", runtime.Version()))
 	a.auroraLog.Info(fmt.Sprintf("start loading the application.yml configuration file."))

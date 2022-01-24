@@ -76,6 +76,7 @@ type route struct {
 	tree        map[string]*node // 路由树根节点
 	defaultView Views            // 默认视图处理器，初始化采用 Aurora 实现的函数进行渲染
 	AR          *Aurora          // Aurora 引用
+	pool        *sync.Pool       // 分配代理实例
 }
 
 // Node 路由节点
@@ -418,7 +419,7 @@ func (r *route) RegisterInterceptor(path string, interceptor ...Interceptor) {
 		os.Exit(1)
 	}
 	//为每个路径添加上拦截器
-	for k, _ := range r.tree {
+	for k := range r.tree {
 		r.register(r.tree[k], path, path, interceptor...)
 	}
 }
@@ -578,21 +579,34 @@ func (r *route) search(root *node, path string, Args map[string]interface{}, rw 
 	if root.Path == path { //当前路径处理匹配成功
 		if root.handle != nil { //校验是否为有效路径
 			//服务处理方法入口
-			proxy := proxy{
-				rew:             rw,
-				req:             req,
-				Interceptor:     true,
-				HttpHandle:      root.handle,
-				args:            Args,
-				ctx:             ctx,
-				params:          params,
-				InterceptorList: root.InterList,
-				TreeInter:       Interceptor,
-				view:            r.defaultView, //使用路由器ServerRouter 的默认处理函数
-				ar:              r.AR,
-			}
+			proxy := r.pool.Get().(*proxy)
+			proxy.rew = rw
+			proxy.req = req
+			proxy.Interceptor = true
+			proxy.HttpHandle = root.handle
+			proxy.args = Args
+			proxy.ctx = ctx
+			proxy.params = params
+			proxy.InterceptorList = root.InterList
+			proxy.TreeInter = Interceptor
+			proxy.view = r.defaultView
+			proxy.ar = r.AR
+			// proxy := proxy{
+			// 	rew:             rw,
+			// 	req:             req,
+			// 	Interceptor:     true,
+			// 	HttpHandle:      root.handle,
+			// 	args:            Args,
+			// 	ctx:             ctx,
+			// 	params:          params,
+			// 	InterceptorList: root.InterList,
+			// 	TreeInter:       Interceptor,
+			// 	view:            r.defaultView, //使用路由器ServerRouter 的默认处理函数
+			// 	ar:              r.AR,
+			// }
 			proxy.start() //开始执行
-			return        //执行结束
+			r.pool.Put(proxy)
+			return //执行结束
 		}
 		//fmt.Println("访问路径不存在! 未注册 : " + path)
 		http.NotFound(rw, req)
@@ -642,19 +656,20 @@ func (r *route) search(root *node, path string, Args map[string]interface{}, rw 
 	if sub == "" && rsl == psl {
 		if root.handle != nil {
 			//服务处理方法入口
-			proxy := proxy{
-				rew:             rw,
-				req:             req,
-				Interceptor:     true,
-				HttpHandle:      root.handle,
-				args:            Args,
-				ctx:             ctx,
-				InterceptorList: root.InterList,
-				view:            r.defaultView,
-				ar:              r.AR,
-				TreeInter:       Interceptor,
-			}
-			proxy.start()
+			proxy := r.pool.Get().(*proxy)
+			proxy.rew = rw
+			proxy.req = req
+			proxy.Interceptor = true
+			proxy.HttpHandle = root.handle
+			proxy.args = Args
+			proxy.ctx = ctx
+			proxy.params = params
+			proxy.InterceptorList = root.InterList
+			proxy.TreeInter = Interceptor
+			proxy.view = r.defaultView
+			proxy.ar = r.AR
+			proxy.start() //开始执行
+			r.pool.Put(proxy)
 			return
 		}
 	}

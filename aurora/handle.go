@@ -3,9 +3,12 @@ package aurora
 import (
 	"encoding/json"
 	"fmt"
+	"mime/multipart"
 	"net/http"
 
+	"github.com/awensir/aurora-email/email"
 	"github.com/awensir/go-aurora/aurora/req"
+	"github.com/go-redis/redis/v8"
 	"gorm.io/gorm"
 )
 
@@ -51,42 +54,60 @@ func (handel Handel) Hadnle(hq HttpRequest) interface{} {
 
 //封装基础组件调用
 
-func (req HttpRequest) Mysql() *gorm.DB {
-	ctx := req["ctx"].(*Ctx)
+func (r HttpRequest) Mysql() *gorm.DB {
+	ctx := r[req.Ctx].(*Ctx)
 	return ctx.Mysql()
 }
 
-func (req HttpRequest) PostgreSql() *gorm.DB {
-	ctx := req["ctx"].(*Ctx)
+func (r HttpRequest) PostgreSql() *gorm.DB {
+	ctx := r[req.Ctx].(*Ctx)
 	return ctx.PostgreSql()
 }
 
-func (req HttpRequest) SQLite() *gorm.DB {
-	ctx := req["ctx"].(*Ctx)
+func (r HttpRequest) SQLite() *gorm.DB {
+	ctx := r[req.Ctx].(*Ctx)
 	return ctx.SQLite()
 }
 
-func (req HttpRequest) SqlServer() *gorm.DB {
-	ctx := req["ctx"].(*Ctx)
+func (r HttpRequest) SqlServer() *gorm.DB {
+	ctx := r[req.Ctx].(*Ctx)
 	return ctx.SqlServer()
 }
 
-func (req HttpRequest) MysqlList(index int) *gorm.DB {
-	ctx := req["ctx"].(*Ctx)
+func (r HttpRequest) MysqlList(index int) *gorm.DB {
+	ctx := r[req.Ctx].(*Ctx)
 	return ctx.MysqlList(index)
 }
 
-func (req HttpRequest) PostgreSqlList(index int) *gorm.DB {
-	ctx := req["ctx"].(*Ctx)
+func (r HttpRequest) PostgreSqlList(index int) *gorm.DB {
+	ctx := r[req.Ctx].(*Ctx)
 	return ctx.PostgreSqlList(index)
 }
 
-func (req HttpRequest) SQLiteList(index int) *gorm.DB {
-	ctx := req["ctx"].(*Ctx)
+func (r HttpRequest) SQLiteList(index int) *gorm.DB {
+	ctx := r[req.Ctx].(*Ctx)
 	return ctx.SQLiteList(index)
 }
 
-func (req HttpRequest) SqlServerList(index int) *gorm.DB {
-	ctx := req["ctx"].(*Ctx)
+func (r HttpRequest) SqlServerList(index int) *gorm.DB {
+	ctx := r[req.Ctx].(*Ctx)
 	return ctx.SqlServerList(index)
+}
+
+//保存文件
+func (r HttpRequest) SaveUploadedFile(file *multipart.FileHeader, dst string) error {
+	ctx := r[req.Ctx].(*Ctx)
+	return ctx.SaveUploadedFile(file, dst)
+}
+
+//获取邮件客户端
+func (r HttpRequest) Email() *email.Client {
+	ctx := r[req.Ctx].(*Ctx)
+	return ctx.Email()
+}
+
+//获取redis 客户端，redis 待升级支持多个
+func (r HttpRequest) GoRedis() *redis.Client {
+	ctx := r[req.Ctx].(*Ctx)
+	return ctx.GoRedis()
 }
