@@ -362,14 +362,14 @@ func (sp *proxy) initRequestArgs() HttpRequest {
 		}
 		// 该post 是个独立的post 不带文件的消息体
 		if body != nil {
-			if m, b := body.(map[string]interface{}); b {
-				if len(hq) > 0 {
-					//如果存在 携带get参数的 post请求 为了避免同名参数覆盖问题买把post请求体解析到Post key中
-					hq[req.Post] = m
-				} else {
-					for k, v := range m {
-						hq[k] = v
-					}
+			v := paresMapInterface(body)
+			//fmt.Println(v)
+			if len(hq) > 0 {
+				//如果存在 携带get参数的 post请求 为了避免同名参数覆盖问题买把post请求体解析到Post key中
+				hq[req.Post] = v.(map[string]interface{})
+			} else {
+				for k, value := range v.(map[string]interface{}) {
+					hq[k] = value
 				}
 			}
 		}
@@ -377,6 +377,7 @@ func (sp *proxy) initRequestArgs() HttpRequest {
 	return hq
 }
 
+//待完善 递归json解析的默认类型
 func paresValue(hq HttpRequest, values map[string][]string) {
 	if values != nil {
 		for k, v := range values {
@@ -441,31 +442,32 @@ func args(v []string) interface{} {
 	if data == nil {
 		data = slices(v[0])
 	}
-	switch data.(type) {
-	case []interface{}:
-		d := data.([]interface{})
-		switch d[0].(type) {
-		case string:
-			sarr := make([]string, 0)
-			for i := 0; i < len(d); i++ {
-				sarr = append(sarr, d[i].(string))
-			}
-			return sarr
-		case float64:
-			sarr := make([]float64, 0)
-			for i := 0; i < len(d); i++ {
-				sarr = append(sarr, d[i].(float64))
-			}
-			return sarr
-		case map[string]interface{}:
-			sarr := make([]map[string]interface{}, 0)
-			for i := 0; i < len(d); i++ {
-				sarr = append(sarr, d[i].(map[string]interface{}))
-			}
-			return sarr
-		}
-	}
-	return data
+	v1 := paresMapInterface(data)
+	// switch data.(type) {
+	// case []interface{}:
+	// 	d := data.([]interface{})
+	// 	switch d[0].(type) {
+	// 	case string:
+	// 		sarr := make([]string, 0)
+	// 		for i := 0; i < len(d); i++ {
+	// 			sarr = append(sarr, d[i].(string))
+	// 		}
+	// 		return sarr
+	// 	case float64:
+	// 		sarr := make([]float64, 0)
+	// 		for i := 0; i < len(d); i++ {
+	// 			sarr = append(sarr, d[i].(float64))
+	// 		}
+	// 		return sarr
+	// 	case map[string]interface{}:
+	// 		sarr := make([]map[string]interface{}, 0)
+	// 		for i := 0; i < len(d); i++ {
+	// 			sarr = append(sarr, d[i].(map[string]interface{}))
+	// 		}
+	// 		return sarr
+	// 	}
+	// }
+	return v1
 }
 
 func slices(v string) interface{} {
@@ -491,4 +493,54 @@ func slices(v string) interface{} {
 		arr = append(arr, f)
 	}
 	return arr
+}
+
+// 递归解析 m(map 中的数据为指定默认类型)
+func paresMapInterface(value interface{}) interface{} {
+	if value == nil {
+		return nil
+	}
+	switch value.(type) {
+	case map[string]interface{}:
+		m1 := value.(map[string]interface{})
+		vmap := make(map[string]interface{})
+		for k, v := range m1 {
+			a := paresMapInterface(v)
+			vmap[k] = a
+		}
+		return vmap
+	case []interface{}:
+		arr := value.([]interface{})
+		switch arr[0].(type) {
+		case float64:
+			farr := make([]float64, 0)
+			for _, v := range arr {
+				farr = append(farr, v.(float64))
+			}
+			return farr
+		case string:
+			sarr := make([]string, 0)
+			for _, v := range arr {
+				sarr = append(sarr, v.(string))
+			}
+			return sarr
+		case map[string]interface{}:
+			m1 := value.([]map[string]interface{})
+			marr := make([]map[string]interface{}, 0)
+			for _, v := range m1 {
+				vmap := make(map[string]interface{})
+				for k1, v1 := range v {
+					a := paresMapInterface(v1)
+					vmap[k1] = a
+				}
+				marr = append(marr, vmap)
+			}
+			return marr
+		}
+	case string:
+		return value.(string)
+	case float64:
+		return value.(float64)
+	}
+	return value
 }

@@ -6,6 +6,8 @@ import (
 	"github.com/go-redis/redis/v8"
 )
 
+//go-redis 当前只完成了单一的客户端配置,支持同时配置多个客户端，go-redis本身对redis的集群等高可用方式提供了实现，目前还没有对这些进行整合
+
 //初步完成   https://redis.uptrace.dev/
 func (a *Aurora) loadGoRedis() {
 	if a.config == nil {

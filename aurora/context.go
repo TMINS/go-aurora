@@ -6,9 +6,10 @@ import (
 	"sync"
 
 	"github.com/go-redis/redis/v8"
-	"github.com/spf13/viper"
 	"gorm.io/gorm"
 )
+
+//Ctx 为核心基础，代码涉及范围较大，后期不易改动，需要保留，让后来者都去嵌套ctx 实现功能
 
 type Ctx struct {
 	rw        *sync.RWMutex
@@ -21,7 +22,7 @@ type Ctx struct {
 }
 
 // Viper 获取项目配置实例,未启动配置则返回nil
-func (c *Ctx) Viper() *viper.Viper {
+func (c *Ctx) Viper() *ConfigCenter {
 	return c.ar.Viper()
 }
 

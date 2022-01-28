@@ -19,7 +19,12 @@ func main() {
 		return "html/index.html"
 	})
 
-	a.POST("/test", func(params aurora.HttpRequest) interface{} {
+	a.PUT("/test", func(params aurora.HttpRequest) interface{} {
+		fmt.Println(params)
+		return nil
+	})
+
+	a.POST("/test2", func(params aurora.HttpRequest) interface{} {
 		fmt.Println(params)
 		return nil
 	})

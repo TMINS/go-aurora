@@ -42,7 +42,7 @@ const (
 )
 
 /*
-	consul 模块，该模块暂定支支持 普通http注册健康检查
+	consul 模块，该模块暂定支支持 普通http注册健康检查,不稳定代实战中完善
 */
 
 // consulConfig 存储了 web consul相关的信息

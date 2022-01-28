@@ -3,15 +3,16 @@ package aurora
 import (
 	"bytes"
 	"fmt"
-	"github.com/nacos-group/nacos-sdk-go/clients"
-	"github.com/nacos-group/nacos-sdk-go/common/constant"
-	"github.com/nacos-group/nacos-sdk-go/vo"
-	"github.com/spf13/viper"
 	"io"
 	"os"
 	"path"
 	"sync"
 	"time"
+
+	"github.com/nacos-group/nacos-sdk-go/clients"
+	"github.com/nacos-group/nacos-sdk-go/common/constant"
+	"github.com/nacos-group/nacos-sdk-go/vo"
+	"github.com/spf13/viper"
 )
 
 const FILE = "application.yml"
@@ -133,8 +134,8 @@ func (a *Aurora) viperConfig(p ...string) {
 }
 
 // Viper 获取 Aurora viper实例
-func (a *Aurora) Viper() *viper.Viper {
-	return a.cnf
+func (a *Aurora) Viper() *ConfigCenter {
+	return a.config
 }
 
 // 远程配置中心读取 在开发中，测试能够读取到配置

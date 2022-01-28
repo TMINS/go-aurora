@@ -43,7 +43,7 @@ type Aurora struct {
 
 	MaxMultipartMemory int64 //文件上传大小配置
 
-	routeInterceptor []interceptorArgs  //拦截器初始华切片 <***>
+	routeInterceptor []interceptorArgs  //初始华拦截器切片 <***>
 	interceptorList  []Interceptor      //全局拦截器 <***>
 	gorms            map[int][]*gorm.DB //存储gorm各种类型的连接实例，默认初始化从配置文件中读取<***>
 	goredis          []*redis.Client    //存储go-redis 配置实例
@@ -98,6 +98,7 @@ func New(config ...string) *Aurora {
 	}
 	//读取配置路径
 	p := a.config.GetString("aurora.resource.static")
+	//构建路径拼接
 	if p != "" {
 		if p[:1] != "/" {
 			p = "/" + p
