@@ -286,9 +286,10 @@ func (sp *proxy) resultHandler() {
 		sp.ctx.json("error:" + sp.result.(error).Error())
 		return
 	case nil:
-		//对结果不做出处理
+		//对结果不做出处理，待设计实现
 		return
 	case bool:
+		// 待设计实现
 		b := sp.result.(bool)
 		if b {
 
